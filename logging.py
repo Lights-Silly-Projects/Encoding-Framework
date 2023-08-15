@@ -12,8 +12,11 @@ from typing import Any, Callable, Literal
 from rich.logging import RichHandler
 from vstools import CustomError
 
+from .config import Config
+
 __all__: list[str] = [
-    "Logger", "Log"
+    "Logger",
+    "Log"
 ]
 
 
@@ -23,18 +26,11 @@ class Logger:
     logger: logging.Logger
     """The logger object."""
 
-    config_path: Path
-    """Path to the project config file."""
-
     log_file: Path | Literal[False] = False
     """Path to the log file."""
 
-    config_parsed: ConfigParser
-    """Parsed config file."""
-
     def __init__(
         self, logger_name: str | None = None,
-        config_file: str = "config.ini",
         log_file: Path | None | Literal[False] = None,
         format: str = "%(name)s | %(message)s",
         datefmt: str = "[%X]",
@@ -42,14 +38,9 @@ class Logger:
     ) -> None:
         log_name = logger_name or "Project"
 
-        self.config_path = Path.cwd() / config_file
-
-        if self.config_path.exists():
-            self.config_parsed = ConfigParser()
-            self.config_parsed.read(self.config_path)
-
+        if Config.config_path.exists():
             if not logger_name:
-                log_name = self.config_parsed.get("SETUP", "show_name") or log_name
+                log_name = Config.config_parsed.get("SETUP", "show_name") or log_name
 
         log_name = log_name.replace(" ", "_")
 
@@ -68,8 +59,8 @@ class Logger:
 
         self.logger.setLevel(logging.INFO)
 
-        if self.config_path.exists():
-            if self.config_debug:
+        if Config.config_path.exists():
+            if Config.is_debug:
                 self.logger.setLevel(logging.DEBUG)
 
             if logger_name is None:
@@ -121,7 +112,7 @@ class Logger:
         return Exception(message)
 
     def debug(self, msg: str | bytes, caller: str | Callable[[Any], Any] | None = None, force: bool = False) -> None:
-        if not self.config_path.exists():
+        if not Config.config_path.exists():
             return
 
         if not self.is_debug and not force:
@@ -185,8 +176,5 @@ class Logger:
     def is_debug(self) -> bool:
         return self.logger.getEffectiveLevel() <= 10
 
-    @property
-    def config_debug(self) -> bool:
-        return self.config_parsed.get("SETUP", "debug").strip().lower() in ("true", "yes", "y", "debug", "1")
 
 Log = Logger()

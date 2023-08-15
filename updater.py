@@ -14,7 +14,10 @@ __all__: list[str] = [
 ]
 
 
-def self_update(timeout: int = 30, last_update_thr: int = 21600) -> None:
+def self_update(
+    gh_package: str = "Lights-Silly-Projects/Encoding-Framework",
+    timeout: int = 30, last_update_thr: int = 21600
+) -> None:
     """
     Automatically updates the package to the latest version found in the repo.
 
@@ -23,6 +26,7 @@ def self_update(timeout: int = 30, last_update_thr: int = 21600) -> None:
     This function is largely based off of the following blog post:
     <https://abhinav1107.github.io/blog/auto-update-a-python-package-using-git-repository/>_
 
+    :param gh_package:      Name of the package on GitHub. Defaults to Light's encoding framework.
     :param timeout:         Seconds until a timeout is hit when trying to perform certain actions.
                             Default: 10 seconds.
     :param last_update_thr: Threshold for the time since it was last checked in seconds.
@@ -70,11 +74,6 @@ def self_update(timeout: int = 30, last_update_thr: int = 21600) -> None:
     if (current_time - last_update_run) < last_update_thr:
         return
 
-    git_up_cmd = f"cd {current_dir} && "
-    git_up_cmd += "git reset --hard HEAD >/dev/null 2>&1 && "
-    git_up_cmd += "git clean -f -d >/dev/null 2>&1 && "
-    git_up_cmd += "git pull >/dev/null 2>&1"
-
     with open(last_checked_file, "w") as f:
         try:
             flock(f, LOCK_EX | LOCK_NB)
@@ -84,12 +83,12 @@ def self_update(timeout: int = 30, last_update_thr: int = 21600) -> None:
     try:
         Log.info("Trying to auto-update encoding framework...", self_update)
 
-        subprocess.check_output([git_up_cmd], shell=True, timeout=timeout)
+        subprocess.check_output(["pip", "install", f"git+github.com/{gh_package}", "--force"], timeout=timeout)
         f.write(current_time)
 
         Log.info("Succesfully auto-updated encoding framework!", self_update)
     except subprocess.CalledProcessError as e:
-        Log.warn("Failed to auto-update encoding framework!", self_update)
+        Log.error("Failed to auto-update encoding framework!", self_update)
         Log.debug(e, self_update)
     finally:
         flock(f, LOCK_UN)

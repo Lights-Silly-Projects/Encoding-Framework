@@ -11,6 +11,7 @@ from vsmuxtools import Trim, src_file
 from vstools import Keyframes, SceneChangeMode, SPath, SPathLike, set_output, vs
 
 from .logging import Log
+from .updater import self_update
 
 __all__: list[str] = [
     "ScriptInfo",
@@ -73,6 +74,9 @@ class ScriptInfo:
 
         if tc_path.exists():
             self.tc_path = tc_path
+
+    def __new__(self, **kwargs: Any) -> None:
+        self_update(**kwargs)
 
     def index(
         self, path: SPathLike, trim: Trim | int | None = None,
@@ -273,7 +277,10 @@ class Preview:
 
             assert isinstance(name, (str, bool))
 
-            Log.debug(f"Clip {i} - Name: " + (f'\"{name}\"' if name else "no name set"), self.set_video_outputs)  # type:ignore[arg-type]
+            Log.debug(
+                f"Clip {i} - Name: " + (f'\"{name}\"' if name else "no name set"),
+                self.set_video_outputs
+            )  # type:ignore[arg-type]
 
             set_output(clip.std.PlaneStats(), name=name)  # type:ignore[arg-type]
 

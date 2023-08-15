@@ -1,4 +1,7 @@
-from vstools import SPath, SPathLike
+"""
+    An FTP module, created to automatically upload or download files to or from an FTP.
+"""
+from vstools import SPath, SPathLike, CustomNotImplementedError
 from configparser import ConfigParser
 from ftplib import FTP
 
@@ -40,6 +43,7 @@ class Ftp:
     """The directory to upload the files to."""
 
     def __init__(self, config_file: SPathLike = "ftp.ini") -> None:
+        raise CustomNotImplementedError(None, self)
         self.config_file = SPath(config_file).with_suffix(".ini")
 
         self.config_parsed = ConfigParser()

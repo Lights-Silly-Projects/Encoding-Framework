@@ -131,9 +131,9 @@ class ScriptInfo:
         height: int = 288, range_conversion: float = 4.0
     ) -> Keyframes:
         """Generate keyframes for the trimmed clip. Returns a Keyframes object."""
+        from vsdenoise import prefilter_to_full_range
         from vskernels import Bicubic
         from vstools import get_w
-        from vsdenoise import prefilter_to_full_range
 
         wclip = cast(vs.VideoNode, clip or self.clip_cut)
 

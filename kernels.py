@@ -1,5 +1,8 @@
 """
     "Fixed" Kernel subclasses that have `border_handling` support.
+
+    Most of these will be removed in a future patch,
+    assuming Setsu implements proper border_handling support.
 """
 
 from typing import Any

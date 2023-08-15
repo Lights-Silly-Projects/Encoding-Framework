@@ -1,3 +1,8 @@
+"""
+    A handful of common functions to use in scripts.
+    These aren't in other packages, and often highly experimental.
+"""
+
 from typing import Any
 
 from vsdehalo import base_dehalo_mask
@@ -11,7 +16,7 @@ from vstools import ConvMode, core, get_y, join, vs
 __all__: list[str] = [
     "fixedges",
     "setsu_dering",
-    "fix_kernel_mask_edges"
+    "fix_kernel_mask_edges",
 ]
 
 

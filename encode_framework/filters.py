@@ -39,16 +39,25 @@ def fixedges(clip: vs.VideoNode, **kwargs: Any) -> vs.VideoNode:
     return core.std.Expr([clip, fix, prot, pp], expr)
 
 
-def setsu_dering(clip: vs.VideoNode, descale: bool = False) -> vs.VideoNode:
-    """Setsu's WIP deringing function. Lightly modified."""
+def setsu_dering(clip: vs.VideoNode, mode: int = "w") -> vs.VideoNode:
+    """
+    Setsu's WIP deringing function. Lightly modified."""
     from vsaa import Nnedi3
 
     clip_y = get_y(clip)
 
-    if descale:
-        y = clip_y.descale.Delanczos(1440, 1080, 5)
-    else:
-        y = clip_y
+    transpose = "h" in mode
+
+    if transpose:
+        clip_y = clip_y.std.Transpose()
+
+    de_width = 1080 if transpose else 1440
+    de_height = 1440 if transpose else 1080
+
+    up_width = 1080 if transpose else 1920
+    up_height = 1920 if transpose else 1080
+
+    y = clip_y.descale.Delanczos(de_width, de_height, 5)
 
     ret_y = retinex(y)
 
@@ -56,7 +65,7 @@ def setsu_dering(clip: vs.VideoNode, descale: bool = False) -> vs.VideoNode:
 
     ring0 = kirsch.std.Expr('x 2 * 65535 >= x 0 ?')
     ring1 = kirsch.std.Expr('x 2 * 65535 >= 0 x ?')
-    ring2 = ring0.resize.Bilinear(1920)
+    ring2 = ring0.resize.Bilinear(up_width, up_height)
 
     ring = RemoveGrainMode.BOB_TOP_CLOSE(RemoveGrainMode.BOB_BOTTOM_INTER(ring1))
 
@@ -77,14 +86,10 @@ def setsu_dering(clip: vs.VideoNode, descale: bool = False) -> vs.VideoNode:
     gauss = BlurMatrix.gauss(0.35)
     nag = gauss(nag, 0, ConvMode.HORIZONTAL, passes=2)
 
-    # nag1 = Waifu2x(tiles=4, num_streams=2).scale(nag, 1920, 1080)
+    # nag1 = Waifu2x(tiles=4, num_streams=2).scale(nag, up_width, up_height)
+    nag1 = Nnedi3.scale(nag, up_width, up_height)
 
-    if descale:
-        nag1 = Nnedi3.scale(nag, 1920, 1080)
-    else:
-        nag1 = nag
-
-    nag2 = nag.fmtc.resample(1920, kernel='gauss', a1=12)
+    nag2 = nag.fmtc.resample(up_width, up_height, kernel='gauss', a1=12)
 
     nag3 = nag2.std.MaskedMerge(nag1, ring2.std.Maximum())
 
@@ -92,12 +97,12 @@ def setsu_dering(clip: vs.VideoNode, descale: bool = False) -> vs.VideoNode:
 
     nag = nag3.std.MaskedMerge(clip_y, fine_mask)
 
-    nag = nag.std.MaskedMerge(nag2, ring.resize.Bilinear(1920))
+    nag = nag.std.MaskedMerge(nag2, ring.resize.Bilinear(up_width, up_height))
 
     de_mask = ExprOp.ADD(
         base_dehalo_mask(ret_y), ring1,
-        core.std.Expr([clip_y, nag], 'x y - abs 120 * 65535 >= 65535 0 ?').resize.Bicubic(ring1.width)
-    ).resize.Bilinear(1920)
+        core.std.Expr([clip_y, nag], 'x y - abs 120 * 65535 >= 65535 0 ?').resize.Bicubic(ring1.width, ring1.height)
+    ).resize.Bilinear(up_width, up_height)
 
     de_mask = de_mask.std.MaskedMerge(de_mask.std.BlankClip(), fine_mask)
     de_mask = de_mask.std.Inflate().std.Maximum().std.Deflate()
@@ -106,7 +111,11 @@ def setsu_dering(clip: vs.VideoNode, descale: bool = False) -> vs.VideoNode:
     de_mask = de_mask.std.MaskedMerge(de_mask.std.BlankClip(), fine_mask)
     nag1 = clip_y.std.Merge(nag, 0.5).std.MaskedMerge(nag, de_mask)
 
-    deringed = limit_filter(nag, nag1, clip_y).std.MaskedMerge(nag2, ring.resize.Bilinear(1920))
+    deringed = limit_filter(nag, nag1, clip_y).std.MaskedMerge(nag2, ring.resize.Bilinear(up_width, up_height))
+
+    if transpose:
+        deringed = deringed.std.Transpose()
+
     return join(deringed, clip)
 
 

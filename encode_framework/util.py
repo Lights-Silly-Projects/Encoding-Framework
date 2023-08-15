@@ -36,4 +36,3 @@ def _write_file(file: SPath, mode: "w", lines: str, **kwargs: Any) -> None:
             f.write(header)
 
         f.write(lines)
-

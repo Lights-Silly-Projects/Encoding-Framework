@@ -5,6 +5,7 @@ from .filters import *
 from .ftp import *
 from .kernels import *
 from .logging import *
+from .misc import *
 from .script import *
 from .updater import *
 from .util import *

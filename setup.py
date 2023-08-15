@@ -3,7 +3,7 @@
 import setuptools
 from pathlib import Path
 
-package_name = 'vstools'
+package_name = 'encode_framework'
 
 exec(Path(f'{package_name}/_metadata.py').read_text(), meta := dict[str, str]())
 

@@ -75,8 +75,8 @@ class ScriptInfo:
         if tc_path.exists():
             self.tc_path = tc_path
 
-    def __new__(self, **kwargs: Any) -> None:
-        self_update(**kwargs)
+    # def __new__(self, **kwargs: Any) -> None:
+    #     self_update(**kwargs)
 
     def index(
         self, path: SPathLike, trim: Trim | int | None = None,

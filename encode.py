@@ -82,7 +82,7 @@ class Encoder:
 
         if any(str(self.script_info.ep_num).startswith(x) for x in ["NC", "OP", "ED", "EP", "MV"]):
             if not force:
-                Log.warn(
+                Log.debug(
                     "Not grabbing chapters as this is not an episode! Set \"force=True\" to force chapters.",
                     self.get_chapters
                 )
@@ -109,25 +109,41 @@ class Encoder:
             dgi_file = self.script_info.src_file
 
         if not dgi_file.to_str().endswith(".dgi"):
-            Log.error("Trying to pass a non-dgi file!", self.find_audio_files)
+            Log.debug("Trying to pass a non-dgi file! Figuring out an audio source...", self.find_audio_files)
 
-
-        Log.info("DGIndex(NV) input found! Trying to find audio tracks...", self.find_audio_files)
-
-        audio_files: list[SPath] = []
-
-        for f in dgi_file.parent.glob(f"{dgi_file.stem}*.*"):
             try:
-                FileType.AUDIO.parse(f, func=self.find_audio_files)
+                FileType.AUDIO.parse(dgi_file, func=self.find_audio_files)
+                audio_files = [dgi_file]
             except (AssertionError, ValueError):
-                continue
-            audio_files += [f]
+                pass
+
+            try:
+                FileType.VIDEO.parse(dgi_file, func=self.find_audio_files)
+
+                audio_files = [FFMpeg().Extractor().extract_audio(dgi_file)]
+            except (AssertionError, ValueError):
+                pass
+        else:
+            Log.debug("DGIndex(NV) input found! Trying to find audio tracks...", self.find_audio_files)
+
+            audio_files: list[SPath] = []
+
+            for f in dgi_file.parent.glob(f"{dgi_file.stem}*.*"):
+                try:
+                    FileType.AUDIO.parse(f, func=self.find_audio_files)
+                except (AssertionError, ValueError):
+                    continue
+
+                audio_files += [f]
 
         if audio_files:
-            Log.info(f"The following tracks were found ({len(audio_files)}):")
+            Log.info(f"The following audio sources were found ({len(audio_files)}):")
 
             for f in audio_files:
-                Log.info(f"    - \"{f}\"")
+                try:
+                    Log.info(f"    - \"{f.file}\"")
+                except (AttributeError, ValueError) as e:
+                    Log.warn(f"    - Unknown track!\n{e}")
 
             self.audio_files = audio_files
 
@@ -138,16 +154,16 @@ class Encoder:
     def _find_m2ts_audio(self, dgi_file: SPath) -> list[SPath]:
         from vsmuxtools import parse_m2ts_path
 
-        Log.warn("No audio tracks could be found! Trying to find the source file...", self.find_audio_files)
+        Log.debug("No audio tracks could be found! Trying to find the source file...", self.find_audio_files)
 
         m2ts = parse_m2ts_path(dgi_file)
 
         if str(m2ts).endswith('.dgi'):
-            Log.warn("No m2ts file found! Not encoding any audio...", self.find_audio_files)
+            Log.debug("No m2ts file found! Not encoding any audio...", self.find_audio_files)
 
             return []
 
-        Log.info(f"Source file found at \"{str(m2ts)}\"", self.find_audio_files)
+        Log.debug(f"Source file found at \"{str(m2ts)}\"", self.find_audio_files)
 
         return self._extract_tracks(m2ts)
 
@@ -250,7 +266,7 @@ class Encoder:
 
         # TODO: Figure out how much I can move out of this for loop.
         for i, (audio_file, trim) in enumerate(zip_longest(process_files, trims, fillvalue=trims[-1])):
-            Log.info(f"Processing audio track {i + 1}/{len(process_files)}...", self.encode_audio)
+            Log.debug(f"Processing audio track {i + 1}/{len(process_files)}...", self.encode_audio)
 
             trimmed_file = make_output(str(audio_file), codec, f"trimmed_{codec}")
             trimmed_file = SPath("_workdir") / re.sub(r"\s\(\d+\)", "", trimmed_file.name)
@@ -259,8 +275,8 @@ class Encoder:
             if SPath(trimmed_file.parent / ".temp").exists():
                 shutil.rmtree(trimmed_file.parent / ".temp")
 
-            if trimmed_file.exists():
-                Log.info(f"Trimmed file found at \"{trimmed_file}\"! Skipping encoding...")
+            if trims and trimmed_file.exists():
+                Log.debug(f"Trimmed file found at \"{trimmed_file}\"! Skipping encoding...")
 
                 self.audio_tracks += [
                     AudioFile.from_file(trimmed_file, self.encode_audio).to_track(default=not bool(i), **track_args)
@@ -286,16 +302,15 @@ class Encoder:
 
             is_lossy = False if force else afile.is_lossy()
 
-            trimmer = None
-
-            if trim and trimmer is not False:
+            if trims and trimmer is not False:
                 trimmer_obj = trimmer or (FFMpeg.Trimmer if is_lossy else Sox)
                 trimmer_obj = trimmer_obj(**trimmer_kwargs)
 
                 setattr(trimmer_obj, "trim", trim)
 
                 if str(afile.file).endswith(".w64") or (force and afile.is_lossy()):
-                    Log.warn("Audio files has w64 extension, creating an intermediary encode...", self.encode_audio)
+                    Log.debug("Audio files has w64 extension, creating an intermediary encode...", self.encode_audio)
+
                     afile = FLAC(compression_level=0, dither=False).encode_audio(afile)
 
                 afile = trimmer_obj.trim_audio(afile)
@@ -378,7 +393,8 @@ class Encoder:
             input_clip, output_clip = lossless_clip, lossless_clip
 
         if qpfile is True and self.script_info.sc_path.exists():
-            Log.info(f"QP file found at \"{self.script_info.sc_path}\"", self.encode_video)
+            Log.debug(f"QP file found at \"{self.script_info.sc_path}\"", self.encode_video)
+
             qpfile = self.script_info.sc_path
 
         if not settings_file.exists():
@@ -397,6 +413,17 @@ class Encoder:
         from vsmuxtools import mux
 
         video_track = self.video_file.to_track(default=True, timecode_file=self.script_info.tc_path, lang="")
+
+        if Log.is_debug:
+            Log.debug("Merging the following files:", self.mux)
+            Log.debug(f"   - [VIDEO] {video_track.file}", self.mux)
+
+            if self.audio_tracks:
+                for track in self.audio_tracks:
+                    Log.debug(f"   - [AUDIO] {track.file}", self.mux)
+
+            if self.chapters:
+                Log.debug(f"   - [CHAPTERS] {self.chapters}", self.mux)
 
         self.premux_path = SPath(mux(video_track, *self.audio_tracks, self.chapters, outfile=out_path))
 

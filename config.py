@@ -32,9 +32,10 @@ class EncodeConfig:
     def set_properties(self) -> None:
         raise NotImplementedError
 
-    def _value_is_true(self, key: str, section: str = "SETUP") -> bool:
+    def _value_is_true(self, key: str, section: str = "SETUP", default_true: bool = False) -> bool:
         """Check whether a value in the config file is True or False."""
-        return self.config_parsed.get(section, key).strip().lower() in ("true", "yes", "y", "debug", "1")
+        return self.config_parsed.get(section, key, fallback=default_true).strip().lower() \
+            in ("true", "yes", "y", "debug", "1")
 
     @property
     def is_debug(self) -> bool:
@@ -42,7 +43,7 @@ class EncodeConfig:
 
     @property
     def auto_update(self) -> bool:
-        return self._value_is_true("auto_update")
+        return self._value_is_true("auto_update", default_true=True)
 
 
 Config = EncodeConfig()

@@ -6,4 +6,5 @@ from .filters import *
 from .ftp import *
 from .kernels import *
 from .logging import *
+from .updater import *
 from .util import *

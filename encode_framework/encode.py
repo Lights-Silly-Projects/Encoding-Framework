@@ -7,7 +7,7 @@ from vsmuxtools import FFMpeg, HasTrimmer, VideoFile, ensure_path, qAAC, x265
 from vsmuxtools.video.encoders import SupportsQP  # type:ignore[import]
 from vstools import CustomRuntimeError, FileNotExistsError, SPath, SPathLike, vs, FileType
 
-from .boilerplate import ScriptInfo
+from .script import ScriptInfo
 from .logging import Log
 
 __all__: list[str] = [
@@ -370,7 +370,8 @@ class Encoder:
         if not isinstance(output_clip, vs.VideoNode):
             Log.error(
                 "Too many output nodes in filterchain function! Please only output one node!",
-                self.encode_video, CustomRuntimeError, reason=f"Output nodes: {len(output_clip)}"  # type:ignore[arg-type]
+                self.encode_video, CustomRuntimeError,  # type:ignore[arg-type]
+                reason=f"Output nodes: {len(output_clip)}"  # type:ignore[arg-type]
             )
 
         if lossless:

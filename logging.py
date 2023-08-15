@@ -51,6 +51,8 @@ class Logger:
             if not logger_name:
                 log_name = self.config_parsed.get("SETUP", "show_name") or log_name
 
+        log_name = log_name.replace(" ", "_")
+
         if log_file is None:
             log_file = Path() / Path(f"{log_name}.log")
 
@@ -64,8 +66,10 @@ class Logger:
         log_name_join = "_".join([log_name, "Script"])
         self.logger = logging.getLogger(log_name_join)
 
+        self.logger.setLevel(logging.INFO)
+
         if self.config_path.exists():
-            if self.config_parsed.get("SETUP", "debug"):
+            if self.config_debug:
                 self.logger.setLevel(logging.DEBUG)
 
             if logger_name is None:
@@ -116,11 +120,11 @@ class Logger:
 
         return Exception(message)
 
-    def debug(self, msg: str | bytes, caller: str | Callable[[Any], Any] | None = None) -> None:
+    def debug(self, msg: str | bytes, caller: str | Callable[[Any], Any] | None = None, force: bool = False) -> None:
         if not self.config_path.exists():
             return
 
-        if not self.config_parsed.get("SETUP", "debug"):
+        if not self.is_debug and not force:
             return
 
         message = self._format_msg(msg, caller)
@@ -176,5 +180,13 @@ class Logger:
         self.logger.info(message)
 
         sys.exit(0)
+
+    @property
+    def is_debug(self) -> bool:
+        return self.logger.getEffectiveLevel() <= 10
+
+    @property
+    def config_debug(self) -> bool:
+        return self.config_parsed.get("SETUP", "debug").strip().lower() in ("true", "yes", "y", "debug", "1")
 
 Log = Logger()

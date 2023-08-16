@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import sys
 from time import time
-from typing import Any, cast
+from typing import Any, Callable, cast
 
 from vsmuxtools import src_file
 from vstools import Keyframes, SceneChangeMode, SPath, SPathLike, set_output, vs
@@ -239,7 +239,7 @@ class ScriptInfo:
 
         exit()
 
-    def elapsed_time(self) -> float:
+    def elapsed_time(self, func: str | Callable[[Any], Any] | None = None) -> float:
         """Get the elapsed time in seconds."""
         from datetime import timedelta
 
@@ -255,7 +255,7 @@ class ScriptInfo:
         else:
             prt_elapsed = str(elapsed)
 
-        Log.info(f"Elapsed time: {prt_elapsed}", self.elapsed_time)  # type:ignore[arg-type]
+        Log.info(f"Elapsed time: {prt_elapsed}", func or self.elapsed_time)  # type:ignore[arg-type]
 
         return elapsed
 

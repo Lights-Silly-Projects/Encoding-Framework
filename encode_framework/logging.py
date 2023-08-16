@@ -4,7 +4,6 @@
 import logging
 import sys
 import time
-from configparser import ConfigParser
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Literal

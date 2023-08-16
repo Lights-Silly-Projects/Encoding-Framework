@@ -5,10 +5,10 @@ from vsmuxtools import AudioTrack, Chapters
 from vsmuxtools import Encoder as AudioEncoder  # type:ignore[import]
 from vsmuxtools import FFMpeg, HasTrimmer, VideoFile, ensure_path, qAAC, x265
 from vsmuxtools.video.encoders import SupportsQP  # type:ignore[import]
-from vstools import CustomRuntimeError, FileNotExistsError, SPath, SPathLike, vs, FileType
+from vstools import CustomRuntimeError, FileNotExistsError, FileType, SPath, SPathLike, vs, CustomValueError
 
-from .script import ScriptInfo
 from .logging import Log
+from .script import ScriptInfo
 
 __all__: list[str] = [
     "Zones",
@@ -509,5 +509,83 @@ class Encoder:
 
         set_output(final_clip)
 
-    def elapsed_time(self) -> float:
-        return self.script_info.elapsed_time()
+    def diagnostics(self, filesize_unit: str = "mb") -> float:
+        """
+        Print some diagnostic information about the encode.
+        """
+        pmx_fs = self.get_filesize(self.premux_path)
+
+        if pmx_fs == 0:
+            raise Log.error(
+                f"Premux is {self._prettystring_filesize(pmx_fs, filesize_unit)}! Please check the file!",
+                self.diagnostics, CustomValueError
+            )
+
+        Log.info(
+            f"The premux has the following filesize: {self._prettystring_filesize(pmx_fs, filesize_unit)}",
+            self.diagnostics
+        )
+
+        pmx_dir = self.get_dir_filesize(self.premux_path)
+
+        print(pmx_dir > pmx_fs)
+        if pmx_dir > pmx_fs:
+            Log.info(
+                f"The premux directory's filesize is {self._prettystring_filesize(pmx_dir, filesize_unit)}",
+                self.diagnostics
+            )
+
+        return self.script_info.elapsed_time(self.diagnostics)
+
+    @classmethod
+    def get_filesize(cls, file: SPathLike, unit: str = "mb") -> str | float:
+        """
+        Get the target filesize in the given unit.
+
+        Valid units: ['bytes', 'kb', 'mb', 'gb'].
+        """
+        exponents = {
+            'bytes': 0,
+            'kb': 1,
+            'mb': 2,
+            'gb': 3,
+        }
+
+        if unit.lower() not in ['bytes', 'kb', 'mb', 'gb']:
+            raise CustomValueError(
+                "An invalid unit was passed!", Encoder.get_filesize,
+                f"{unit} not in {exponents.keys()}"
+            )
+
+        sfile = SPath(file)
+
+        if not sfile.exists():
+            raise FileNotExistsError(f"The file \"{sfile}\" could not be found!", Encoder.get_filesize)
+
+        filesize = sfile.stat().st_size / 1024 ** exponents.get(unit, 0)
+
+        return filesize
+
+    @classmethod
+    def get_dir_filesize(cls, dir: SPathLike, unit: str = "mb") -> float:
+        """
+        Get the target directory filesize in the given unit.
+
+        Valid units: ['bytes', 'kb', 'mb', 'gb'].
+        """
+        sdir = SPath(dir)
+
+        if sdir.is_file():
+            sdir = sdir.parent
+
+        filesize = 0
+
+        for f in sdir.glob("*"):
+            filesize += Encoder.get_filesize(f, unit)
+
+        return filesize
+
+    @classmethod
+    def _prettystring_filesize(cls, filesize: float, unit: str = "mb", rnd: int = 3) -> str:
+        """Create a pretty string out of the components for a filesize."""
+        return f"{round(filesize, rnd)}{unit}"

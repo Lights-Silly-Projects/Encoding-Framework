@@ -3,13 +3,15 @@
 """
 from __future__ import annotations
 
+import os
 import sys
-from time import time
+from time import time, strftime
 from typing import Any, Callable, cast
 
 from vsmuxtools import src_file
 from vstools import Keyframes, SceneChangeMode, SPath, SPathLike, set_output, vs
 
+from .discord import notify_webhook
 from .kernels import ZewiaCubicNew
 from .logging import Log
 from .types import TrimAuto
@@ -263,6 +265,105 @@ class ScriptInfo:
         Log.info(f"Elapsed time: {prt_elapsed}", func or self.elapsed_time)  # type:ignore[arg-type]
 
         return elapsed
+
+    def discord_start(self, **kwargs: Any) -> None:
+        """Run this when the script is starting."""
+        from .config import Config
+
+        auth = Config.auth_config
+
+        if not auth.has_section("DISCORD"):
+            return
+
+        if not auth.has_option("DISCORD", "webhook"):
+            return
+
+        wh_args = dict(
+            show_name=self.show_title, ep_num=self.ep_num,
+            username=auth.get("DISCORD", "name", fallback="EncodeRunner"),
+            author="System: " + auth.get("DISCORD", "user", fallback=os.getlogin() or os.getenv("username")),
+            avatar=auth.get("DISCORD", "avatar", fallback="https://avatars.githubusercontent.com/u/88586140"),
+            webhook_url=auth.get("DISCORD", "webhook"),
+            title="{show_name} {ep_num} has started encoding!",
+        )
+
+        wh_args |= kwargs
+
+        notify_webhook(**wh_args)
+
+    def discord_failed(self, exception: Exception | None = None, **kwargs: Any) -> None:
+        """Run this when the script has failed."""
+        from .config import Config
+
+        auth = Config.auth_config
+
+        if not auth.has_section("DISCORD"):
+            return
+
+        if not auth.has_option("DISCORD", "webhook"):
+            return
+
+        wh_args = dict(
+            show_name=self.show_title, ep_num=self.ep_num,
+            username=auth.get("DISCORD", "name", fallback="EncodeRunner"),
+            author="System: " + auth.get("DISCORD", "user", fallback=os.getlogin() or os.getenv("username")),
+            avatar=auth.get("DISCORD", "avatar", fallback="https://avatars.githubusercontent.com/u/88586140"),
+            webhook_url=auth.get("DISCORD", "webhook"),
+            title="{show_name} {ep_num} has failed during encoding!",
+            description="{exception}",
+            exception=exception or "Please consult the stacktrace on the system your encode ran on",
+            color="12582912"
+        )
+
+        wh_args |= kwargs
+
+        notify_webhook(**wh_args)
+
+    def discord_ok(self, **kwargs: Any) -> None:
+        """Run this when the script has finished without error."""
+        from .config import Config
+
+        auth = Config.auth_config
+
+        if not auth.has_section("DISCORD"):
+            return
+
+        if not auth.has_option("DISCORD", "webhook"):
+            return
+
+        if kwargs.get("filesize", False):
+            if kwargs.get("description", False):
+                kwargs["description"] += "\nFilesize: {filesize}"
+            else:
+                kwargs["description"] = "\nFilesize: {filesize}"
+
+        if kwargs.get("elapsed_time", False):
+            kwargs["elapsed_time"] = strftime("%H:%M:%S", kwargs.get("elapsed_time"))
+
+            if kwargs.get("description", False):
+                kwargs["description"] += "\nEncoding time: {elapsed_time}"
+            else:
+                kwargs["description"] = "\nEncoding time: {elapsed_time}"
+
+        if kwargs.get("description", False):
+            kwargs["description"] = str(kwargs.get("description")).strip().title()
+
+        wh_args = dict(
+            show_name=self.show_title, ep_num=self.ep_num,
+            username=auth.get("DISCORD", "name", fallback="EncodeRunner"),
+            author="System: " + auth.get("DISCORD", "user", fallback=os.getlogin() or os.getenv("username")),
+            avatar=auth.get("DISCORD", "avatar", fallback="https://avatars.githubusercontent.com/u/88586140"),
+            webhook_url=auth.get("DISCORD", "webhook"),
+            title="{show_name} {ep_num} has finished encoding!",
+            color="32768"
+        )
+
+        wh_args |= kwargs
+
+        notify_webhook(**wh_args)
+
+    def upload_to_ftp(self) -> None:
+        raise NotImplementedError
 
 
 class Preview:

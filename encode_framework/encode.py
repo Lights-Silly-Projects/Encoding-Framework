@@ -509,9 +509,11 @@ class Encoder:
 
         set_output(final_clip)
 
-    def diagnostics(self, filesize_unit: str = "mb") -> float:
+    def diagnostics(self, filesize_unit: str = "mb") -> dict[str, Any]:
         """
         Print some diagnostic information about the encode.
+
+        Returns an object containing all the diagnostics.
         """
         pmx_fs = self.get_filesize(self.premux_path)
 
@@ -528,14 +530,22 @@ class Encoder:
 
         pmx_dir = self.get_dir_filesize(self.premux_path)
 
-        print(pmx_dir > pmx_fs)
         if pmx_dir > pmx_fs:
             Log.info(
                 f"The premux directory's filesize is {self._prettystring_filesize(pmx_dir, filesize_unit)}",
                 self.diagnostics
             )
 
-        return self.script_info.elapsed_time(self.diagnostics)
+        elapsed_time = self.script_info.elapsed_time(self.diagnostics)
+
+        return {
+            "premux": {
+                "location": self.premux_path,
+                "filesize": pmx_fs,
+                "total_filesize": pmx_dir
+            },
+            "elapsed_time": elapsed_time,
+        }
 
     @classmethod
     def get_filesize(cls, file: SPathLike, unit: str = "mb") -> str | float:
@@ -544,13 +554,6 @@ class Encoder:
 
         Valid units: ['bytes', 'kb', 'mb', 'gb'].
         """
-        exponents = {
-            'bytes': 0,
-            'kb': 1,
-            'mb': 2,
-            'gb': 3,
-        }
-
         if unit.lower() not in ['bytes', 'kb', 'mb', 'gb']:
             raise CustomValueError(
                 "An invalid unit was passed!", Encoder.get_filesize,
@@ -562,7 +565,7 @@ class Encoder:
         if not sfile.exists():
             raise FileNotExistsError(f"The file \"{sfile}\" could not be found!", Encoder.get_filesize)
 
-        filesize = sfile.stat().st_size / 1024 ** exponents.get(unit, 0)
+        filesize = sfile.stat().st_size / (1024 * 1024)
 
         return filesize
 

@@ -3,9 +3,11 @@
 """
 from __future__ import annotations
 
+import inspect
 import os
 import sys
-from time import time, strftime
+from datetime import timedelta
+from time import time
 from typing import Any, Callable, cast
 
 from vsmuxtools import src_file
@@ -56,12 +58,26 @@ class ScriptInfo:
     tc_path: SPath | None = None
     """Path to an optional timecode file."""
 
-    def __init__(self, caller: str, show_title: str | None = None, ep_num: str | int | None = None) -> None:
+    dryrun: bool = False
+    """Whether this is a dryrun, only meant for testing."""
+
+    def __init__(
+        self, caller: str | None = None,
+        show_title: str | None = None,
+        ep_num: str | int | None = None,
+        dryrun: bool = False
+    ) -> None:
         from vspreview import is_preview
+
+        if caller is None:
+            caller = inspect.stack()[1].filename
+
+        self.dryrun = dryrun
 
         self.render = not is_preview()
 
-        if self.render:
+        # if self.render:
+        if True:
             self.start_time = time()
 
         self.file = SPath(caller)
@@ -246,25 +262,26 @@ class ScriptInfo:
 
         exit()
 
-    def elapsed_time(self, func: str | Callable[[Any], Any] | None = None) -> float:
+    def elapsed_time(self, func: str | Callable[[Any], Any] | None = None) -> timedelta:
         """Get the elapsed time in seconds."""
-        from datetime import timedelta
-
         from vstools import CustomValueError
 
         if not hasattr(self, "start_time"):
             raise CustomValueError("Missing attribute!", self.elapsed_time, "start_time")
 
         elapsed = time() - self.start_time
+        delta = timedelta(seconds=elapsed)
 
         if elapsed > 60:
-            prt_elapsed = str(timedelta(seconds=elapsed))  # type:ignore
+            prt_elapsed = str(delta)  # type:ignore
         else:
             prt_elapsed = str(elapsed)
 
         Log.info(f"Elapsed time: {prt_elapsed}", func or self.elapsed_time)  # type:ignore[arg-type]
 
-        return elapsed
+        self.end_time = elapsed
+
+        return delta
 
     def discord_start(self, **kwargs: Any) -> None:
         """Run this when the script is starting."""
@@ -289,7 +306,8 @@ class ScriptInfo:
 
         wh_args |= kwargs
 
-        notify_webhook(**wh_args)
+        if not self.dryrun:
+            notify_webhook(**wh_args)
 
     def discord_failed(self, exception: Exception | None = None, **kwargs: Any) -> None:
         """Run this when the script has failed."""
@@ -317,7 +335,10 @@ class ScriptInfo:
 
         wh_args |= kwargs
 
-        notify_webhook(**wh_args)
+        if not self.dryrun:
+            notify_webhook(**wh_args)
+        elif exception:
+            raise Log.error(exception)
 
     def discord_ok(self, **kwargs: Any) -> None:
         """Run this when the script has finished without error."""
@@ -338,15 +359,15 @@ class ScriptInfo:
                 kwargs["description"] = "\nFilesize: {filesize}"
 
         if kwargs.get("elapsed_time", False):
-            kwargs["elapsed_time"] = strftime("%H:%M:%S", kwargs.get("elapsed_time"))
+            elapsed_time = self.strfdelta(self.elapsed_time())
 
             if kwargs.get("description", False):
-                kwargs["description"] += "\nEncoding time: {elapsed_time}"
+                kwargs["description"] += f"\nEncoding time: {elapsed_time}"
             else:
-                kwargs["description"] = "\nEncoding time: {elapsed_time}"
+                kwargs["description"] = f"\nEncoding time: {elapsed_time}"
 
-        if kwargs.get("description", False):
-            kwargs["description"] = str(kwargs.get("description")).strip().title()
+            if hasattr(self, "end_time"):
+                kwargs["description"] += f" ({self._calc_fps(self.clip_cut, self.end_time):.2f} fps)"
 
         wh_args = dict(
             show_name=self.show_title, ep_num=self.ep_num,
@@ -360,10 +381,27 @@ class ScriptInfo:
 
         wh_args |= kwargs
 
-        notify_webhook(**wh_args)
+        if not self.dryrun:
+            notify_webhook(**wh_args)
 
     def upload_to_ftp(self) -> None:
         raise NotImplementedError
+
+    @classmethod
+    def strfdelta(cls, tdelta: timedelta, fmt: str = "%H:%M:%S") -> str:
+        """Convert a timedelta to a pretty string."""
+        return str(tdelta)[:-3]
+        # TODO: fix this
+        d = {"%D": tdelta.days}
+        d["%H"], rem = divmod(tdelta.seconds, 3600)
+        d["%M"], d["%S"] = divmod(rem, 60)
+
+
+        return fmt.format(**d)
+
+    def _calc_fps(self, clip: vs.VideoNode, elapsed_time: float) -> float:
+        """Calculate the framerate. We can't get it from the encoder directly it seems, so gotta do it ourselves."""
+        return clip.num_frames / elapsed_time
 
 
 class Preview:

@@ -68,7 +68,7 @@ class Logger:
         if self.log_file:
             self.debug(f"Writing to log file \"{self.log_file}\"", "logging")
 
-    def _format_msg(self, msg: str | bytes, caller: str | Callable[[Any], Any] | None) -> str:
+    def _format_msg(self, msg: str | bytes | Exception, caller: str | Callable[[Any], Any] | None) -> str:
         if caller and not isinstance(caller, str):
             caller = caller.__class__.__qualname__ if hasattr(caller, "__class__") \
                 and caller.__class__.__name__ not in ["function", "method"] else caller
@@ -77,6 +77,9 @@ class Logger:
 
         if isinstance(msg, bytes):
             msg = msg.decode("utf-8")
+
+        if isinstance(msg, Exception):
+            msg = str(msg)
 
         return msg if caller is None else f"[bold]{caller}:[/] {msg}"
 

@@ -33,6 +33,9 @@ def notify_webhook(
 
     format_args |= kwargs
 
+    if format_args.get("description", False):
+        kwargs["description"] = str(kwargs.get("description")).strip().title()
+
     headers = {
         "content-type": "application/json",
         "Accept-Charset": "UTF-8"

@@ -7,5 +7,6 @@ from .kernels import *
 from .logging import *
 from .misc import *
 from .script import *
+from .types import *
 from .updater import *
 from .util import *

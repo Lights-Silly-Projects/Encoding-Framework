@@ -7,10 +7,12 @@ import sys
 from time import time
 from typing import Any, cast
 
-from vsmuxtools import Trim, src_file
+from vsmuxtools import src_file
 from vstools import Keyframes, SceneChangeMode, SPath, SPathLike, set_output, vs
 
+from .kernels import ZewiaCubicNew
 from .logging import Log
+from .types import TrimAuto
 from .updater import self_update
 
 __all__: list[str] = [
@@ -79,16 +81,31 @@ class ScriptInfo:
     #     self_update(**kwargs)
 
     def index(
-        self, path: SPathLike, trim: Trim | int | None = None,
+        self, path: SPathLike, trim: TrimAuto | int | None = None,
         name: str | None = None, force_dgi: bool = True
     ) -> vs.VideoNode:
         """Index the given file. Returns a tuple containing the `src_file` object and the `init_cut` node."""
-        from vssource import DGIndexNV, source
+        from vssource import DGIndexNV
+
+        from .misc import get_post_trim, get_pre_trim
 
         self.src_file = SPath(path)
 
         if trim is None:
             trim = (None, None)
+        elif any(isinstance(x, str) for x in trim):
+            trim_pre, trim_post = trim
+
+            if trim_pre == "auto":
+                trim_pre = get_pre_trim(self.src_file, self.sc_path, self.sc_lock_file)
+
+                self.sc_lock_file.touch(exist_ok=True)
+            if trim_post == "auto":
+                trim_post = get_post_trim(self.src_file, self.sc_path, self.sc_lock_file)
+
+            self.sc_lock_file
+
+            trim = (trim_pre, trim_post)
         elif isinstance(trim, int):
             trim = (trim, -trim)
 
@@ -158,7 +175,7 @@ class ScriptInfo:
             )
 
         # Prefiltering.
-        wclip = Bicubic(b=-1/2, c=-1/4).scale(wclip, get_w(height, wclip), height)
+        wclip = ZewiaCubicNew.scale(wclip, get_w(height, wclip), height)
         wclip = prefilter_to_full_range(wclip, range_conversion)
 
         kf = Keyframes.from_clip(wclip, mode)

@@ -16,7 +16,7 @@ __all__: list[str] = [
 ]
 
 
-def get_pre_trim(clip: vs.VideoNode | SPathLike, kf_file: SPathLike) -> int | None:
+def get_pre_trim(clip: vs.VideoNode | SPathLike, kf_file: SPathLike, lock_file: SPathLike) -> int | None:
     """
     Simple naive function that checks an existing keyframe file to trim the start of the clip.
 
@@ -42,7 +42,7 @@ def get_pre_trim(clip: vs.VideoNode | SPathLike, kf_file: SPathLike) -> int | No
     if first_sc > 24 \
             and get_prop(clip[23], "PlaneStatsAverage", float) < scale_value(16.2, 8, 32) \
             and get_prop(clip[24], "PlaneStatsAverage", float) > scale_value(16.2, 8, 32):
-        Log.warn("Autoguessed 24 frame trim at the start. Please verify this!", "get_pre_trim")
+        Log.warn("Auto-guessed 24 frame trim at the start. Please verify this!", "get_pre_trim")
 
         first_sc = 24
     elif get_prop(clip[first_sc - 1], "PlaneStatsAverage", float) > scale_value(16.2, 8, 32):
@@ -53,10 +53,12 @@ def get_pre_trim(clip: vs.VideoNode | SPathLike, kf_file: SPathLike) -> int | No
         "get_pre_trim"
     )
 
+    SPath(lock_file).touch(exist_ok=True)
+
     return first_sc
 
 
-def get_post_trim(clip: vs.VideoNode | SPathLike, kf_file: SPathLike) -> int | None:
+def get_post_trim(clip: vs.VideoNode | SPathLike, kf_file: SPathLike, lock_file: SPathLike) -> int | None:
     """
     Simple naive function that checks an existing keyframe file to trim the end of the clip.
 
@@ -79,10 +81,10 @@ def get_post_trim(clip: vs.VideoNode | SPathLike, kf_file: SPathLike) -> int | N
 
     with open(kf_file, "rb") as f:
         try:
-            f.seek(-2, os.SEEK_END)
+            f.seek(-3, os.SEEK_END)
 
             while f.read(1) != b'\n':
-                f.seek(-2, os.SEEK_CUR)
+                f.seek(-3, os.SEEK_CUR)
         except OSError:
             f.seek(0)
 
@@ -94,9 +96,12 @@ def get_post_trim(clip: vs.VideoNode | SPathLike, kf_file: SPathLike) -> int | N
         return None
 
     Log.debug(
-        f"Black frames found at the end of the video. Trimming clip at the end (frame {last_sc}).",
+        "Black frames found at the end of the video. "
+        f"Trimming clip at the end (frame {last_sc}, relative trim: {last_sc - clip.num_frames}).",
         "get_post_trim"
     )
+
+    SPath(lock_file).touch(exist_ok=True)
 
     return last_sc
 

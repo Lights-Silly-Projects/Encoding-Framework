@@ -1,5 +1,6 @@
 from . import *
 from .config import *
+from .discord import *
 from .encode import *
 from .filters import *
 from .ftp import *

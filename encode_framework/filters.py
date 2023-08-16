@@ -11,7 +11,9 @@ from vsexprtools import ExprOp
 from vsmasktools import Kirsch, MagDirection, retinex
 from vsrgtools import BlurMatrix, RemoveGrainMode, limit_filter
 from vsscale import DescaleResult
-from vstools import ConvMode, core, get_y, join, vs
+from vstools import ConvMode, CustomValueError, core, get_y, join, vs
+
+from .logging import Log
 
 __all__: list[str] = [
     "fixedges",
@@ -41,16 +43,35 @@ def fixedges(clip: vs.VideoNode, **kwargs: Any) -> vs.VideoNode:
 
 def setsu_dering(clip: vs.VideoNode, mode: int = "w") -> vs.VideoNode:
     """
-    Setsu's WIP deringing function. Lightly modified."""
+    Setsu's WIP deringing function. Lightly modified.
+
+    This deringing function was written to deal with the ringing introduced
+    when a 1920x1080 video is squashed to 1440x1080 with the HDCAM profile(?).
+
+    Originally written for Hayate no Gotoku S1.
+    """
     from vsaa import Nnedi3
 
-    clip_y = get_y(clip)
+    if not any(x in mode for x in "wh"):
+        raise CustomValueError("Mode must be either \"w\", \"h\", or both", setsu_dering, mode)
 
-    transpose = "h" in mode
+    if all(x in mode for x in "wh"):
+        if len(mode) > 2:
+            Log.warn(f"Performing {len(mode)} iterations. It's not recommended to do more than 2!", setsu_dering)
+
+        for x in mode:
+            clip = setsu_dering(clip, x)
+
+        return clip
+
+    transpose = mode == "h"
+
+    clip_y = get_y(clip)
 
     if transpose:
         clip_y = clip_y.std.Transpose()
 
+    # TODO: Better resolution checking because this is kinda :koronesweat: atm.
     de_width = 1080 if transpose else 1440
     de_height = 1440 if transpose else 1080
 

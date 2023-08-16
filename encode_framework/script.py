@@ -77,9 +77,6 @@ class ScriptInfo:
         if tc_path.exists():
             self.tc_path = tc_path
 
-    # def __new__(self, **kwargs: Any) -> None:
-    #     self_update(**kwargs)
-
     def index(
         self, path: SPathLike, trim: TrimAuto | int | None = None,
         name: str | None = None, force_dgi: bool = True
@@ -127,7 +124,7 @@ class ScriptInfo:
 
         return self.clip_cut
 
-    def setup_muxtools(self, **setup_kwargs: Any) -> None:
+    def setup_muxtools(self, ftp: bool = True, discord: bool = True, **setup_kwargs: Any) -> None:
         """Create the config file for muxtools."""
         from vsmuxtools import Setup
 
@@ -144,6 +141,14 @@ class ScriptInfo:
         )
 
         ini.edit("show", self.show_title)  # Don't remember why I did this ngl.
+
+        if ftp:
+            from .config import Config
+            Config.create_ftp_config()
+
+        if discord:
+            from .config import Config
+            Config.create_discord_config()
 
     def generate_keyframes(
         self, clip: vs.VideoNode | None = None,

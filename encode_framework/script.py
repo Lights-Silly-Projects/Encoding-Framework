@@ -7,6 +7,7 @@ import inspect
 import os
 import sys
 from datetime import timedelta
+from random import choice
 from time import time
 from typing import Any, Callable, cast
 
@@ -146,6 +147,7 @@ class ScriptInfo:
         """Create the config file for muxtools."""
         from vsmuxtools import Setup
 
+        # TODO: Fix all this
         adjustable_kwargs = dict(
             mkv_title_naming="",  # The mkv title metadata property.
             out_name=f"$show$ - $ep$ (Premux) [$crc32$]"  # Output filename
@@ -176,7 +178,6 @@ class ScriptInfo:
     ) -> Keyframes:
         """Generate keyframes for the trimmed clip. Returns a Keyframes object."""
         from vsdenoise import prefilter_to_full_range
-        from vskernels import Bicubic
         from vstools import get_w
 
         wclip = cast(vs.VideoNode, clip or self.clip_cut)
@@ -309,7 +310,11 @@ class ScriptInfo:
         if not self.dryrun:
             notify_webhook(**wh_args)
 
-    def discord_failed(self, exception: Exception | None = None, **kwargs: Any) -> None:
+    def discord_failed(
+        self, exception: Exception | str | None = None,
+        footer: int | dict[str, str] | None = None,
+        **kwargs: Any
+    ) -> None:
         """Run this when the script has failed."""
         from .config import Config
 
@@ -321,6 +326,26 @@ class ScriptInfo:
         if not auth.has_option("DISCORD", "webhook"):
             return
 
+        if isinstance(exception, KeyboardInterrupt):
+            exception = "The encode was manually interrupted!"
+
+        # TODO: Add more
+        footers = [
+            {
+                "text": "Aww, shucks...",
+                "icon_url": "https://archives.bulbagarden.net/media/upload/7/73/MDP_E_213.png"
+            },
+            {
+                "text": "EVERYTHING IS ON FIIIREEEEEE!!!",
+                "icon_url": "https://i.imgur.com/wwZn1UR.png"
+            },
+        ]
+
+        if isinstance(footer, int):
+            footers = footers[footer]
+        elif isinstance(footer, (list, dict)):
+            footers = footer
+
         wh_args = dict(
             show_name=self.show_title, ep_num=self.ep_num,
             username=auth.get("DISCORD", "name", fallback="EncodeRunner"),
@@ -330,7 +355,8 @@ class ScriptInfo:
             title="{show_name} {ep_num} has failed during encoding!",
             description="{exception}",
             exception=exception or "Please consult the stacktrace on the system your encode ran on",
-            color="12582912"
+            color="12582912",
+            footer=footers
         )
 
         wh_args |= kwargs
@@ -395,7 +421,6 @@ class ScriptInfo:
         d = {"%D": tdelta.days}
         d["%H"], rem = divmod(tdelta.seconds, 3600)
         d["%M"], d["%S"] = divmod(rem, 60)
-
 
         return fmt.format(**d)
 

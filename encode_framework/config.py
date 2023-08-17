@@ -32,6 +32,11 @@ class EncodeConfig:
             self.config_path = Path.cwd() / config_file
 
         if not self.config_path.exists():
+            from vsmuxtools import Setup
+
+            # TODO: Fix the circular dependency hell
+            Setup()
+
             raise FileNotFoundError(f"Could not find config file at \"{self.config_path}\"! You MUST create one first!")
 
         self.config_parsed = ConfigParser()

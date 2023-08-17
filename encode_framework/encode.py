@@ -565,7 +565,7 @@ class Encoder:
         if not sfile.exists():
             raise FileNotExistsError(f"The file \"{sfile}\" could not be found!", Encoder.get_filesize)
 
-        filesize = sfile.stat().st_size / (1024 * 1024)
+        filesize = sfile.stat().st_size# / (1024 * 1024)
 
         return filesize
 

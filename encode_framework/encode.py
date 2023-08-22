@@ -201,7 +201,7 @@ class Encoder:
     def encode_audio(
         self,
         audio_file: SPath | list[SPath] | vs.AudioNode | None = None,
-        trims: list[tuple[int, int]] | None = None,
+        trims: list[tuple[int, int]] | tuple[int, int] | None = None,
         reorder: list[int] | Literal[False] = False,
         ref: vs.VideoNode | None = None,
         encoder: AudioEncoder = qAAC,
@@ -250,6 +250,8 @@ class Encoder:
 
         if trims is None:
             trims = [self.script_info.src.trim]
+        elif isinstance(trims, tuple):
+            trims = [trims]
 
         if reorder:
             if len(reorder) > len(process_files):

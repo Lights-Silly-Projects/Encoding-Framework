@@ -7,14 +7,13 @@ import inspect
 import os
 import sys
 from datetime import timedelta
-from random import choice
 from time import time
 from typing import Any, Callable, cast
 
 from vsmuxtools import src_file
 from vstools import Keyframes, SceneChangeMode, SPath, SPathLike, set_output, vs
 
-from .discord import notify_webhook
+from .discord import markdownify, notify_webhook
 from .kernels import ZewiaCubicNew
 from .logging import Log
 from .types import TrimAuto
@@ -329,6 +328,9 @@ class ScriptInfo:
         if isinstance(exception, KeyboardInterrupt):
             exception = "The encode was manually interrupted!"
 
+        if exception:
+            exception = markdownify(str(exception))
+
         # TODO: Add more
         footers = [
             {
@@ -354,7 +356,7 @@ class ScriptInfo:
             webhook_url=auth.get("DISCORD", "webhook"),
             title="{show_name} {ep_num} has failed during encoding!",
             description="{exception}",
-            exception=exception or "Please consult the stacktrace on the system your encode ran on",
+            exception=exception or "Please consult the stacktrace on the system the encode ran on",
             color="12582912",
             footer=footers
         )

@@ -1,6 +1,7 @@
 """
 Module for using Discord webhooks. NEVER share your webhook url or account details with strangers, kids!
 """
+import re
 from random import choice
 from typing import Any
 
@@ -9,7 +10,8 @@ import requests
 from .logging import Log
 
 __all__: list[str] = [
-    "notify_webhook"
+    "markdownify",
+    "notify_webhook",
 ]
 
 
@@ -112,3 +114,11 @@ def notify_webhook(
             r.raise_for_status()
         except requests.exceptions.HTTPError as e:
             Log.error(e, notify_webhook)
+
+
+def markdownify(string: str) -> str:
+    """Markdownify a given string."""
+    string = re.sub(r"\[bold\]([a-zA-Z0-9\.!?:\-]+)\[\/\]", r"**\1**", str(string))
+    string = re.sub(r"\[italics\]([a-zA-Z0-9\.!?:\-]+)\[\/\]", r"_\1_", str(string))
+
+    return string

@@ -1,3 +1,4 @@
+import os
 import re
 from typing import Any, Literal, cast
 
@@ -5,7 +6,8 @@ from vsmuxtools import AudioTrack, Chapters
 from vsmuxtools import Encoder as AudioEncoder  # type:ignore[import]
 from vsmuxtools import FFMpeg, HasTrimmer, VideoFile, ensure_path, qAAC, x265
 from vsmuxtools.video.encoders import SupportsQP  # type:ignore[import]
-from vstools import CustomRuntimeError, FileNotExistsError, FileType, SPath, SPathLike, vs, CustomValueError
+from vstools import (CustomNotImplementedError, CustomRuntimeError, CustomValueError, FileNotExistsError, FileType,
+                     SPath, SPathLike, vs)
 
 from .logging import Log
 from .script import ScriptInfo
@@ -198,7 +200,7 @@ class Encoder:
 
     def encode_audio(
         self,
-        audio_file: SPath | list[SPath] | None = None,
+        audio_file: SPath | list[SPath] | vs.AudioNode | None = None,
         trims: list[tuple[int, int]] | None = None,
         reorder: list[int] | Literal[False] = False,
         ref: vs.VideoNode | None = None,
@@ -211,7 +213,7 @@ class Encoder:
         """
         Encode the audio tracks.
 
-        :param audio_file:      ath to an audio file. If none, checks object's audio files.
+        :param audio_file:      Path to an audio file or an AudioNode. If none, checks object's audio files.
         :param trims:           Audio trims. If None or empty list, do not trim.
                                 If True, use trims passed in ScriptInfo.
         :param reorder:         Reorder tracks. For example, if you know you have 3 audio tracks
@@ -231,7 +233,7 @@ class Encoder:
         import shutil
         from itertools import zip_longest
 
-        from vsmuxtools import FLAC, AudioFile, Sox, is_fancy_codec, make_output
+        from vsmuxtools import FLAC, AudioFile, Sox, is_fancy_codec, make_output, do_audio
 
         if all(not afile for afile in (audio_file, self.audio_files)):
             Log.warn("No audio tracks found to encode...", self.encode_audio)
@@ -239,7 +241,7 @@ class Encoder:
             return []
 
         if audio_file is not None and audio_file:
-            if not isinstance(audio_file, list):
+            if isinstance(audio_file, vs.AudioNode) or not isinstance(audio_file, list):
                 audio_file = [SPath(audio_file)]
 
         process_files = audio_file or self.audio_files
@@ -267,6 +269,16 @@ class Encoder:
         for i, (audio_file, trim) in enumerate(zip_longest(process_files, trims, fillvalue=trims[-1])):
             Log.debug(f"Processing audio track {i + 1}/{len(process_files)}...", self.encode_audio)
 
+            if isinstance(audio_file, vs.AudioNode):
+                Log.error("Not properly supported yet! This may fail!", self.encode_audio, CustomNotImplementedError)
+
+                self.audio_tracks += [
+                    do_audio(audio_file, encoder=encoder)
+                    .to_track(default=not bool(i), **track_args)
+                ]
+
+                continue
+
             trimmed_file = make_output(str(audio_file), codec, f"trimmed_{codec}")
             trimmed_file = SPath("_workdir") / re.sub(r"\s\(\d+\)", "", trimmed_file.name)
 
@@ -278,7 +290,8 @@ class Encoder:
                 Log.debug(f"Trimmed file found at \"{trimmed_file}\"! Skipping encoding...")
 
                 self.audio_tracks += [
-                    AudioFile.from_file(trimmed_file, self.encode_audio).to_track(default=not bool(i), **track_args)
+                    AudioFile.from_file(trimmed_file, self.encode_audio)
+                    .to_track(default=not bool(i), **track_args)
                 ]
 
                 continue

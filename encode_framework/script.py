@@ -128,7 +128,7 @@ class ScriptInfo:
         if force_dgi and not self.src_file.to_str().endswith(".dgi"):
             try:
                 dgi = DGIndexNV().index([self.src_file.absolute()], False, False, None, "-a")[0]
-            except Exception as e:
+            except (Exception, vs.Error) as e:
                 Log.warn(f"Some kind of error ocurred!", self.index)  # type:ignore[arg-type]
 
                 raise e
@@ -378,19 +378,26 @@ class ScriptInfo:
         if not auth.has_option("DISCORD", "webhook"):
             return
 
-        if kwargs.get("filesize", False):
-            if kwargs.get("description", False):
-                kwargs["description"] += "\nFilesize: {filesize}"
-            else:
-                kwargs["description"] = "\nFilesize: {filesize}"
+        if not kwargs.get("description", False):
+            kwargs["description"] = ""
+
+        # if kwargs.get("premux", {}).get("filesize", False):
+        #     filesize_dict = dict(kwargs["premux"]["filesize"])
+        #     byte_size = filesize_dict.get("bytes", 0)
+
+        #     if byte_size > 2.56e+11:
+        #         unit, filesize = ("tb", filesize_dict["tb"])
+        #     elif byte_size > 1e+9:
+        #         unit, filesize = ("gb", filesize_dict["gb"])
+        #     else:
+        #         unit, filesize = ("mb", filesize_dict["mb"])
+
+        #     kwargs["description"] += f"\nFilesize: {filesize}{unit}"
 
         if kwargs.get("elapsed_time", False):
             elapsed_time = self.strfdelta(self.elapsed_time())
 
-            if kwargs.get("description", False):
-                kwargs["description"] += f"\nEncoding time: {elapsed_time}"
-            else:
-                kwargs["description"] = f"\nEncoding time: {elapsed_time}"
+            kwargs["description"] += f"\nEncoding time: {elapsed_time}"
 
             if hasattr(self, "end_time"):
                 kwargs["description"] += f" ({self._calc_fps(self.clip_cut, self.end_time):.2f} fps)"

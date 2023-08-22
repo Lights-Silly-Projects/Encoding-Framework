@@ -527,21 +527,18 @@ class Encoder:
             self.diagnostics
         )
 
-        pmx_dir = self.get_dir_filesize(self.premux_path)
-
-        if pmx_dir > pmx_fs:
-            Log.info(
-                f"The premux directory's filesize is {self._prettystring_filesize(pmx_dir, filesize_unit)}",
-                self.diagnostics
-            )
-
         elapsed_time = self.script_info.elapsed_time(self.diagnostics)
 
         return {
             "premux": {
                 "location": self.premux_path,
-                "filesize": pmx_fs,
-                "total_filesize": pmx_dir
+                "filesize": {
+                    "bytes": self.get_filesize(self.premux_path, "bytes"),
+                    "kb": self.get_filesize(self.premux_path, "kb"),
+                    "mb": self.get_filesize(self.premux_path, "mb"),
+                    "gb": self.get_filesize(self.premux_path, "gb"),
+                    "tb": self.get_filesize(self.premux_path, "tb"),
+                },
             },
             "elapsed_time": elapsed_time,
         }
@@ -551,22 +548,20 @@ class Encoder:
         """
         Get the target filesize in the given unit.
 
-        Valid units: ['bytes', 'kb', 'mb', 'gb'].
+        Valid units: ['bytes', 'kb', 'mb', 'gb', 'tb', 'pb'].
         """
-        if unit.lower() not in ['bytes', 'kb', 'mb', 'gb']:
-            raise CustomValueError(
-                "An invalid unit was passed!", Encoder.get_filesize,
-                f"{unit} not in {exponents.keys()}"
-            )
+        units = ['bytes', 'kb', 'mb', 'gb', 'tb', 'pb']
+
+        if unit.lower() not in units:
+            raise CustomValueError("An invalid unit was passed!", Encoder.get_filesize, f"{unit} not in {units}")
 
         sfile = SPath(file)
 
         if not sfile.exists():
             raise FileNotExistsError(f"The file \"{sfile}\" could not be found!", Encoder.get_filesize)
 
-        filesize = sfile.stat().st_size# / (1024 * 1024)
+        return sfile.stat().st_size / (1024 ** units.index(unit))
 
-        return filesize
 
     @classmethod
     def get_dir_filesize(cls, dir: SPathLike, unit: str = "mb") -> float:

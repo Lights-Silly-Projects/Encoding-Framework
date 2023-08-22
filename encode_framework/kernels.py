@@ -7,8 +7,8 @@
 
 from typing import Any
 
-from vskernels import BicubicSharp, Catrom, Lanczos, Mitchell, Bilinear, Bicubic
-from vstools import vs
+from vskernels import BicubicSharp, Catrom, Lanczos, Mitchell, Bilinear, Bicubic, Scaler
+from vstools import vs, Transfer, inject_self
 
 __all__: list[str] = [
     "FixCatrom",
@@ -17,6 +17,7 @@ __all__: list[str] = [
     "FixLanczos",
     "FixBilinear",
     "ZewiaCubicNew",
+    "LinearBicubic",
 ]
 
 
@@ -92,5 +93,26 @@ class ZewiaCubicNew(Bicubic):
         super().__init__(b=-1/2, c=-1/4, **kwargs)
 
 
-FixSharp = FixBicubicSharp
+class LinearBicubic(Scaler):
+    """Perform linear conversion prior to scaling."""
 
+    def __init__(self, b: float = 0, c: float = 1 / 2, **kwargs: Any) -> None:
+        self.b = b
+        self.c = c
+        super().__init__(**kwargs)
+
+    @inject_self.cached
+    def scale(  # type: ignore[override]
+        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
+    ) -> vs.VideoNode:
+        wclip = Transfer.LINEAR.apply(clip)
+
+        wclip = Bicubic(self.b, self.c).scale(
+            wclip, **Bicubic(self.b, self.c).get_scale_args(wclip, shift, width, height, **kwargs)
+        )
+
+        return Transfer.from_video(clip).apply(wclip)
+
+
+# Aliases
+FixSharp = FixBicubicSharp

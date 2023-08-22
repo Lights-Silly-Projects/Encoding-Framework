@@ -31,13 +31,17 @@ def notify_webhook(
             "icon_url": "https://i.imgur.com/rsJS9YL.png"
         },
         {
-            "text": "Bbreaking the game balance",
+            "text": "Here we go, good to go, Nepputunuuu♪",
             "icon_url": "https://emoji.discadia.com/emojis/NepOkay.png"
         },
         {
-            "text": "Conquered the Sea of Stars",
-            "icon_url": "https://static.wikia.nocookie.net/fategrandorder/images/9/9d/CEIcon569.webp"
-        }
+            "text": "Conquering the Sea of Artefacts",
+            "icon_url": "https://cdn3.emoji.gg/emojis/3636-moyai-gilgamesh.png"
+        },
+        {
+            "text": "Scott Pilgrim Saves(?) This Encode!",
+            "icon_url": "https://i.imgur.com/g7lNm79.png"
+        },
     ]
 
     if isinstance(footer, int):

@@ -332,7 +332,7 @@ class ScriptInfo:
         # TODO: Add more
         footers = [
             {
-                "text": "Aww, shucks...",
+                "text": "Aw, shucks...",
                 "icon_url": "https://archives.bulbagarden.net/media/upload/7/73/MDP_E_213.png"
             },
             {

@@ -141,11 +141,10 @@ class Encoder:
 
             for f in audio_files:
                 try:
-                    Log.info(f"    - \"{f.file}\"")
+                    Log.info(f"    - \"{f.name if isinstance(f, SPath) else f.file}\"")
                 except (AttributeError, ValueError) as e:
                     Log.warn(f"    - Unknown track!\n{e}")
-
-            self.audio_files = audio_files
+            self.audio_files += audio_files
 
             return audio_files
 

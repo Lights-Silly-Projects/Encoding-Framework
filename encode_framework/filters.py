@@ -11,7 +11,7 @@ from vsexprtools import ExprOp
 from vsmasktools import Kirsch, MagDirection, retinex
 from vsrgtools import BlurMatrix, RemoveGrainMode, limit_filter
 from vsscale import DescaleResult
-from vstools import ConvMode, CustomValueError, core, get_y, join, vs
+from vstools import ConvMode, CustomValueError, SPath, VSFunction, core, get_y, join, vs
 
 from .logging import Log
 
@@ -19,6 +19,9 @@ __all__: list[str] = [
     "fixedges",
     "setsu_dering",
     "fix_kernel_mask_edges",
+    "diff_keyframes",
+    "apply_squaremasks",
+    "Squaremask",
 ]
 
 
@@ -156,3 +159,93 @@ def fix_kernel_mask_edges(clip: vs.VideoNode | DescaleResult, crop: int = 8) -> 
         return clip
 
     return clip.std.Crop(*crops).std.AddBorders(*crops)
+
+
+def diff_keyframes(clip_a: vs.VideoNode, clip_b: vs.VideoNode, ep_num: str, prefilter: VSFunction | None = None) -> SPath:
+    from lvsfunc import diff
+    from vstools import Keyframes, check_ref_clip
+
+    check_ref_clip(clip_a, clip_b, diff_keyframes)
+
+    kf_path = SPath(f"_assets/diff_keyframes_{ep_num}.txt")
+
+    if kf_path.exists():
+        Log.warn("Diff keyframe file already exists!")
+
+        match input("Want to overwrite? [Y/n] ").lower().strip():
+            case "y" | "yes": kf_path.unlink(missing_ok=True)
+            case _: return kf_path
+
+    if prefilter is not None:
+        clip_a, clip_b = prefilter(clip_a), prefilter(clip_b)
+
+    _, ranges = diff(clip_a, clip_b, thr=96, return_ranges=True)
+
+    kf_path.parents[0].mkdir(exist_ok=True)
+
+    Keyframes(list(sum(ranges, ()))).to_file(kf_path)
+
+    return kf_path
+
+
+class Squaremask:
+    ranges: tuple[int | None, int | None]
+    """Ranges to apply a squaremask."""
+
+    width: int
+    height: int
+
+    offset_x: int
+    offset_y: int
+
+    invert: bool = False
+
+    sigma: float = 4.0
+
+    def __init__(
+        self, ranges: tuple[int | None, int | None], width: int, height: int,
+        offset_x: int, offset_y: int, invert: bool = False,
+        sigma: float = 4.0
+    ) -> None:
+        self.ranges = ranges
+        self.width = width
+        self.height = height
+        self.offset_x = offset_x
+        self.offset_y = offset_y
+        self.invert = invert
+        self.sigma = sigma
+
+
+def apply_squaremasks(
+    clip_a: vs.VideoNode, clip_b: vs.VideoNode,
+    squaremasks: Squaremask | list[Squaremask],
+    show_mask: bool = False, streams: int | None = None
+) -> vs.VideoNode:
+    """Apply a bunch of squaremasks at once."""
+    from vsexprtools import ExprOp
+    from vsmasktools import squaremask
+    from vsrgtools import bilateral
+    from vstools import replace_ranges
+
+    mask = clip_a.std.BlankClip(format=vs.GRAY16)
+
+    if isinstance(squaremasks, Squaremask):
+        squaremasks = [squaremasks]
+
+    for sqmask in squaremasks:
+        sqmask_clip = squaremask(
+            clip_a, width=sqmask.width, height=sqmask.height,
+            offset_x=sqmask.offset_x, offset_y=sqmask.offset_y,
+            invert=sqmask.invert, func=apply_squaremasks
+        )
+
+        sqmask_clip = ExprOp.MAX(sqmask_clip, mask)
+        sqmask_clip = bilateral(sqmask_clip, sqmask.sigma, planes=0, num_streams=streams)
+
+        mask = replace_ranges(mask, sqmask_clip, sqmask.ranges)
+
+    if show_mask:
+        return mask
+
+    return clip_a.std.MaskedMerge(clip_b, mask)
+

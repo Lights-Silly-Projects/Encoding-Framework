@@ -11,7 +11,7 @@ from vsexprtools import ExprOp
 from vsmasktools import Kirsch, MagDirection, retinex
 from vsrgtools import BlurMatrix, RemoveGrainMode, limit_filter
 from vsscale import DescaleResult
-from vstools import ConvMode, CustomValueError, SPath, VSFunction, core, get_y, join, vs
+from vstools import ConvMode, CustomValueError, FrameRangesN, SPath, VSFunction, core, get_y, join, replace_ranges, vs
 
 from .logging import Log
 
@@ -189,7 +189,7 @@ def diff_keyframes(clip_a: vs.VideoNode, clip_b: vs.VideoNode, ep_num: str, pref
 
 
 class Squaremask:
-    ranges: tuple[int | None, int | None]
+    ranges: tuple[int | None, int | None] | None = None
     """Ranges to apply a squaremask."""
 
     width: int
@@ -202,11 +202,19 @@ class Squaremask:
 
     sigma: float = 4.0
 
+    mask_clip: vs.VideoNode = None
+
     def __init__(
-        self, ranges: tuple[int | None, int | None], width: int, height: int,
-        offset_x: int, offset_y: int, invert: bool = False,
+        self, ranges: FrameRangesN = None,
+        offset_x: int = 1, offset_y: int = 1,
+        width: int = 0, height: int = 0,
+        invert: bool = False,
         sigma: float = 4.0
     ) -> None:
+
+        if ranges is None:
+            ranges = [(None, None)]
+
         self.ranges = ranges
         self.width = width
         self.height = height
@@ -214,6 +222,54 @@ class Squaremask:
         self.offset_y = offset_y
         self.invert = invert
         self.sigma = sigma
+
+    def apply(self, clip_a: vs.VideoNode, clip_b: vs.VideoNode, ranges: FrameRangesN = None) -> vs.VideoNode:
+        """Apply the squaremasks."""
+        self.ranges = ranges or self.ranges
+
+        self.generate_mask(clip_a)
+
+        return core.std.MaskedMerge(clip_a, clip_b, self.mask_clip)
+
+    def generate_mask(self, ref: vs.VideoNode, ranges: FrameRangesN = None) -> vs.VideoNode:
+        """Generate a mask and add it to a mask clip."""
+        from vsmasktools import squaremask
+        from vsrgtools import bilateral
+        from vstools import plane
+
+        self.ranges = ranges or self.ranges
+
+        if not self.mask_clip:
+            self.mask_clip = plane(ref, 0).std.BlankClip(keep=True)
+
+        # error_handling
+        if (self.offset_x + self.width) > self.mask_clip.width:
+            Log.warn(
+                f"Squaremask ({self.offset_x} + {self.width}) is wider than "
+                f"the clip ({self.mask_clip.width}) it's being applied to!",
+                self.generate_mask
+            )
+
+            self.width = self.mask_clip.width - self.offset_x
+
+        if (self.offset_y + self.height) > self.mask_clip.height:
+            Log.warn(
+                f"Squaremask ({self.offset_y} + {self.height}) is taller than "
+                f"the clip ({self.mask_clip.height}) it's being applied to!",
+                self.generate_mask
+            )
+
+            self.height = self.mask_clip.height - self.offset_y
+
+        sq = squaremask(self.mask_clip, self.width, self.height, self.offset_x, self.offset_y, self.invert, self.apply)
+
+        if self.ranges is not None:
+            self.mask_clip = replace_ranges(self.mask_clip, sq, self.ranges)
+
+        if self.sigma:
+            self.mask_clip = bilateral(self.mask_clip, self.sigma)
+
+        return self.mask_clip
 
 
 def apply_squaremasks(
@@ -223,9 +279,6 @@ def apply_squaremasks(
 ) -> vs.VideoNode:
     """Apply a bunch of squaremasks at once."""
     from vsexprtools import ExprOp
-    from vsmasktools import squaremask
-    from vsrgtools import bilateral
-    from vstools import replace_ranges
 
     mask = clip_a.std.BlankClip(format=vs.GRAY16)
 
@@ -233,14 +286,8 @@ def apply_squaremasks(
         squaremasks = [squaremasks]
 
     for sqmask in squaremasks:
-        sqmask_clip = squaremask(
-            clip_a, width=sqmask.width, height=sqmask.height,
-            offset_x=sqmask.offset_x, offset_y=sqmask.offset_y,
-            invert=sqmask.invert, func=apply_squaremasks
-        )
-
+        sqmask_clip = sqmask.generate_mask(clip_a)
         sqmask_clip = ExprOp.MAX(sqmask_clip, mask)
-        sqmask_clip = bilateral(sqmask_clip, sqmask.sigma, planes=0, num_streams=streams)
 
         mask = replace_ranges(mask, sqmask_clip, sqmask.ranges)
 

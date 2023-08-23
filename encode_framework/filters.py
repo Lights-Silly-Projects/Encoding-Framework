@@ -161,7 +161,11 @@ def fix_kernel_mask_edges(clip: vs.VideoNode | DescaleResult, crop: int = 8) -> 
     return clip.std.Crop(*crops).std.AddBorders(*crops)
 
 
-def diff_keyframes(clip_a: vs.VideoNode, clip_b: vs.VideoNode, ep_num: str, prefilter: VSFunction | None = None) -> SPath:
+def diff_keyframes(
+    clip_a: vs.VideoNode, clip_b: vs.VideoNode,
+    ep_num: str, prefilter: VSFunction | None = None,
+    raise_if_error: bool = True
+) -> SPath:
     from lvsfunc import diff
     from vstools import Keyframes, check_ref_clip
 
@@ -184,6 +188,9 @@ def diff_keyframes(clip_a: vs.VideoNode, clip_b: vs.VideoNode, ep_num: str, pref
     kf_path.parents[0].mkdir(exist_ok=True)
 
     Keyframes(list(sum(ranges, ()))).to_file(kf_path)
+
+    if raise_if_error:
+        raise CustomValueError("Check the diff keyframes!", diff_keyframes, f"raise_if_error={raise_if_error}")
 
     return kf_path
 

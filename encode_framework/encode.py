@@ -609,7 +609,6 @@ class Encoder:
                 "elapsed_time": elapsed_time,
             }
 
-
         pmx_fs = self.get_filesize(self.premux_path)
 
         if pmx_fs == 0:
@@ -634,16 +633,17 @@ class Encoder:
 
         if plotbitrate:
             try:
-                plot_out_path.parent.mkdir(exist_ok=True)
-                self.__run_plotbitrate(plot_out_path)
-            except FileNotFoundError:
-                plot_out_path.mkdir(exist_ok=True)
+                if not plot_out_path.parent.exists():
+                    plot_out_path.parent.mkdir(exist_ok=True, parents=True)
+
                 self.__run_plotbitrate(plot_out_path)
             except BaseException as e:
                 Log.error(str(e), self.diagnostics, CustomError)
             finally:
                 if plot_out_path.exists():
                     Log.info(f"Plot image exported to \"{plot_out_path}\"!", self.diagnostics)
+                else:
+                    Log.error(f"Could not export a plot image!", self.diagnostics)
 
         return {
             "premux": {

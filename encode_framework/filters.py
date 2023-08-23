@@ -214,18 +214,22 @@ class Squaremask:
     def __init__(
         self, ranges: FrameRangesN = None,
         offset_x: int = 1, offset_y: int = 1,
-        width: int = 0, height: int = 0,
+        width: int | bool = 0, height: int | bool = 0,
         invert: bool = False,
-        sigma: float = 4.0
+        sigma: float = 4.0,
     ) -> None:
 
         if ranges is None:
             ranges = [(None, None)]
 
-        if width < 0:
+        if (isinstance(width, bool) or width == "auto") and width:
+            width = "auto"
+        elif width < 0:
             width = abs(width) - offset_x
 
-        if height < 0:
+        if (isinstance(height, bool) or height == "auto") and height:
+            height = "auto"
+        elif height < 0:
             height = abs(height) - offset_y
 
         self.ranges = ranges
@@ -236,13 +240,16 @@ class Squaremask:
         self.invert = invert
         self.sigma = sigma
 
+    def __str__(self) -> str:
+        return f"Squaremask {self.width}x{self.height} @ f{self.ranges[0]}-f{self.ranges[1]} " \
+            + f"(offset_x: {self.offset_x}, offset_y: {self.offset_y}, " \
+            + f"width: {self.width}, height: {self.height}) "
+
     def apply(self, clip_a: vs.VideoNode, clip_b: vs.VideoNode, ranges: FrameRangesN = None) -> vs.VideoNode:
         """Apply the squaremasks."""
         self.generate_mask(clip_a, ranges)
 
-        merged = core.std.MaskedMerge(clip_a, clip_b, self.mask_clip)
-        return merged
-        return replace_ranges(clip_a, merged, self.ranges)
+        return core.std.MaskedMerge(clip_a, clip_b, self.mask_clip)
 
     def generate_mask(self, ref: vs.VideoNode, ranges: FrameRangesN = None) -> vs.VideoNode:
         """Generate a mask and add it to a mask clip."""
@@ -254,6 +261,12 @@ class Squaremask:
 
         if not self.mask_clip:
             self.mask_clip = plane(ref, 0).std.BlankClip(keep=True)
+
+        if self.width == "auto":
+            self.width = ref.width - self.offset_x
+
+        if self.height == "auto":
+            self.height = ref.height - self.offset_y
 
         # error_handling
         if (self.offset_x + self.width) > self.mask_clip.width:
@@ -290,7 +303,7 @@ class Squaremask:
 def apply_squaremasks(
     clip_a: vs.VideoNode, clip_b: vs.VideoNode,
     squaremasks: Squaremask | list[Squaremask],
-    show_mask: bool = False, streams: int | None = None
+    show_mask: bool = False, print_sq: bool = False,
 ) -> vs.VideoNode:
     """Apply a bunch of squaremasks at once."""
     from vsexprtools import ExprOp
@@ -303,6 +316,9 @@ def apply_squaremasks(
     for sqmask in squaremasks:
         sqmask_clip = sqmask.generate_mask(clip_a)
         sqmask_clip = ExprOp.MAX(sqmask_clip, mask)
+
+        if print_sq:
+            print(sqmask)
 
         mask = replace_ranges(mask, sqmask_clip, sqmask.ranges)
 

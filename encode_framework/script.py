@@ -11,7 +11,7 @@ from time import time
 from typing import Any, Callable, cast
 
 from vsmuxtools import src_file
-from vstools import Keyframes, SceneChangeMode, SPath, SPathLike, set_output, vs
+from vstools import CustomError, Keyframes, SceneChangeMode, SPath, SPathLike, set_output, vs
 
 from .discord import markdownify, notify_webhook
 from .kernels import ZewiaCubicNew
@@ -243,12 +243,15 @@ class ScriptInfo:
 
         return prefilter  # type:ignore[return-value]
 
-    def unsupported_call(self, caller: str) -> None:
+    def unsupported_call(self, caller: str | None = None) -> None:
         """Called when the user is trying to run a script through unsupported methods."""
         from vstools import CustomRuntimeError
 
         if not self.render:
             return
+
+        if caller is None:
+            caller = inspect.stack()[1].filename
 
         if caller in ("__main__", "__vapoursynth__"):
             return
@@ -256,7 +259,7 @@ class ScriptInfo:
         sys.tracebacklimit = 0
 
         Log.error(
-            "You are trying to run this script in a way that is not supported! Aborting...",
+            "You are trying to run this script in a way that is currently not supported! Aborting...",
             SPath(__name__).name, CustomRuntimeError  # type:ignore[arg-type]
         )
 
@@ -313,7 +316,7 @@ class ScriptInfo:
         self, exception: Exception | str | None = None,
         footer: int | dict[str, str] | None = None,
         **kwargs: Any
-    ) -> None:
+    ) -> CustomError:
         """Run this when the script has failed."""
         from .config import Config
 
@@ -368,9 +371,12 @@ class ScriptInfo:
         elif exception:
             raise Log.error(exception)
 
+        return CustomError(exception)
+
     def discord_ok(self, **kwargs: Any) -> None:
         """Run this when the script has finished without error."""
         from .config import Config
+        from .encode import Encoder
 
         auth = Config.auth_config
 
@@ -387,18 +393,11 @@ class ScriptInfo:
         # if kwargs.get("bitrate_plot_file", False):
         #     kwargs["image"] = kwargs.get("bitrate_plot_file")
 
-        # if kwargs.get("premux", {}).get("filesize", False):
-        #     filesize_dict = dict(kwargs["premux"]["filesize"])
-        #     byte_size = filesize_dict.get("bytes", 0)
+        if kwargs.get("premux", {}).get("filesize", False):
+            filesize_dict = dict(kwargs["premux"]["filesize"])
 
-        #     if byte_size > 2.56e+11:
-        #         unit, filesize = ("tb", filesize_dict["tb"])
-        #     elif byte_size > 1e+9:
-        #         unit, filesize = ("gb", filesize_dict["gb"])
-        #     else:
-        #         unit, filesize = ("mb", filesize_dict["mb"])
-
-        #     kwargs["description"] += f"\nFilesize: {filesize}{unit}"
+            kwargs["description"] += "\nFilesize: " + \
+                f"{Encoder(self)._prettystring_filesize(filesize_dict.get('mb', '?'), 'mb')}"
 
         if kwargs.get("elapsed_time", False):
             elapsed_time = self.strfdelta(self.elapsed_time())

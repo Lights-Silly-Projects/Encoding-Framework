@@ -1,13 +1,13 @@
-import subprocess
 import re
+import subprocess
 from typing import Any, Literal, cast
 
-from vsmuxtools import AudioTrack, Chapters, AudioFile
+from vsmuxtools import AudioFile, AudioTrack, Chapters
 from vsmuxtools import Encoder as AudioEncoder  # type:ignore[import]
 from vsmuxtools import FFMpeg, HasTrimmer, VideoFile, ensure_path, qAAC, x265
 from vsmuxtools.video.encoders import SupportsQP  # type:ignore[import]
-from vstools import (CustomNotImplementedError, CustomRuntimeError, CustomValueError, FileNotExistsError, FileType,
-                     SPath, SPathLike, vs)
+from vstools import (CustomError, CustomNotImplementedError, CustomRuntimeError, CustomValueError, FileNotExistsError,
+                     FileType, SPath, SPathLike, vs)
 
 from .logging import Log
 from .script import ScriptInfo
@@ -236,7 +236,7 @@ class Encoder:
         import shutil
         from itertools import zip_longest
 
-        from vsmuxtools import FLAC, Sox, is_fancy_codec, make_output, do_audio, frames_to_samples
+        from vsmuxtools import FLAC, Sox, do_audio, frames_to_samples, is_fancy_codec, make_output
 
         if all(not afile for afile in (audio_file, self.audio_files)):
             Log.warn("No audio tracks found to encode...", self.encode_audio)
@@ -504,10 +504,13 @@ class Encoder:
 
         self.premux_path = SPath(mux(video_track, *self.audio_tracks, self.chapters, outfile=out_path))
 
-        Log.info(f"Final file \"{self.premux_path.name}\" output to \"{self.premux_path}\"!", self.mux)
+        Log.info(
+            f"Final file \"{self.premux_path.name}\" output to "
+            f"\"{self.premux_path.parent / self.premux_path.name}\"!", self.mux
+        )
 
         if move_once_done:
-            self.premux_path = self._move_once_done()
+            self.script_info.file = self._move_once_done()
 
         return self.premux_path
 
@@ -585,12 +588,28 @@ class Encoder:
 
         set_output(final_clip)
 
-    def diagnostics(self, filesize_unit: str = "mb") -> dict[str, Any]:
+    def diagnostics(
+        self, premux_path: SPathLike | None = None,
+        filesize_unit: str = "mb", plotbitrate: bool = True
+    ) -> dict[str, Any]:
         """
         Print some diagnostic information about the encode.
 
         Returns an object containing all the diagnostics.
         """
+        elapsed_time = self.script_info.elapsed_time(self.diagnostics)
+
+        self.premux_path = premux_path or self.premux_path
+
+        if not self.premux_path.to_str().endswith(".mkv"):
+            Log.error(f"Premux \"{self.premux_path.name}\" is not an mkv file!", self.diagnostics)
+
+            return {
+                "description": "Given premux file was not an .mkv file... Skipping most diagnostics.",
+                "elapsed_time": elapsed_time,
+            }
+
+
         pmx_fs = self.get_filesize(self.premux_path)
 
         if pmx_fs == 0:
@@ -600,26 +619,31 @@ class Encoder:
             )
 
         Log.info(
-            f"The premux has the following filesize: {self._prettystring_filesize(pmx_fs, filesize_unit)}",
+            f"The premux (\"{self.premux_path.name}\") has the following filesize: "
+            f"{self._prettystring_filesize(pmx_fs, filesize_unit)}",
             self.diagnostics
         )
 
-        elapsed_time = self.script_info.elapsed_time(self.diagnostics)
-
         Log.info("Generating a plot of the bitrate...", self.diagnostics)
 
-        plot_out_path = self.script_info.file / "_assets" / self.premux_path.with_suffix("png")
+        # Try to generate a bitrate plot for further information.
+        plot_out_path = SPath(
+            self.script_info.file.parent / "_assets" / "bitrate_plots"
+            / self.premux_path.with_suffix(".png").name
+        )
 
-        try:
-            subprocess.run([
-                "plotbitrate",
-                "-o", plot_out_path,
-                "-f", "png", "--show-frame-types",
-                self.premux_path,
-            ])
-            Log.info(f"Plot image exported to \"{plot_out_path}\"!", self.diagnostics)
-        except subprocess.CalledProcessError as e:
-            Log.error(str(e), self.diagnostics, CustomRuntimeError)
+        if plotbitrate:
+            try:
+                plot_out_path.parent.mkdir(exist_ok=True)
+                self.__run_plotbitrate(plot_out_path)
+            except FileNotFoundError:
+                plot_out_path.mkdir(exist_ok=True)
+                self.__run_plotbitrate(plot_out_path)
+            except BaseException as e:
+                Log.error(str(e), self.diagnostics, CustomError)
+            finally:
+                if plot_out_path.exists():
+                    Log.info(f"Plot image exported to \"{plot_out_path}\"!", self.diagnostics)
 
         return {
             "premux": {
@@ -636,6 +660,12 @@ class Encoder:
             "bitrate_plot_file": plot_out_path if plot_out_path.exists() else None
         }
 
+    def __run_plotbitrate(self, plot_out_path: SPathLike) -> None:
+        subprocess.run([
+            "plotbitrate", "-o", SPath(plot_out_path).to_str(),
+            "-f", "png", "--show-frame-types", self.premux_path
+        ])
+
     @classmethod
     def get_filesize(cls, file: SPathLike, unit: str = "mb") -> str | float:
         """
@@ -643,7 +673,7 @@ class Encoder:
 
         Valid units: ['bytes', 'kb', 'mb', 'gb', 'tb', 'pb'].
         """
-        units = ['kb', 'mb', 'gb', 'tb', 'pb']
+        units = ['bytes', 'kb', 'mb', 'gb', 'tb', 'pb']
 
         if unit.lower() not in units:
             raise CustomValueError("An invalid unit was passed!", Encoder.get_filesize, f"{unit} not in {units}")

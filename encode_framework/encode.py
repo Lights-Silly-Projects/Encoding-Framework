@@ -2,7 +2,7 @@ import os
 import re
 from typing import Any, Literal, cast
 
-from vsmuxtools import AudioTrack, Chapters
+from vsmuxtools import AudioTrack, Chapters, AudioFile
 from vsmuxtools import Encoder as AudioEncoder  # type:ignore[import]
 from vsmuxtools import FFMpeg, HasTrimmer, VideoFile, ensure_path, qAAC, x265
 from vsmuxtools.video.encoders import SupportsQP  # type:ignore[import]
@@ -233,27 +233,47 @@ class Encoder:
         import shutil
         from itertools import zip_longest
 
-        from vsmuxtools import FLAC, AudioFile, Sox, is_fancy_codec, make_output, do_audio
+        from vsmuxtools import FLAC, Sox, is_fancy_codec, make_output, do_audio, frames_to_samples
 
         if all(not afile for afile in (audio_file, self.audio_files)):
             Log.warn("No audio tracks found to encode...", self.encode_audio)
 
             return []
 
+        is_file = True
+
         if audio_file is not None and audio_file:
-            if isinstance(audio_file, vs.AudioNode) or not isinstance(audio_file, list):
+            if isinstance(audio_file, vs.AudioNode):
+                audio_file = [audio_file]
+            elif not isinstance(audio_file, list):
                 audio_file = [SPath(audio_file)]
+
+        if any([isinstance(audio_file, vs.AudioNode)]):
+            is_file = False
+            Log.warn("AudioNode passed! This may be a buggy experience...", self.encode_audio)
 
         process_files = audio_file or self.audio_files
 
+        # Remove acopy files first so they don't mess with reorder and stuff.
+        if is_file:
+            self.__clean_acopy(process_files[0])
+
         wclip = ref or self.script_info.src.src
 
+        # Normalising trims.
         if trims is None:
-            trims = [self.script_info.src.trim]
+            if is_file:
+                trims = [self.script_info.src.trim]
+            else:
+                trims = [(
+                    frames_to_samples(self.script_info.src.trim[0]),
+                    frames_to_samples(self.script_info.src.trim[1])
+                )]
         elif isinstance(trims, tuple):
             trims = [trims]
 
-        if reorder:
+        # Normalising reordering of tracks.
+        if reorder and is_file:
             if len(reorder) > len(process_files):
                 reorder = reorder[:len(process_files)]
 
@@ -270,9 +290,11 @@ class Encoder:
         # TODO: Figure out how much I can move out of this for loop.
         for i, (audio_file, trim) in enumerate(zip_longest(process_files, trims, fillvalue=trims[-1])):
             Log.debug(f"Processing audio track {i + 1}/{len(process_files)}...", self.encode_audio)
+            Log.debug(f"Processing audio file \"{audio_file}\"...", self.encode_audio)
 
+            # This is mainly meant to support weird trims we don't typically support and should not be used otherwise!
             if isinstance(audio_file, vs.AudioNode):
-                Log.error("Not properly supported yet! This may fail!", self.encode_audio, CustomNotImplementedError)
+                Log.warn("Not properly supported yet! This may fail!", self.encode_audio, CustomNotImplementedError)
 
                 self.audio_tracks += [
                     do_audio(audio_file, encoder=encoder)
@@ -288,8 +310,9 @@ class Encoder:
             if SPath(trimmed_file.parent / ".temp").exists():
                 shutil.rmtree(trimmed_file.parent / ".temp")
 
+            # If a trimmed audio file already exists, this means it was likely already encoded.
             if trims and trimmed_file.exists():
-                Log.debug(f"Trimmed file found at \"{trimmed_file}\"! Skipping encoding...")
+                Log.debug(f"Trimmed file found at \"{trimmed_file}\"! Skipping encoding...", self.encode_audio)
 
                 self.audio_tracks += [
                     AudioFile.from_file(trimmed_file, self.encode_audio)
@@ -308,14 +331,18 @@ class Encoder:
             except (AssertionError, ValueError):
                 is_audio_file = False
 
+            # vsmuxtools, at the time of writing, deletes the original audio files if you pass an external file.
             if is_audio_file and not afile_copy.exists():
-                # vsmuxtools, at the time of writing, deletes the original audio files if you pass an external file.
-                Log.debug(f"Copying audio file \"{afile.file.name}\" (this is a temporary workaround)!")
+                Log.debug(
+                    f"Copying audio file \"{afile.file.name}\" "
+                    "(this is a temporary workaround)!", self.encode_audio
+                )
 
                 afile_copy = shutil.copy(afile.file, afile_copy)
 
             is_lossy = False if force else afile.is_lossy()
 
+            # Trim the audio file if applicable.
             if trims and trimmer is not False:
                 trimmer_obj = trimmer or (FFMpeg.Trimmer if is_lossy else Sox)
                 trimmer_obj = trimmer_obj(**trimmer_kwargs)
@@ -323,17 +350,23 @@ class Encoder:
                 setattr(trimmer_obj, "trim", trim)
 
                 if str(afile.file).endswith(".w64") or (force and afile.is_lossy()):
-                    Log.debug("Audio files has w64 extension, creating an intermediary encode...", self.encode_audio)
+                    Log.debug("Audio file has w64 extension, creating an intermediary encode...", self.encode_audio)
 
                     afile = FLAC(compression_level=0, dither=False).encode_audio(afile)
 
                 afile = trimmer_obj.trim_audio(afile)
 
-            if is_lossy:
+            # Unset the encoder if force=False and it's a specific kind of audio track.
+            if is_lossy and force:
+                Log.warn("Input audio is lossy, but \"force=True\"...", self.encode_audio, 1)
+            elif is_fancy_codec(afile.get_mediainfo()) and force:
+                Log.warn("Audio contain Atmos or special DTS features, but \"force=True\"...", self.encode_audio, 1)
+            elif is_lossy and not force:
                 Log.warn("Input audio is lossy. Not re-encoding...", self.encode_audio, 1)
                 encoder = None
-            elif is_fancy_codec(afile.get_mediainfo()):
+            elif is_fancy_codec(afile.get_mediainfo()) and not force:
                 Log.warn("Audio contain Atmos or special DTS features. Not re-encoding...", self.encode_audio, 1)
+                encoder = None
 
             if encoder:
                 setattr(encoder, "output", None)
@@ -341,12 +374,38 @@ class Encoder:
                 ensure_path(afile.file, self.encode_audio).unlink(missing_ok=True)
                 afile = encoded
 
+            # Move the acopy to the original position if muxtools Thanos snapped it.
             if not SPath(afile_old).exists():
-                SPath(afile_copy).replace(afile_old)
+                afile_copy.replace(afile_old)
+                afile_copy.unlink(missing_ok=True)
 
             self.audio_tracks += [afile.to_track(default=not bool(i), **track_args)]
 
+        # Remove acopy files again so they don't mess up future encodes.
+        self.__clean_acopy(afile.file)
+
         return self.audio_tracks
+
+    def __clean_acopy(self, base_path: SPathLike | AudioFile) -> None:
+        """Try to forcibly clean up acopy files so they no longer pollute other methods."""
+        from vsmuxtools import GlobSearch
+
+        if isinstance(base_path, AudioFile):
+            file = base_path.file
+
+            if isinstance(file, list):
+                file = file[0]
+            elif isinstance(file, GlobSearch):
+                file = list(file)[0]
+        else:
+            file = base_path
+
+        try:
+            for acopy in SPath(file).parent.glob("*.acopy"):
+                Log.debug(f"Unlinking file \"{acopy}\"...", self.encode_audio)
+                SPath(acopy).unlink(missing_ok=True)
+        except Exception as e:
+            Log.error(str(e), self.__clean_acopy, CustomValueError)
 
     def encode_video(
         self,

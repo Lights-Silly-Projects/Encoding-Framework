@@ -215,6 +215,12 @@ class Squaremask:
         if ranges is None:
             ranges = [(None, None)]
 
+        if width < 0:
+            width = abs(width) - offset_x
+
+        if height < 0:
+            height = abs(height) - offset_y
+
         self.ranges = ranges
         self.width = width
         self.height = height
@@ -225,16 +231,16 @@ class Squaremask:
 
     def apply(self, clip_a: vs.VideoNode, clip_b: vs.VideoNode, ranges: FrameRangesN = None) -> vs.VideoNode:
         """Apply the squaremasks."""
-        self.ranges = ranges or self.ranges
+        self.generate_mask(clip_a, ranges)
 
-        self.generate_mask(clip_a)
-
-        return core.std.MaskedMerge(clip_a, clip_b, self.mask_clip)
+        merged = core.std.MaskedMerge(clip_a, clip_b, self.mask_clip)
+        return merged
+        return replace_ranges(clip_a, merged, self.ranges)
 
     def generate_mask(self, ref: vs.VideoNode, ranges: FrameRangesN = None) -> vs.VideoNode:
         """Generate a mask and add it to a mask clip."""
         from vsmasktools import squaremask
-        from vsrgtools import bilateral
+        from vsrgtools import gauss_blur
         from vstools import plane
 
         self.ranges = ranges or self.ranges
@@ -263,11 +269,13 @@ class Squaremask:
 
         sq = squaremask(self.mask_clip, self.width, self.height, self.offset_x, self.offset_y, self.invert, self.apply)
 
-        if self.ranges is not None:
-            self.mask_clip = replace_ranges(self.mask_clip, sq, self.ranges)
-
         if self.sigma:
-            self.mask_clip = bilateral(self.mask_clip, self.sigma)
+            sq = gauss_blur(sq, self.sigma)
+
+        if self.ranges:
+            sq = replace_ranges(self.mask_clip, sq, self.ranges)
+
+        self.mask_clip = sq
 
         return self.mask_clip
 

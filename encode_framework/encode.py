@@ -110,6 +110,9 @@ class Encoder:
         else:
             dgi_file = self.script_info.src_file
 
+        # Pre-clean acopy files because it's a pain if you ran this after updating...
+        self.__clean_acopy(dgi_file)
+
         if not dgi_file.to_str().endswith(".dgi"):
             Log.debug("Trying to pass a non-dgi file! Figuring out an audio source...", self.find_audio_files)
 

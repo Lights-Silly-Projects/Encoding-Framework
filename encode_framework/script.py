@@ -383,6 +383,10 @@ class ScriptInfo:
         if not kwargs.get("description", False):
             kwargs["description"] = ""
 
+        # TODO: Find how to send attachments properly, or upload to imgur first and then send.
+        # if kwargs.get("bitrate_plot_file", False):
+        #     kwargs["image"] = kwargs.get("bitrate_plot_file")
+
         # if kwargs.get("premux", {}).get("filesize", False):
         #     filesize_dict = dict(kwargs["premux"]["filesize"])
         #     byte_size = filesize_dict.get("bytes", 0)

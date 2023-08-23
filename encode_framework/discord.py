@@ -3,7 +3,7 @@ Module for using Discord webhooks. NEVER share your webhook url or account detai
 """
 import re
 from random import choice
-from typing import Any
+from typing import Any, Literal
 
 import requests
 
@@ -20,7 +20,7 @@ def notify_webhook(
     username: str, author: str, avatar: str,
     webhook_url: str, color: str = "33023",
     title: str = "{show_name} {ep_num} has finished encoding!",
-    description: str = "",
+    description: str = "", image: str | Literal[False] = False,
     retries: int = 3, footer: int | dict[str, str] | list[dict[str, str]] | None = None,
     **kwargs: Any
 ) -> None:
@@ -96,6 +96,10 @@ def notify_webhook(
             }
         ]
     }
+
+    if image:
+        Log.debug(f"Image to send within the payload: {image}")
+        payload["embeds"]["image"] = {"url": image}
 
     attempts = 0
 

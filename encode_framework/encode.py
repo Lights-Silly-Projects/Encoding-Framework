@@ -1,4 +1,4 @@
-import os
+import subprocess
 import re
 from typing import Any, Literal, cast
 
@@ -603,6 +603,21 @@ class Encoder:
 
         elapsed_time = self.script_info.elapsed_time(self.diagnostics)
 
+        Log.info("Generating a plot of the bitrate...", self.diagnostics)
+
+        plot_out_path = self.script_info.file / "_assets" / self.premux_path.with_suffix("png")
+
+        try:
+            subprocess.run([
+                "plotbitrate",
+                "-o", plot_out_path,
+                "-f", "png", "--show-frame-types",
+                self.premux_path,
+            ])
+            Log.info(f"Plot image exported to \"{plot_out_path}\"!", self.diagnostics)
+        except subprocess.CalledProcessError as e:
+            Log.error(str(e), self.diagnostics, CustomRuntimeError)
+
         return {
             "premux": {
                 "location": self.premux_path,
@@ -615,6 +630,7 @@ class Encoder:
                 },
             },
             "elapsed_time": elapsed_time,
+            "bitrate_plot_file": plot_out_path if plot_out_path.exists() else None
         }
 
     @classmethod
@@ -624,7 +640,7 @@ class Encoder:
 
         Valid units: ['bytes', 'kb', 'mb', 'gb', 'tb', 'pb'].
         """
-        units = ['bytes', 'kb', 'mb', 'gb', 'tb', 'pb']
+        units = ['kb', 'mb', 'gb', 'tb', 'pb']
 
         if unit.lower() not in units:
             raise CustomValueError("An invalid unit was passed!", Encoder.get_filesize, f"{unit} not in {units}")

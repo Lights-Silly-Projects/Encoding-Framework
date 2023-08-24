@@ -313,7 +313,7 @@ class ScriptInfo:
             notify_webhook(**wh_args)
 
     def discord_failed(
-        self, exception: Exception | str | None = None,
+        self, exception: BaseException | str | None = None,
         footer: int | dict[str, str] | None = None,
         **kwargs: Any
     ) -> CustomError:

@@ -308,17 +308,20 @@ def apply_squaremasks(
     """Apply a bunch of squaremasks at once."""
     from vsexprtools import ExprOp
 
+    if not squaremasks:
+        return clip_a
+
     mask = clip_a.std.BlankClip(format=vs.GRAY16)
 
     if isinstance(squaremasks, Squaremask):
         squaremasks = [squaremasks]
 
-    for sqmask in squaremasks:
+    for i, sqmask in enumerate(squaremasks, start=1):
         sqmask_clip = sqmask.generate_mask(clip_a)
         sqmask_clip = ExprOp.MAX(sqmask_clip, mask)
 
         if print_sq:
-            print(sqmask)
+            print(i, "-", sqmask)
 
         mask = replace_ranges(mask, sqmask_clip, sqmask.ranges)
 

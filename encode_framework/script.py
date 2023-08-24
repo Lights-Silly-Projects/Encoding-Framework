@@ -87,8 +87,8 @@ class ScriptInfo:
         self.show_title = show_title or split[0]
         self.ep_num = ep_num or split[1]
 
-        self.sc_path = SPath(f".vspreview/scenechanges/{self.file.stem}_scening.txt")
-        self.sc_lock_file = SPath(f".vspreview/scenechanges/{self.file.stem}_scening.lock")
+        self.sc_path = SPath(f"_scenechanges/{self.file.stem}_scening.txt")
+        self.sc_lock_file = SPath(f"_scenechanges/{self.file.stem}_scening.lock")
 
         tc_path = SPath(f"_assets/{self.file.stem}_timecodes.txt")
 

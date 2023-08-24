@@ -627,7 +627,7 @@ class Encoder:
 
         # Try to generate a bitrate plot for further information.
         plot_out_path = SPath(
-            self.script_info.file.parent / "_assets" / "bitrate_plots"
+            self.script_info.file.parents[1] / "_assets" / "bitrate_plots"
             / self.premux_path.with_suffix(".png").name
         )
 

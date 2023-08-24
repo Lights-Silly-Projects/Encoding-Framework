@@ -204,7 +204,7 @@ class ScriptInfo:
         kf = Keyframes.from_clip(wclip, mode)
         kf.append(wclip.num_frames - 1)
 
-        self.sc_path.parents[0].mkdir(exist_ok=True, parents=True)
+        self.sc_path.parent.mkdir(exist_ok=True, parents=True)
 
         kf.to_file(self.sc_path, force=True, func=self.generate_keyframes)
 

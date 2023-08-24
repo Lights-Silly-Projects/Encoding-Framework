@@ -3,7 +3,7 @@
     These aren't in other packages, and often highly experimental.
 """
 
-from typing import Any
+from typing import Any, Literal
 
 from vsdehalo import base_dehalo_mask
 from vsdeinterlace import vinverse
@@ -196,7 +196,7 @@ def diff_keyframes(
 
 
 class Squaremask:
-    ranges: tuple[int | None, int | None] | None = None
+    ranges: tuple[int | None | Literal["auto"], int | None | Literal["auto"]] | None = None
     """Ranges to apply a squaremask."""
 
     width: int

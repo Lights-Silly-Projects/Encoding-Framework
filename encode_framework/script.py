@@ -292,10 +292,16 @@ class ScriptInfo:
 
         auth = Config.auth_config
 
+        if self.dryrun:
+            Log.warn("Performing a dry run, no discord webhook notifications...", self.discord_start)
+            return
+
         if not auth.has_section("DISCORD"):
+            Log.debug("No DISCORD section in auth file", self.discord_start)
             return
 
         if not auth.has_option("DISCORD", "webhook"):
+            Log.debug("No webhook option in DISCORD section in auth file", self.discord_start)
             return
 
         wh_args = dict(
@@ -309,8 +315,7 @@ class ScriptInfo:
 
         wh_args |= kwargs
 
-        if not self.dryrun:
-            notify_webhook(**wh_args)
+        notify_webhook(**wh_args)
 
     def discord_failed(
         self, exception: BaseException | str | None = None,
@@ -321,6 +326,9 @@ class ScriptInfo:
         from .config import Config
 
         auth = Config.auth_config
+
+        if self.dryrun:
+            return
 
         if not auth.has_section("DISCORD"):
             return
@@ -366,10 +374,10 @@ class ScriptInfo:
 
         wh_args |= kwargs
 
-        if not self.dryrun:
-            notify_webhook(**wh_args)
-        elif exception:
+        if exception:
             raise Log.error(exception)
+
+        notify_webhook(**wh_args)
 
         return CustomError(exception)
 
@@ -379,6 +387,9 @@ class ScriptInfo:
         from .encode import Encoder
 
         auth = Config.auth_config
+
+        if self.dryrun:
+            return
 
         if not auth.has_section("DISCORD"):
             return
@@ -419,8 +430,7 @@ class ScriptInfo:
 
         wh_args |= kwargs
 
-        if not self.dryrun:
-            notify_webhook(**wh_args)
+        notify_webhook(**wh_args)
 
     def upload_to_ftp(self) -> None:
         raise NotImplementedError

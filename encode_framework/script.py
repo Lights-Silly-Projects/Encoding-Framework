@@ -108,6 +108,8 @@ class ScriptInfo:
 
         if trim is None:
             trim = (None, None)
+        elif isinstance(trim, int):
+            trim = (trim, -trim)
         elif any(isinstance(x, str) for x in trim):
             trim_pre, trim_post = trim
 
@@ -121,8 +123,6 @@ class ScriptInfo:
             self.sc_lock_file
 
             trim = (trim_pre, trim_post)
-        elif isinstance(trim, int):
-            trim = (trim, -trim)
 
         if force_dgi and not self.src_file.to_str().endswith(".dgi"):
             try:

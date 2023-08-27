@@ -706,6 +706,6 @@ class Encoder:
         return filesize
 
     @classmethod
-    def _prettystring_filesize(cls, filesize: float, unit: str = "mb", rnd: int = 3) -> str:
+    def _prettystring_filesize(cls, filesize: float, unit: str = "mb", rnd: int = 2) -> str:
         """Create a pretty string out of the components for a filesize."""
         return f"{round(filesize, rnd)}{unit}"

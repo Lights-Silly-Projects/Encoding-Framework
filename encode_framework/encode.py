@@ -1,3 +1,4 @@
+import os
 import re
 import shutil
 import subprocess
@@ -495,7 +496,7 @@ class Encoder:
             sub_delay = frame_to_ms(self.script_info.src.trim[0], self.out_clip.fps, compensate=True)
 
         try:
-            check_program_installed("tesseract", "https://codetoprosper.com/tesseract-ocr-for-windows/")
+            check_program_installed("tesseract", "https://codetoprosper.com/tesseract-ocr-for-windows/", _raise=True)
         except FileNotFoundError as e:
             Log.error(str(e), self.process_subs)
 
@@ -538,7 +539,7 @@ class Encoder:
 
             get_mime = mg.from_file(SPath(sub).to_str())
 
-            if get_mime == "application/octet-stream":
+            if get_mime == "application/octet-stream" and sub_spath.to_str().endswith((".sup", ".pgs")):
                 from pgsrip import Options, Sup, pgsrip  # type:ignore
 
                 if pgsrip.rip(Sup(sub), Options(languages=langs, overwrite=not strict, one_per_lang=False)):
@@ -585,8 +586,22 @@ class Encoder:
 
                 proc_files += [sub_spath]
 
-        for i, sub in enumerate(sub_files):
-            self.subtitle_tracks += [SubTrack(sub, default=not bool(i), delay=int(sub_delay))]
+        proc_set = set(proc_files)
+
+        if len(proc_files) != len(proc_set):
+            Log.debug(f"Removed duplicate tracks ({len(proc_files)} -> {len(proc_set)})", self.process_subs)
+
+        first_track_removed = False
+
+        for i, sub in enumerate(proc_set):
+            if os.stat(sub).st_size == 0:
+                Log.warn(f"\"{SPath(sub).name}\" is an empty file! Ignoring...", self.process_subs)
+
+                first_track_removed = True
+
+                continue
+
+            self.subtitle_tracks += [SubTrack(sub, default=first_track_removed or not bool(i), delay=int(sub_delay))]
 
         return self.subtitle_tracks
 

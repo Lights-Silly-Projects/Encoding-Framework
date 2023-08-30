@@ -860,6 +860,12 @@ class Encoder:
                     "gb": self.get_filesize(self.premux_path, "gb"),
                     "tb": self.get_filesize(self.premux_path, "tb"),
                 },
+                "tracks": {
+                    "video": self.video_file,
+                    "audio": self.audio_tracks,
+                    "subtitles": self.subtitle_tracks,
+                    "chapters": self.chapters
+                }
             },
             "elapsed_time": elapsed_time,
             "bitrate_plot_file": plot_out_path if plot_out_path.exists() else None

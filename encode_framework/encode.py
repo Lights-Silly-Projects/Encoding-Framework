@@ -261,7 +261,7 @@ class Encoder:
         if is_file:
             self.__clean_acopy(process_files[0])
 
-        wclip = ref or self.script_info.src.src
+        wclip = ref or self.out_clip
 
         # Normalising trims.
         if trims is None:

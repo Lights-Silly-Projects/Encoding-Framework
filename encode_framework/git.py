@@ -27,7 +27,7 @@ def clone_git_repo(
         return out_path
 
     try:
-        Log.info(f"Cloning \"{repo_name}\"...", clone_git_repo)
+        Log.info(f"Cloning repository \"{repo_name}\" (\"{url}\")...", clone_git_repo)
         Repo.clone_from(url, out_path.to_str(), progress=_CloneProgress())  # type:ignore[arg-type]
     except GitCommandError as e:
         if "already exists" in str(e):

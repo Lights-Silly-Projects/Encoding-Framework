@@ -412,6 +412,25 @@ class ScriptInfo:
         # if kwargs.get("bitrate_plot_file", False):
         #     kwargs["image"] = kwargs.get("bitrate_plot_file")
 
+        if kwargs.get("premux", {}).get("tracks", False):
+            atracks = kwargs.get("premux", {}).get("tracks", {}).get("audio", False)
+            stracks = kwargs.get("premux", {}).get("tracks", {}).get("subtitles", False)
+            ctracks = kwargs.get("premux", {}).get("tracks", {}).get("chapters", False)
+
+            if any([atracks, stracks, ctracks]):
+                kwargs["description"] += "\nTracks: "
+
+                found = ["Video (1)"]
+
+                if atracks:
+                    found += [f"Audio ({len(atracks)})"]
+                if stracks:
+                    found += [f"Subtitles ({len(stracks)})"]
+                if ctracks:
+                    found += [f"Chapters ({len(ctracks.chapters)})"]
+
+                kwargs["description"] += ", ".join(found)
+
         if kwargs.get("premux", {}).get("filesize", False):
             filesize_dict = dict(kwargs["premux"]["filesize"])
 

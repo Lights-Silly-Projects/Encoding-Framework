@@ -98,8 +98,8 @@ class Ftp:
     def _hasopt(self, key) -> bool:
         return self.config_parsed.has_option("FTP", key)
     
-    def _getopt(self, key, fallback) -> str:
-        return self.config_parsed.get("FTP", key, fallback=fallback)
+    def _getopt(self, key, fallback=None, *, raw=False) -> str:
+        return self.config_parsed.get("FTP", key, fallback=fallback, raw=raw)
 
     def _create_sftp_config(self) -> None:
         if not self._hasopt("host") and self._hasopt("username") and self._hasopt("password"):
@@ -110,10 +110,10 @@ class Ftp:
         self.host = self._getopt("host")
         self.port = int(self._getopt("port", 22))
         self.username = self._getopt("username")
-        self.password = self._getopt("password")
+        self.password = self._getopt("password", raw=True)
         self.upload_directory = self._getopt("upload_dir", "/")
 
-        Log.debug(f"Set up SFTP, uploading to {self.username}@[{self.host}:{self.port}]:{self.upload_directory}", self.__class__.__name__)
+        Log.debug(f"Set up SFTP, uploading to {self.username}@{self.host}:{self.port}:{self.upload_directory}", self.__class__.__name__)
 
     def get_welcome(self) -> None:
         ...
@@ -125,4 +125,5 @@ class Ftp:
         import pysftp
         with pysftp.Connection(self.host, username=self.username, password=self.password) as sftp:
             with sftp.cd(self.upload_directory):
+                Log.info(f"Uploading {target_file} to {self.username}@{self.host}:{self.port}:{self.upload_directory}", self.upload)
                 sftp.put(target_file)

@@ -19,4 +19,6 @@ test*
 *.ini
 *.log
 /tessdata_best/**/*
+/vcpkg/**/*
 tessdata_best
+vcpkg

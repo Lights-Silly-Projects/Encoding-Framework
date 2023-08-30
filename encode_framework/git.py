@@ -4,7 +4,6 @@ from __future__ import annotations
 from git import GitCommandError, RemoteProgress, Repo
 from rich import console, progress
 from vstools import SPath, SPathLike
-import shutil
 
 from .logging import Log
 

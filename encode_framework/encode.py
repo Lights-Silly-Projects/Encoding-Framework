@@ -147,6 +147,8 @@ class Encoder:
             audio_files: list[SPath] = []
 
             for f in dgi_file.parent.glob(f"{dgi_file.stem}*.*"):
+                Log.debug(f"Checking the following file: \"{f.name}\"...", self.find_audio_files)
+
                 try:
                     FileType.AUDIO.parse(f, func=self.find_audio_files)
                 except (AssertionError, ValueError):
@@ -440,15 +442,28 @@ class Encoder:
         mg = Magic(mime=True)
 
         # TODO: make sure this checks the stem of the filename so it doesn't grab the wrong sup's.
-        for f in dgi_file.glob(f"*.*"):
+        for f in dgi_file.parent.glob(f"{dgi_file.stem}*.*"):
+            Log.debug(f"Checking the following file: \"{f.name}\"...", self.find_sub_files)
+
             get_mime = mg.from_file(f.to_str())
 
-            if get_mime == "application/octet-stream":
+            if get_mime == "application/octet-stream" and f.to_str().endswith((".sup", ".pgs")):
                 self.subtitle_files += [f]
             elif get_mime == "video/mpeg" and f.to_str().endswith(".sub"):
                 self.subtitle_files += [f]
             elif f.to_str().endswith(TextSubExt):
                 self.subtitle_files += [f]
+
+        if not self.subtitle_files:
+            return self.subtitle_files
+
+        Log.info("The following subtitle files were found!", self.find_sub_files)
+
+        for f in self.subtitle_files:
+            try:
+                Log.info(f"    - \"{SPath(f).name}\"", self.find_sub_files)
+            except (AttributeError, ValueError) as e:
+                Log.warn(f"    - Could not determine track name!\n{e}", self.find_sub_files)
 
         return self.subtitle_files
 

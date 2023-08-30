@@ -489,7 +489,14 @@ class Encoder:
         """Mux the different tracks together."""
         from vsmuxtools import mux
 
-        video_track = self.video_file.to_track(default=True, timecode_file=self.script_info.tc_path, lang="")
+        if self.script_info.tc_path.exists():
+            Log.info(f"Timecode file found at \"{self.script_info.tc_path}\"!", self.mux)
+
+            tc_path = self.script_info.tc_path
+        else:
+            tc_path = None
+
+        video_track = self.video_file.to_track(default=True, timecode_file=tc_path, lang=lang)
 
         if Log.is_debug:
             Log.debug("Merging the following files:", self.mux)
@@ -500,7 +507,7 @@ class Encoder:
                     Log.debug(f"   - [AUDIO] {track.file}", self.mux)
 
             if self.chapters:
-                Log.debug(f"   - [CHAPTERS] {self.chapters}", self.mux)
+                Log.debug(f"   - [CHAPTERS] {self.chapters.chapters}", self.mux)
 
         self.premux_path = SPath(mux(video_track, *self.audio_tracks, self.chapters, outfile=out_path))
 

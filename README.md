@@ -80,3 +80,4 @@ These features are currently planned and will likely be implemented at a future 
 -   Make it so the user is no longer required to pass `__file__` to ScriptInfo. Should be easy, I'm just lazy
 -   Turn `Preview.set_output_nodes` into a classmethod?
 -   Upload and download from an FTP defined in the config file
+    - Currently only exists for SFTP, using `pysftp`

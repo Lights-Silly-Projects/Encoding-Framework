@@ -1,7 +1,7 @@
 """
     An FTP module, created to automatically upload or download files to or from an FTP.
 """
-from vstools import SPath, SPathLike, CustomNotImplementedError
+from vstools import SPath, SPathLike, CustomNotImplementedError, CustomValueError
 from configparser import ConfigParser
 from ftplib import FTP
 
@@ -44,7 +44,17 @@ class Ftp:
     """The directory to upload the files to."""
 
     def __init__(self, config_file: SPathLike = "ftp.ini") -> None:
-        raise CustomNotImplementedError(None, self)  # type:ignore[arg-type]
+        from ..config import Config
+        
+        auth = Config.auth_config
+        if auth.has_section("FTP") and auth.has_option("FTP", "sftp") and auth.getboolean("FTP", "sftp"):
+            # valid(?) sftp config found
+            self.config_parsed = auth
+            self._create_sftp_config()
+            self.sftp = True
+            return
+        
+        raise CustomNotImplementedError(None, self)
         self.config_file = SPath(config_file).with_suffix(".ini")
 
         self.config_parsed = ConfigParser()
@@ -85,8 +95,34 @@ class Ftp:
         if not SPath(".gitignore").exists():
             append_gitignore(options=[self.config_file])
 
+    def _hasopt(self, key) -> bool:
+        return self.config_parsed.has_option("FTP", key)
+    
+    def _getopt(self, key, fallback) -> str:
+        return self.config_parsed.get("FTP", key, fallback=fallback)
+
+    def _create_sftp_config(self) -> None:
+        if not self._hasopt("host") and self._hasopt("username") and self._hasopt("password"):
+            missing = ', '.join(k for k in ('host', 'username', 'password') if not self._hasopt(k))
+            Log.warn(f"Please configure FTP settings! Missing key(s): {missing}", self.__class__.__name__)
+            raise CustomValueError(f"FTP settings missing one or more required values: {missing}")
+
+        self.host = self._getopt("host")
+        self.port = int(self._getopt("port", 22))
+        self.username = self._getopt("username")
+        self.password = self._getopt("password")
+        self.upload_directory = self._getopt("upload_dir", "/")
+
+        Log.debug(f"Set up SFTP, uploading to {self.username}@[{self.host}:{self.port}]:{self.upload_directory}", self.__class__.__name__)
+
     def get_welcome(self) -> None:
         ...
 
-    def upload(self) -> None:
-        ...
+    def upload(self, target_file: SPath) -> None:
+        if not self.sftp:
+            Log.warn("Only SFTP is supported currently", self.upload)
+            raise CustomNotImplementedError("Only SFTP is supported currently", self)
+        import pysftp
+        with pysftp.Connection(self.host, username=self.username, password=self.password) as sftp:
+            with sftp.cd(self.upload_directory):
+                sftp.put(target_file)

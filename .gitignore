@@ -11,3 +11,14 @@
 build/
 dist/
 venv/
+
+# Test files.
+test*
+
+# Files generated while testing.
+*.ini
+*.log
+/tessdata_best/**/*
+/vcpkg/**/*
+tessdata_best
+vcpkg

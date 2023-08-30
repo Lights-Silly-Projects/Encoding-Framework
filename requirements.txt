@@ -1,1 +1,11 @@
-vapoursynth>=62
+babelfish>=0.6.0
+pgsrip>=0.1.9
+pymediainfo>=6.0.1
+python-magic-bin>=0.4.14
+rekt>=0.2015.11.6
+Requests>=2.31.0
+rich>=13.5.2
+setuptools>=65.5.0
+vs_rekt>=1.0.0
+vsiew>=2.0.1
+vsmuxtools>=0.0.7

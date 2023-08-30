@@ -11,3 +11,4 @@ from .script import *
 from .types import *
 from .updater import *
 from .util import *
+from .git import *

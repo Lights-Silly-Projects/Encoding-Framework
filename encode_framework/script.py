@@ -90,10 +90,7 @@ class ScriptInfo:
         self.sc_path = SPath(f"_scenechanges/{self.file.stem}_scening.txt")
         self.sc_lock_file = SPath(f"_scenechanges/{self.file.stem}_scening.lock")
 
-        tc_path = SPath(f"_assets/{self.file.stem}_timecodes.txt")
-
-        if tc_path.exists():
-            self.tc_path = tc_path
+        self.tc_path = SPath(f"_assets/{self.file.stem}_timecodes.txt")
 
     def index(
         self, path: SPathLike, trim: TrimAuto | int | None = None,
@@ -136,6 +133,17 @@ class ScriptInfo:
 
         self.src = src_file(self.src_file.to_str(), trim=trim)
         self.clip_cut = cast(vs.VideoNode, self.src.init_cut()).std.SetFrameProps(Name="src")
+
+        if any(x is None for x in trim):
+            trim = list(trim)
+
+            if trim[0] is None:
+                trim[0] = 0
+
+            if trim[1] is None:
+                trim[1] = self.clip_cut.num_frames + 1
+
+            self.src.trim = tuple(trim)
 
         if name is not None:
             self.clip_cut = self.clip_cut.std.SetFrameProps(Name=name)

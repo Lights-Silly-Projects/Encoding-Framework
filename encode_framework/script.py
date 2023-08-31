@@ -382,10 +382,10 @@ class ScriptInfo:
 
         wh_args |= kwargs
 
+        notify_webhook(**wh_args)
+
         if exception:
             raise Log.error(exception)
-
-        notify_webhook(**wh_args)
 
         return CustomError(exception)
 

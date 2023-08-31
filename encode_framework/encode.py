@@ -680,7 +680,7 @@ class Encoder:
 
         return cast(VideoFile, self.video_file)
 
-    def mux(self, out_path: SPathLike | None = None, move_once_done: bool = False, lang: str = "jp") -> SPath:
+    def mux(self, out_path: SPathLike | None = None, move_once_done: bool = False, lang: str = "ja") -> SPath:
         """Mux the different tracks together."""
         from vsmuxtools import mux
 

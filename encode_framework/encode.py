@@ -714,8 +714,12 @@ class Encoder:
                 for track in self.audio_tracks:
                     Log.debug(f"   - [AUDIO] {track.file}", self.mux)
 
+            if self.subtitle_tracks:
+                for track in self.subtitle_tracks:
+                    Log.debug(f"   - [SUBTITLES] {track.file}", self.mux)
+
             if self.chapters:
-                Log.debug(f"   - [CHAPTERS] {self.chapters.chapters}", self.mux)
+                Log.debug(f"   - [CHAPTERS] {[ch[1] for ch in self.chapters.chapters]}", self.mux)
 
         self.premux_path = SPath(mux(
             video_track, *self.audio_tracks, *self.subtitle_tracks,

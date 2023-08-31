@@ -327,7 +327,6 @@ class ScriptInfo:
 
     def discord_failed(
         self, exception: BaseException | str | None = None,
-        footer: int | dict[str, str] | None = None,
         **kwargs: Any
     ) -> CustomError:
         """Run this when the script has failed."""
@@ -350,23 +349,6 @@ class ScriptInfo:
         if exception:
             exception = markdownify(str(exception))
 
-        # TODO: Add more
-        footers = [
-            {
-                "text": "Aw, shucks...",
-                "icon_url": "https://archives.bulbagarden.net/media/upload/7/73/MDP_E_213.png"
-            },
-            {
-                "text": "EVERYTHING IS ON FIIIREEEEEE!!!",
-                "icon_url": "https://i.imgur.com/wwZn1UR.png"
-            },
-        ]
-
-        if isinstance(footer, int):
-            footers = footers[footer]
-        elif isinstance(footer, (list, dict)):
-            footers = footer
-
         wh_args = dict(
             show_name=self.show_title, ep_num=self.ep_num,
             username=auth.get("DISCORD", "name", fallback="EncodeRunner"),
@@ -377,7 +359,6 @@ class ScriptInfo:
             description="{exception}",
             exception=exception or "Please consult the stacktrace on the system the encode ran on",
             color="12582912",
-            footer=footers
         )
 
         wh_args |= kwargs

@@ -493,7 +493,9 @@ class Encoder:
                 Log.warn(f"    - Could not determine track name!\n{e}", self.process_subs)
 
         if sub_delay is None:
-            sub_delay = frame_to_ms(self.script_info.src.trim[0], self.out_clip.fps, compensate=True)
+            sub_delay = frame_to_ms(self.script_info.src.trim[0], self.out_clip.fps, compensate=True) * -1
+
+        # TODO: Add trim logic.
 
         try:
             check_program_installed("tesseract", "https://codetoprosper.com/tesseract-ocr-for-windows/", _raise=True)
@@ -521,6 +523,7 @@ class Encoder:
 
         mg = Magic(mime=True)
         proc_files = []
+        ocrd = []
 
         for i, sub in enumerate(sub_files):
             sub_spath = SPath(sub)
@@ -544,7 +547,9 @@ class Encoder:
 
                 if pgsrip.rip(Sup(sub), Options(languages=langs, overwrite=not strict, one_per_lang=False)):
                     Log.info(f"[{i + 1}/{len(sub_files)}] Done!", self.process_subs)
+
                     proc_files += [sub_spath.with_suffix(".srt")]
+                    ocrd += [sub_spath.with_suffix(".srt")]
                 else:
                     Log.warn(
                         f"An error occurred while OCRing \"{sub_spath.name}\"! Passing the original file instead...",
@@ -574,6 +579,7 @@ class Encoder:
                     run_cmd(["vobsubocr", "-l", langs[0], "-o", out, idx])
 
                     proc_files += [out]
+                    ocrd += [out]
                 except Exception as e:
                     Log.error(str(e), self.process_subs)
 
@@ -601,7 +607,14 @@ class Encoder:
 
                 continue
 
-            self.subtitle_tracks += [SubTrack(sub, default=first_track_removed or not bool(i), delay=int(sub_delay))]
+            name = ""
+
+            if sub in ocrd:
+                name = "OCR'd"
+
+            self.subtitle_tracks += [SubTrack(
+                sub, name=name, default=first_track_removed or not bool(i), delay=int(sub_delay)
+            )]
 
         return self.subtitle_tracks
 

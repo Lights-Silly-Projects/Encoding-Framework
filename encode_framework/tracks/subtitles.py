@@ -5,10 +5,10 @@ from magic import Magic
 from vsmuxtools import SubFile, SubTrack, frame_to_ms
 from vstools import SPath, SPathLike
 
-from ..git import clone_git_repo
-from ..logging import Log
-from ..types import TextSubExt, is_windows
+from ..types import IsWindows, TextSubExt
 from ..util import cargo_build, check_program_installed, run_cmd
+from ..util.git import clone_git_repo
+from ..util.logging import Log
 from .base import _BaseEncoder
 
 __all__: list[str] = [
@@ -166,7 +166,7 @@ class _Subtitles(_BaseEncoder):
                         if not check_program_installed("vcpkg"):
                             repo = clone_git_repo("https://github.com/microsoft/vcpkg")
 
-                            if is_windows:
+                            if IsWindows:
                                 run_cmd([repo / "bootstrap-vcpkg.bat"])
                                 run_cmd([repo / "vcpkg", "integrate", "install"])
                             else:

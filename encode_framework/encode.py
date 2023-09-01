@@ -2,7 +2,7 @@ from typing import Any, cast
 
 from vstools import CustomRuntimeError, SPath, SPathLike, vs
 
-from .logging import Log
+from .util.logging import Log
 from .script import ScriptInfo
 from .tracks import _EncodeDiagnostics
 
@@ -10,6 +10,7 @@ __all__: list[str] = [
     "Encoder"
 ]
 
+# TODO: Rewrite this etnire thing + tracks/*.py
 
 class Encoder(_EncodeDiagnostics):
     """Class containing core encoding methods."""

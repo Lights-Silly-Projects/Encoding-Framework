@@ -6,7 +6,7 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
-from .config import Config
+# from ..config import Config
 from .logging import Log
 
 __all__: list[str] = [
@@ -40,7 +40,7 @@ def self_update(
         return
 
     try:
-        from fcntl import flock, LOCK_EX, LOCK_NB, LOCK_UN
+        from fcntl import LOCK_EX, LOCK_NB, LOCK_UN, flock
     except ModuleNotFoundError:
         Log.debug(
             "Could not access the \"fcntl\" package... Are you on 32-bit Windows? Aborting auto-update.",

@@ -1,6 +1,3 @@
-"""
-    Largely stolen and rewritten from muxtools.
-"""
 import logging
 import sys
 import time
@@ -11,7 +8,7 @@ from typing import Any, Callable, Literal
 from rich.logging import RichHandler
 from vstools import CustomError
 
-from .config import Config
+from .config import get_option
 
 __all__: list[str] = [
     "Logger",
@@ -20,7 +17,7 @@ __all__: list[str] = [
 
 
 class Logger:
-    """Logger class."""
+    """Logger class. Largely stolen and rewritten from muxtools."""
 
     logger: logging.Logger
     """The logger object."""
@@ -29,17 +26,19 @@ class Logger:
     """Path to the log file."""
 
     def __init__(
-        self, logger_name: str | None = None,
-        log_file: Path | None | Literal[False] = None,
+        self,
+        logger_name: str | None = None,
+        log_file: Path | None | Literal[False] = False,
         format: str = "%(name)s | %(message)s",
         datefmt: str = "[%X]",
         **kwargs: Any
     ) -> None:
         log_name = logger_name or "Project"
 
-        if Config.config_path.exists():
-            if not logger_name:
-                log_name = Config.config_parsed.get("SETUP", "show_name") or log_name
+        self._config_file = Path() / "config.ini"
+
+        if not logger_name:
+            log_name = get_option(str(self._config_file), "SETUP", "show_name") or log_name
 
         log_name = log_name.replace(" ", "_")
 
@@ -58,8 +57,8 @@ class Logger:
 
         self.logger.setLevel(logging.INFO)
 
-        if Config.config_path.exists():
-            if Config.is_debug:
+        if self._config_file.exists():
+            if get_option(str(self._config_file), "SETUP", "debug"):
                 self.logger.setLevel(logging.DEBUG)
 
             if logger_name is None:
@@ -114,7 +113,7 @@ class Logger:
         return Exception(message)
 
     def debug(self, msg: str | bytes, caller: str | Callable[[Any], Any] | None = None, force: bool = False) -> None:
-        if not Config.config_path.exists():
+        if not self._config_file.exists():
             return
 
         if not self.is_debug and not force:

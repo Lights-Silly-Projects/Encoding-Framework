@@ -2,7 +2,7 @@ from typing import Any
 
 from vsmuxtools import Chapters
 
-from ..logging import Log
+from ..util.logging import Log
 from .base import _BaseEncoder
 
 

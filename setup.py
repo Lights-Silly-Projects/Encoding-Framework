@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-import setuptools
 from pathlib import Path
+
+import setuptools
 
 package_name = 'encode_framework'
 
@@ -13,12 +14,12 @@ requirements = Path('requirements.txt').read_text()
 
 setuptools.setup(
     name=package_name,
-    version=meta['__version__'],
-    author=meta['__author_name__'],
-    author_email=meta['__author_email__'],
-    maintainer=meta['__maintainer_name__'],
-    maintainer_email=meta['__maintainer_email__'],
-    description=meta['__doc__'],
+    version=meta.get('__version__'),
+    author=meta.get('__author_name__'),
+    author_email=meta.get('__author_email__'),
+    maintainer=meta.get('__maintainer_name__'),
+    maintainer_email=meta.get('__maintainer_email__'),
+    description=meta.get('__doc__'),
     long_description=readme,
     long_description_content_type='text/markdown',
     project_urls={
@@ -26,9 +27,16 @@ setuptools.setup(
         'Contact': 'https://discord.gg/qxTxVJGtst',
     },
     install_requires=requirements,
-    python_requires='>=3.10',
+    python_requires='>=3.11',
     packages=[
         package_name,
+        f"{package_name}.config",
+        f"{package_name}.distribute",
+        f"{package_name}.filter",
+        f"{package_name}.script",
+        f"{package_name}.tracks",
+        f"{package_name}.types",
+        f"{package_name}.util",
     ],
     package_data={
         package_name: ['py.typed']

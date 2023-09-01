@@ -9,7 +9,7 @@ __all__: list[str] = [
     "Config",
 ]
 
-
+# TODO: Redo this entire bit. Needs to automatically create auth.ini (and create config.ini?)
 class EncodeConfig:
     """A class representing the encoding config file."""
 
@@ -65,7 +65,7 @@ class EncodeConfig:
         if self.auth_config.has_section("FTP"):
             return
 
-        from .logging import Log
+        from .util.logging import Log
 
         Log.debug(f"Adding FTP section to \"{self.auth_path.name}\"...", self.create_ftp_config)
 
@@ -87,7 +87,7 @@ class EncodeConfig:
         if self.auth_config.has_section("DISCORD"):
             return
 
-        from .logging import Log
+        from .util.logging import Log
 
         Log.debug(f"Adding Discord section to \"{self.auth_path.name}\"...", self.create_discord_config)
 

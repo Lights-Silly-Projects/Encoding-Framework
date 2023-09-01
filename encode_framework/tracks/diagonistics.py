@@ -4,7 +4,7 @@ from typing import Any
 
 from vstools import CustomError, CustomValueError, FileNotExistsError, SPath, SPathLike
 
-from ..logging import Log
+from ..util.logging import Log
 from .audio import _AudioEncoder
 from .chapters import _Chapters
 from .subtitles import _Subtitles
@@ -27,7 +27,7 @@ class _EncodeDiagnostics(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         """
         elapsed_time = self.script_info.elapsed_time(self.diagnostics)
 
-        self.premux_path = premux_path or self.premux_path
+        self.premux_path = SPath(premux_path or self.premux_path)
 
         if not self.premux_path.to_str().endswith(".mkv"):
             Log.error(f"Premux \"{self.premux_path.name}\" is not an mkv file!", self.diagnostics)

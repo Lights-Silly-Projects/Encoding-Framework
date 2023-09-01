@@ -13,11 +13,11 @@ from typing import Any, Callable, cast
 from vsmuxtools import src_file
 from vstools import CustomError, Keyframes, SceneChangeMode, SPath, SPathLike, set_output, vs
 
-from .discord import markdownify, notify_webhook
-from .kernels import ZewiaCubicNew
-from .logging import Log
-from .types import TrimAuto
-from .updater import self_update
+from ..distribute.discord import DiscordEmbedder
+from ..filter.kernels import ZewiaCubicNew
+from ..util.logging import Log
+from ..types import TrimAuto
+from ..util.updater import self_update
 
 __all__: list[str] = [
     "ScriptInfo",
@@ -99,7 +99,7 @@ class ScriptInfo:
         """Index the given file. Returns a tuple containing the `src_file` object and the `init_cut` node."""
         from vssource import DGIndexNV
 
-        from .misc import get_post_trim, get_pre_trim
+        from .trim import get_post_trim, get_pre_trim
 
         self.src_file = SPath(path)
 
@@ -294,151 +294,6 @@ class ScriptInfo:
 
         return delta
 
-    def discord_start(self, **kwargs: Any) -> None:
-        """Run this when the script is starting."""
-        from .config import Config
-
-        auth = Config.auth_config
-
-        if self.dryrun:
-            Log.warn("Performing a dry run, no discord webhook notifications...", self.discord_start)
-            return
-
-        if not auth.has_section("DISCORD"):
-            Log.debug("No DISCORD section in auth file", self.discord_start)
-            return
-
-        if not auth.has_option("DISCORD", "webhook"):
-            Log.debug("No webhook option in DISCORD section in auth file", self.discord_start)
-            return
-
-        wh_args = dict(
-            show_name=self.show_title, ep_num=self.ep_num,
-            username=auth.get("DISCORD", "name", fallback="EncodeRunner"),
-            author="System: " + auth.get("DISCORD", "user", fallback=os.getlogin() or os.getenv("username")),
-            avatar=auth.get("DISCORD", "avatar", fallback="https://avatars.githubusercontent.com/u/88586140"),
-            webhook_url=auth.get("DISCORD", "webhook"),
-            title="{show_name} {ep_num} has started encoding!",
-        )
-
-        wh_args |= kwargs
-
-        notify_webhook(**wh_args)
-
-    def discord_failed(
-        self, exception: BaseException | str | None = None,
-        **kwargs: Any
-    ) -> CustomError:
-        """Run this when the script has failed."""
-        from .config import Config
-
-        auth = Config.auth_config
-
-        if self.dryrun:
-            return
-
-        if not auth.has_section("DISCORD"):
-            return
-
-        if not auth.has_option("DISCORD", "webhook"):
-            return
-
-        if isinstance(exception, KeyboardInterrupt):
-            exception = "The encode was manually interrupted!"
-
-        if exception:
-            exception = markdownify(str(exception))
-
-        wh_args = dict(
-            show_name=self.show_title, ep_num=self.ep_num,
-            username=auth.get("DISCORD", "name", fallback="EncodeRunner"),
-            author="System: " + auth.get("DISCORD", "user", fallback=os.getlogin() or os.getenv("username")),
-            avatar=auth.get("DISCORD", "avatar", fallback="https://avatars.githubusercontent.com/u/88586140"),
-            webhook_url=auth.get("DISCORD", "webhook"),
-            title="{show_name} {ep_num} has failed during encoding!",
-            description="{exception}",
-            exception=exception or "Please consult the stacktrace on the system the encode ran on",
-            color="12582912",
-        )
-
-        wh_args |= kwargs
-
-        notify_webhook(**wh_args)
-
-        if exception:
-            raise Log.error(exception)
-
-        return CustomError(exception)
-
-    def discord_ok(self, **kwargs: Any) -> None:
-        """Run this when the script has finished without error."""
-        from .config import Config
-        from .encode import Encoder
-
-        auth = Config.auth_config
-
-        if self.dryrun:
-            return
-
-        if not auth.has_section("DISCORD"):
-            return
-
-        if not auth.has_option("DISCORD", "webhook"):
-            return
-
-        if not kwargs.get("description", False):
-            kwargs["description"] = ""
-
-        # TODO: Find how to send attachments properly, or upload to imgur first and then send.
-        # if kwargs.get("bitrate_plot_file", False):
-        #     kwargs["image"] = kwargs.get("bitrate_plot_file")
-
-        if kwargs.get("premux", {}).get("tracks", False):
-            atracks = kwargs.get("premux", {}).get("tracks", {}).get("audio", False)
-            stracks = kwargs.get("premux", {}).get("tracks", {}).get("subtitles", False)
-            ctracks = kwargs.get("premux", {}).get("tracks", {}).get("chapters", False)
-
-            if any([atracks, stracks, ctracks]):
-                kwargs["description"] += "\nTracks: "
-
-                found = ["Video (1)"]
-
-                if atracks:
-                    found += [f"Audio ({len(atracks)})"]
-                if stracks:
-                    found += [f"Subtitles ({len(stracks)})"]
-                if ctracks:
-                    found += [f"Chapters ({len(ctracks.chapters)})"]
-
-                kwargs["description"] += ", ".join(found)
-
-        if kwargs.get("premux", {}).get("filesize", False):
-            filesize_dict = dict(kwargs["premux"]["filesize"])
-
-            kwargs["description"] += "\nFilesize: " + \
-                f"{Encoder(self)._prettystring_filesize(filesize_dict.get('mb', '?'), 'mb')}"
-
-        if kwargs.get("elapsed_time", False):
-            elapsed_time = self.strfdelta(self.elapsed_time())
-
-            kwargs["description"] += f"\nEncoding time: {elapsed_time}"
-
-            if hasattr(self, "end_time"):
-                kwargs["description"] += f" ({self._calc_fps(self.clip_cut, self.end_time):.2f} fps)"
-
-        wh_args = dict(
-            show_name=self.show_title, ep_num=self.ep_num,
-            username=auth.get("DISCORD", "name", fallback="EncodeRunner"),
-            author="System: " + auth.get("DISCORD", "user", fallback=os.getlogin() or os.getenv("username")),
-            avatar=auth.get("DISCORD", "avatar", fallback="https://avatars.githubusercontent.com/u/88586140"),
-            webhook_url=auth.get("DISCORD", "webhook"),
-            title="{show_name} {ep_num} has finished encoding!",
-            color="32768"
-        )
-
-        wh_args |= kwargs
-
-        notify_webhook(**wh_args)
 
     def upload_to_ftp(self) -> None:
         raise NotImplementedError
@@ -509,7 +364,7 @@ class Preview:
         if path is not None:
             audios = [core.bs.AudioSource(SPath(path).to_str())]
         elif self.script_info.file.suffix == ".dgi":
-            from .encode import Encoder
+            from .tracks import Encoder
 
             dgi_audio = Encoder(self.script_info).find_audio_files()
 

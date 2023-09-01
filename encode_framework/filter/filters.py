@@ -13,7 +13,7 @@ from vsrgtools import BlurMatrix, RemoveGrainMode, limit_filter
 from vsscale import DescaleResult
 from vstools import ConvMode, CustomValueError, FrameRangesN, SPath, VSFunction, core, get_y, join, replace_ranges, vs
 
-from .logging import Log
+from ..util.logging import Log
 
 __all__: list[str] = [
     "fixedges",

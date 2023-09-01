@@ -1,8 +1,17 @@
-from .base import _BaseEncoder
-from vstools import SPath,  SPathLike, FileType, vs
-from vsmuxtools import AudioFile, AudioTrack
-from ..logging import Log
+import re
+import shutil
+from typing import Any, Literal
 
+from vsmuxtools import AudioFile, AudioTrack, Encoder, FFMpeg, HasTrimmer, ensure_path, qAAC
+from vstools import (CustomNotImplementedError, CustomRuntimeError, CustomValueError, FileNotExistsError, FileType,
+                     SPath, SPathLike, vs)
+
+from ..util.logging import Log
+from .base import _BaseEncoder
+
+__all__: list[str] = [
+    "_AudioEncoder"
+]
 
 class _AudioEncoder(_BaseEncoder):
     """Class containing methods pertaining to handling audio encoding."""
@@ -125,7 +134,7 @@ class _AudioEncoder(_BaseEncoder):
         trims: list[tuple[int, int]] | tuple[int, int] | None = None,
         reorder: list[int] | Literal[False] = False,
         ref: vs.VideoNode | None = None,
-        encoder: AudioEncoder = qAAC,
+        encoder: Encoder = qAAC,
         trimmer: HasTrimmer | None | Literal[False] = None,
         force: bool = False,
         verbose: bool = False,
@@ -178,7 +187,7 @@ class _AudioEncoder(_BaseEncoder):
         if is_file:
             self.__clean_acopy(process_files[0])
 
-        wclip = ref or self.out_clip
+        wclip = ref or self.script_info.src.init()
 
         # Normalising trims.
         if trims is None:
@@ -325,9 +334,9 @@ class _AudioEncoder(_BaseEncoder):
                 Log.debug(f"Unlinking file \"{acopy}\"...", self.encode_audio)
                 SPath(acopy).unlink(missing_ok=True)
         except Exception as e:
-            Log.error(str(e), self.__clean_acopy, CustomValueError)
+            Log.error(str(e), self.__clean_acopy, CustomValueError)  # type:ignore[arg-type]
 
-    def _get_audio_codec(self, encoder: AudioEncoder) -> str:
+    def _get_audio_codec(self, encoder: Encoder) -> str:
         encoder_map = {
             "qaac": "qaac",
             "flac": "libflac",

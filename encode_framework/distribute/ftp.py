@@ -5,8 +5,8 @@ from vstools import SPath, SPathLike, CustomNotImplementedError
 from configparser import ConfigParser
 from ftplib import FTP
 
-from .logging import Log
-from .util import create_gitignore
+from ..util.logging import Log
+from ..util import create_gitignore
 
 __all__: list[str] = [
     "Ftp"

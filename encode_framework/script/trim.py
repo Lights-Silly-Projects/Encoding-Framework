@@ -8,7 +8,7 @@ from typing import cast
 from vssource import source
 from vstools import SPath, SPathLike, core, get_prop, scale_value, vs
 
-from .logging import Log
+from ..util.logging import Log
 
 __all__: list[str] = [
     "get_pre_trim",

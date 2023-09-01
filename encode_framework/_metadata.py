@@ -1,6 +1,6 @@
 """Functions and utils related to VapourSynth"""
 
-__version__ = '1.0.0'
+__version__ = '0.0.1'
 
 __author__ = 'LightArrowsEXE <LightArrowsReboot@gmail.com>'
 __maintainer__ = __author__

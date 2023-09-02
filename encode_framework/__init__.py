@@ -12,6 +12,13 @@ from .encode import *   # noqa: F401, F403
 # Forcibly create config files before we do anything.
 setup_auth()
 
-Setup()
+try:
+    Setup()
+except Exception as e:
+    create_anilist_section()
+
+    raise e
 
 del Setup
+
+create_anilist_section()

@@ -13,7 +13,7 @@ from typing import Any, Callable, cast
 from vsmuxtools import src_file
 from vstools import CustomError, Keyframes, SceneChangeMode, SPath, SPathLike, set_output, vs
 
-from ..distribute.discord import DiscordEmbedder
+from ..integrations.discord import DiscordEmbedder
 from ..filter.kernels import ZewiaCubicNew
 from ..util.logging import Log
 from ..types import TrimAuto

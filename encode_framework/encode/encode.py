@@ -4,7 +4,10 @@ from vstools import CustomRuntimeError, SPath, SPathLike, vs
 
 from ..script import ScriptInfo
 from ..util import Log
-from . import _AudioEncoder, _Chapters, _Subtitles, _VideoEncoder
+from .audio import _AudioEncoder
+from .chapters import _Chapters
+from .subtitles import _Subtitles
+from .video import _VideoEncoder
 
 __all__: list[str] = [
     "Encoder"

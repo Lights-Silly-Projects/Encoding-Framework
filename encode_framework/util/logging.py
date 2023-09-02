@@ -1,14 +1,13 @@
 import logging  # type:ignore[import]
 import sys
 import time
+from configparser import ConfigParser
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Literal
 
 from rich.logging import RichHandler
 from vstools import CustomError
-
-from ..config import get_option
 
 __all__: list[str] = [
     "Logger",
@@ -37,8 +36,11 @@ class Logger:
 
         self._config_file = Path() / "config.ini"
 
+        config = ConfigParser()
+        config.read(str(self._config_file))
+
         if not logger_name:
-            log_name = get_option(str(self._config_file), "SETUP", "show_name") or log_name
+            log_name = config.get("SETUP", "show_name") or log_name
 
         log_name = log_name.replace(" ", "_")
 
@@ -58,7 +60,7 @@ class Logger:
         self.logger.setLevel(logging.INFO)
 
         if self._config_file.exists():
-            if get_option(str(self._config_file), "SETUP", "debug"):
+            if config.get("SETUP", "show_name"):
                 self.logger.setLevel(logging.DEBUG)
 
             if logger_name is None:

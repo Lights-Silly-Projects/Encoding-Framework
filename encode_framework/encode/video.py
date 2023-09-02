@@ -4,8 +4,8 @@ from vsmuxtools import VideoFile, x265  # type:ignore[import]
 from vsmuxtools.video.encoders import SupportsQP  # type:ignore[import]
 from vstools import CustomRuntimeError, FileNotExistsError, SPath, SPathLike, finalize_clip, vs
 
-from ..util.logging import Log
 from ..types import Zones
+from ..util.logging import Log
 from .base import _BaseEncoder
 
 __all__: list[str] = [

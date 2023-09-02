@@ -1,6 +1,6 @@
 from configparser import ConfigParser, NoOptionError, NoSectionError
-from typing import Any
 from itertools import zip_longest
+from typing import Any
 
 from lautils import get_caller_module
 from vstools import SPath, SPathLike

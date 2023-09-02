@@ -32,10 +32,12 @@ def _write_file(file: Path, mode: str, options: list[str], **kwargs: Any) -> Non
 
     if file.exists():
         with open(file, "r", **kwargs) as f:
+            content = f.readlines()
+
             for option in options:
                 option = str(option)
 
-                if not option in f.read():
+                if any(opt in content for opt in (option, Path(option).with_stem("*").name)):
                     new_options += [option]
     else:
         new_options = options

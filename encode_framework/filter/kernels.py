@@ -7,8 +7,8 @@
 
 from typing import Any
 
-from vskernels import BicubicSharp, Catrom, Lanczos, Mitchell, Bilinear, Bicubic, Scaler
-from vstools import vs, Transfer, inject_self
+from vskernels import Bicubic, BicubicSharp, Bilinear, Catrom, Lanczos, Mitchell, Scaler
+from vstools import Transfer, inject_self, vs
 
 __all__: list[str] = [
     "FixCatrom",
@@ -16,7 +16,9 @@ __all__: list[str] = [
     "FixBicubicSharp", "FixSharp",
     "FixLanczos",
     "FixBilinear",
+
     "ZewiaCubicNew",
+
     "LinearBicubic",
 ]
 

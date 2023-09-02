@@ -317,7 +317,12 @@ class DiscordEmbedder(DiscordWebhook):
                      track.stream_size)
                 ]
             elif track.track_type == "Text":
-                tracks += [(f"Subtitles ({track.track_id})", track.stream_size)]
+                tracks += [
+                    (f"Subtitles ({track.track_id}) [{str(track.format).split(' ')[0].upper()}]",
+                     track.stream_size)
+                ]
+
+            Log.info(vars(track), self._get_track_sizes)
 
         return tracks
 

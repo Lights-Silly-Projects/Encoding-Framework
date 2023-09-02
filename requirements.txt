@@ -12,3 +12,4 @@ setuptools>=65.5.0
 vs_rekt>=1.0.0
 vsiew>=2.0.1
 vsmuxtools>=0.0.7
+pyupload>=0.1.4

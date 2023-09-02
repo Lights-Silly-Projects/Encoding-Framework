@@ -1,13 +1,46 @@
 from configparser import ConfigParser
+from enum import Enum, auto
 from typing import Any
 
 from discord_webhook import DiscordWebhook
+from requests import Response  # type:ignore[import]
 
 from ..util.logging import Log
 
 __all__: list[str] = [
-    "DiscordEmbedder"
+    "DiscordEmbedder",
+    "DiscordOption", "DisOpt"
 ]
+
+
+class DiscordOption(Enum):
+    """
+    User-passed Discord options for the webhook embed.
+
+    Any of these failing should NEVER cause the embed itself to fail.
+    """
+
+    TRACKS = auto()
+    """Display the number of tracks and basic information about each track."""
+
+    PLOTBITRATE = auto()
+    """Embed an image with the plotted bitrate of the output file if possible."""
+
+    TIME_ELAPSED = auto()
+    """Amount of time that has elapsed since the last embed."""
+
+    FPS = auto()
+    """Use TIME_ELAPSED to calculate a global FPS. Requires TIME_ELAPSED."""
+
+    ANIME_INFO = auto()
+    """Display basic anime information. Requires the anilist id to be set in [ANILIST] in config.ini."""
+
+    EXCEPTION = auto()
+    """Display the exception if an error is thrown."""
+
+
+DisOpt = DiscordOption
+
 
 class DiscordEmbedder(DiscordWebhook):
     """Class for handling sending discord embeds."""
@@ -15,26 +48,48 @@ class DiscordEmbedder(DiscordWebhook):
     webhook_url: str
     """The webhook url to send images to."""
 
-    def __init__(self) -> None:
+    options: list[DiscordOption] = []
+    """Enum options for embeds."""
+
+    last_embed: Response | None = None
+    """The last embed that was passed."""
+
+    def __init__(
+        self, options: list[DiscordOption] = [
+            DisOpt.ANIME_INFO,
+            DisOpt.TRACKS,
+            DisOpt.TIME_ELAPSED,
+            DisOpt.FPS,
+            DisOpt.PLOTBITRATE,
+            DisOpt.EXCEPTION,
+        ],
+        **webhook_kwargs: Any
+    ) -> None:
         self._set_webhook_url()
+        self.options = options
 
-        super().__init__(
-            self.webhook_url,
-            avatar_url="https://i.imgur.com/icZhOfv.png",
-            username="Encode News Delivery Service",
-            rate_limit_entry=True
-        )
+        webhook_kwargs.pop("webhook_url", False)
 
-    def ok(self, msg: str) -> None:
-        """Success message."""
+        init_kwargs = {
+            "avatar_url": "https://i.imgur.com/icZhOfv.png",
+            "username": "Encode News Delivery Service",
+            "rate_limit_entry": True
+        }
+
+        init_kwargs |= webhook_kwargs
+
+        super().__init__(self.webhook_url, **init_kwargs)
+
+    def start(self, msg: str) -> None:
+        """Encode start embed."""
+        ...
+
+    def success(self, msg: str) -> None:
+        """Encode success embed."""
         ...
 
     def fail(self, msg: str) -> None:
-        """Fail message."""
-        ...
-
-    def init(self, msg: str) -> None:
-        """Init message."""
+        """Encode fail embed."""
         ...
 
     def ping(self) -> None:
@@ -57,17 +112,15 @@ class DiscordEmbedder(DiscordWebhook):
         if not config.has_section("DISCORD"):
             raise Log.error(f"No \"DISCORD\" section found in \"{auth}\"!", self._set_webhook_url)
 
-        if not config.has_option("DISCORD", "webhook"):
-            raise Log.error(f"No \"webhook\" option found in \"{auth}\"!", self._set_webhook_url)
+        if not config.has_option("DISCORD", "webhook_url"):
+            raise Log.error(f"No \"webhook_url\" option found in \"{auth}\"!", self._set_webhook_url)
 
-        self.webhook_url = config.get("DISCORD", "webhook")
+        self.webhook_url = config.get("DISCORD", "webhook_url")
 
         if not self.webhook_url:
-            raise Log.error(f"No webhook set in \"{auth}\"!", self._set_webhook_url)
+            raise Log.error(f"No webhook_url set in \"{auth}\"!", self._set_webhook_url)
 
         return self.webhook_url
 
     def _format_ok(self, diagnostics: Any) -> str:
-        ...
-
-
+        return ""

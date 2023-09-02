@@ -26,5 +26,5 @@ def get_option(file: str, section: str, option: str) -> str:
 
     try:
         return config.get(section, option)
-    except NoOptionError:
+    except (NoOptionError, NoSectionError):
         return ""

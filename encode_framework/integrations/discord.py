@@ -47,9 +47,6 @@ class DiscordEmbedOpts(str, Enum):
     TRACKS = auto()
     """Display the number of tracks and basic information about each track."""
 
-    UPLOAD_TO_FTP = auto()
-    """Upload the premux file to the FTP with information given in `auth.ini`."""
-
 
 DisOpt = DiscordEmbedOpts
 
@@ -80,7 +77,6 @@ class DiscordEmbedder(DiscordWebhook):
             DiscordEmbedOpts.SHOW_FPS,
             DiscordEmbedOpts.TIME_ELAPSED,
             DiscordEmbedOpts.TRACKS,
-            DiscordEmbedOpts.UPLOAD_TO_FTP,
         ],
         **webhook_kwargs: Any
     ) -> None:

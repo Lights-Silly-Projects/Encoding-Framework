@@ -1,5 +1,6 @@
 from configparser import ConfigParser, NoOptionError, NoSectionError
 from typing import Any
+from itertools import zip_longest
 
 from lautils import get_caller_module
 from vstools import SPath, SPathLike
@@ -72,7 +73,8 @@ def add_section(
     name: SPathLike,
     sections: list[str] | str,
     fields: list[dict[str, Any]] | dict[str, Any] = [],
-    caller: str | None = None
+    caller: str | None = None,
+    config: ConfigParser | None = None
 ) -> ConfigParser:
     """Add a new section to a given config file. If the file does not exist, it will create it."""
     caller = caller or get_caller_module()
@@ -82,8 +84,11 @@ def add_section(
     if not filename.exists():
         return touch_ini(name, sections, fields, caller=caller)
 
-    config = ConfigParser()
-    config.read(filename)
+    if not config:
+        config_obj = ConfigParser()
+        config_obj.read(filename)
+    else:
+        config_obj = config
 
     if isinstance(sections, str):
         sections = [sections]
@@ -91,27 +96,30 @@ def add_section(
     if isinstance(fields, dict):
         fields = [fields]
 
-    for section, field_dict in zip(sections, fields):
+    for section, field_dict in zip_longest(sections, fields):
+        section = str(section).upper()
+
         if section == "DEFAULT":
             continue
 
-        if not config.has_section(section):
-            config.add_section(section)
+        if not config_obj.has_section(section):
+            config_obj.add_section(section)
 
-        for k, v in field_dict.items():
-            add_option(filename, section, (k, v), config)
+        if field_dict:
+            for k, v in field_dict.items():
+                add_option(filename, section, (k, v), config_obj)
 
     with open(filename, "w") as f:
-        config.write(f)
+        config_obj.write(f)
 
-    return config
+    return config_obj
 
 
 def add_option(
     name: SPathLike, section: str, field: tuple[str, Any],
     config: ConfigParser | None = None,
 ) -> ConfigParser:
-    """Add an option to a given config file's section."""
+    """Add an option to a given config file's section. If a section does not exist, it will create it."""
     filename = SPath(name)
 
     if not filename.exists():
@@ -125,31 +133,65 @@ def add_option(
     else:
         config_obj = config
 
+    if not config_obj.has_section(section):
+        config_obj = add_section(filename, section, config=config_obj)
+
     if not config_obj.has_option(section, field[0]):
         config_obj.set(section, *(str(f) for f in field))
+
+    with open(filename, "w") as f:
+        config_obj.write(f)
 
     return config_obj
 
 
-def get_items(file: str, section: str) -> list[tuple[str, str]]:
-    """Get all items of a specific section from a given config file."""
-    config = ConfigParser()
+def get_items(
+    name: SPathLike, section: str,
+    config: ConfigParser | None = None
+) -> list[tuple[str, str]]:
+    """
+    Get all items of a specific section from a given config file.
 
-    config.read(file)
+    If the section or its parents do not exist, return an empty string.
+    """
+    filename = SPath(name)
+
+    if not filename.exists():
+        return []
+
+    if not config:
+        config_obj = ConfigParser()
+        config_obj.read(filename)
+    else:
+        config_obj = config
 
     try:
-        return config.items(section)
+        return config_obj.items(section)
     except NoSectionError:
         return []
 
 
-def get_option(file: str, section: str, option: str) -> str:
-    """Get a specific option from a given config file and section."""
-    config = ConfigParser()
+def get_option(
+    name: SPathLike, section: str, option: str,
+    config: ConfigParser | None = None
+) -> str:
+    """
+    Get a specific option from a given config file and section.
 
-    config.read(file)
+    If the option or its parents do not exist, return an empty string.
+    """
+    filename = SPath(name)
+
+    if not filename.exists():
+        return ""
+
+    if not config:
+        config_obj = ConfigParser()
+        config_obj.read(filename)
+    else:
+        config_obj = config
 
     try:
-        return config.get(section, option)
+        return config_obj.get(section, option)
     except (NoOptionError, NoSectionError):
         return ""

@@ -4,19 +4,16 @@
 from __future__ import annotations
 
 import inspect
-import os
 import sys
-from datetime import timedelta
 from time import time
-from typing import Any, Callable, cast
+from typing import Any, cast
 
-from vsmuxtools import src_file
-from vstools import CustomError, Keyframes, SceneChangeMode, SPath, SPathLike, set_output, vs
+from vsmuxtools import src_file  # type:ignore[import]
+from vstools import Keyframes, SceneChangeMode, SPath, SPathLike, set_output, vs
 
 from ..filter.kernels import ZewiaCubicNew
-from ..util.logging import Log
 from ..types import TrimAuto
-from ..util.updater import self_update
+from ..util.logging import Log
 
 __all__: list[str] = [
     "ScriptInfo",
@@ -134,13 +131,13 @@ class ScriptInfo:
         self.clip_cut = cast(vs.VideoNode, self.src.init_cut()).std.SetFrameProps(Name="src")
 
         if any(x is None for x in trim):
-            trim = list(trim)
+            trim = list(trim)  # type:ignore[assignment]
 
             if trim[0] is None:
-                trim[0] = 0
+                trim[0] = 0  # type:ignore[assignment, index]
 
             if trim[1] is None:
-                trim[1] = self.clip_cut.num_frames + 1
+                trim[1] = self.clip_cut.num_frames + 1  # type:ignore[index]
 
             self.src.trim = tuple(trim)
 
@@ -149,7 +146,7 @@ class ScriptInfo:
 
         return self.clip_cut
 
-    def setup_muxtools(self, ftp: bool = True, discord: bool = True, **setup_kwargs: Any) -> None:
+    def setup_muxtools(self, **setup_kwargs: Any) -> None:
         """Create the config file for muxtools."""
         from vsmuxtools import Setup
 
@@ -264,45 +261,6 @@ class ScriptInfo:
 
         exit()
 
-    def elapsed_time(self, func: str | Callable[[Any], Any] | None = None) -> timedelta:
-        """Get the elapsed time in seconds."""
-        from vstools import CustomValueError
-
-        if not hasattr(self, "start_time"):
-            raise CustomValueError("Missing attribute!", self.elapsed_time, "start_time")
-
-        elapsed = time() - self.start_time
-        delta = timedelta(seconds=elapsed)
-
-        if elapsed > 60:
-            prt_elapsed = str(delta)  # type:ignore
-        else:
-            prt_elapsed = str(elapsed)
-
-        Log.info(f"Elapsed time: {prt_elapsed}", func or self.elapsed_time)  # type:ignore[arg-type]
-
-        self.end_time = elapsed
-
-        return delta
-
-    def upload_to_ftp(self) -> None:
-        raise NotImplementedError
-
-    @classmethod
-    def strfdelta(cls, tdelta: timedelta, fmt: str = "%H:%M:%S") -> str:
-        """Convert a timedelta to a pretty string."""
-        return str(tdelta)[:-3]
-        # TODO: fix this
-        d = {"%D": tdelta.days}
-        d["%H"], rem = divmod(tdelta.seconds, 3600)
-        d["%M"], d["%S"] = divmod(rem, 60)
-
-        return fmt.format(**d)
-
-    def _calc_fps(self, clip: vs.VideoNode, elapsed_time: float) -> float:
-        """Calculate the framerate. We can't get it from the encoder directly it seems, so gotta do it ourselves."""
-        return clip.num_frames / elapsed_time
-
 
 class Preview:
     """Class containing core previewing methods."""
@@ -354,7 +312,7 @@ class Preview:
         if path is not None:
             audios = [core.bs.AudioSource(SPath(path).to_str())]
         elif self.script_info.file.suffix == ".dgi":
-            from .tracks import Encoder
+            from ..encode import Encoder
 
             dgi_audio = Encoder(self.script_info).find_audio_files()
 

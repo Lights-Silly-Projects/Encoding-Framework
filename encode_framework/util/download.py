@@ -17,6 +17,7 @@ __all__: list[str] = [
 
 # TODO: Improve a bunch of these.
 
+
 def check_package_installed(pkg: str) -> bool:
     """Check whether the given Python package is installed."""
     return (pkg in sys.modules) or (find_spec(pkg) is not None)

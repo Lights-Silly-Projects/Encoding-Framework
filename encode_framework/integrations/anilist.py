@@ -13,6 +13,7 @@ from ..util import Log
 __all__: list[str] = [
     "AniList",
     "AniListAnime",
+    "AiringSchedule",
 
     "create_anilist_section"
 ]
@@ -80,7 +81,7 @@ class AniListAnime:
         ]).strip()
 
         self.url = str(kwargs.pop("siteUrl", "https://anilist.co/"))  # type:ignore[assignment]
-        self.img = str(kwargs.pop("bannerImage", "https://i.imgur.com/BvjeQwv.gif"))
+        self.img = self._handle_img(kwargs.pop("bannerImage", ""), kwargs.pop("coverImage", {}))
 
         if (airing_schedule := kwargs.pop("nextAiringEpisode", None)) is None:
             self.next_airing_episode = airing_schedule
@@ -93,6 +94,9 @@ class AniListAnime:
             )
 
         self.etc = kwargs  # type:ignore[assignment]
+
+    def _handle_img(self, banner: str, cover: dict[str, str]) -> str:
+        return banner or cover.get("large", "https://i.imgur.com/BvjeQwv.gif")
 
 
 class AniList:
@@ -129,6 +133,9 @@ class AniList:
                     status
                     season
                     seasonYear
+                    coverImage {
+                        large
+                    }
                     bannerImage
                     nextAiringEpisode {
                         airingAt

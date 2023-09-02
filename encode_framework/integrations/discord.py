@@ -9,11 +9,11 @@ from ..util.logging import Log
 
 __all__: list[str] = [
     "DiscordEmbedder",
-    "DiscordOption", "DisOpt"
+    "DiscordEmbedOpts", "DisOpt"
 ]
 
 
-class DiscordOption(Enum):
+class DiscordEmbedOpts(str, Enum):
     """
     User-passed Discord options for the webhook embed.
 
@@ -39,7 +39,7 @@ class DiscordOption(Enum):
     """Display the exception if an error is thrown."""
 
 
-DisOpt = DiscordOption
+DisOpt = DiscordEmbedOpts
 
 
 class DiscordEmbedder(DiscordWebhook):
@@ -48,25 +48,27 @@ class DiscordEmbedder(DiscordWebhook):
     webhook_url: str
     """The webhook url to send images to."""
 
-    options: list[DiscordOption] = []
-    """Enum options for embeds."""
-
     last_embed: Response | None = None
     """The last embed that was passed."""
 
+    _encode_embed_opts: list[DiscordEmbedOpts] = []
+    """Enum options for embeds."""
+
     def __init__(
-        self, options: list[DiscordOption] = [
-            DisOpt.ANIME_INFO,
-            DisOpt.TRACKS,
-            DisOpt.TIME_ELAPSED,
-            DisOpt.FPS,
-            DisOpt.PLOTBITRATE,
-            DisOpt.EXCEPTION,
+        self, options: list[DiscordEmbedOpts] = [
+            DiscordEmbedOpts.ANIME_INFO,
+            DiscordEmbedOpts.TRACKS,
+            DiscordEmbedOpts.TIME_ELAPSED,
+            DiscordEmbedOpts.FPS,
+            DiscordEmbedOpts.PLOTBITRATE,
+            DiscordEmbedOpts.EXCEPTION,
         ],
         **webhook_kwargs: Any
     ) -> None:
         self._set_webhook_url()
-        self.options = options
+        self._encode_embed_opts = options
+
+        del options
 
         webhook_kwargs.pop("webhook_url", False)
 
@@ -79,6 +81,10 @@ class DiscordEmbedder(DiscordWebhook):
         init_kwargs |= webhook_kwargs
 
         super().__init__(self.webhook_url, **init_kwargs)
+
+        self.set_content("")
+        self.remove_embeds()
+        self.remove_files()
 
     def start(self, msg: str) -> None:
         """Encode start embed."""
@@ -97,7 +103,10 @@ class DiscordEmbedder(DiscordWebhook):
         self.set_content("Pong!")
 
         Log.info("Pinging webhook...", self.ping)  # type:ignore[arg-type]
-        response = self.execute()
+        try:
+            response = self.execute(True)
+        except TypeError as e:
+            raise Log.error(f"Could not ping webhook! ({e})", self.ping)  # type:ignore[arg-type]
 
         if not response.ok:
             raise Log.error(f"Could not ping webhook! ({response.status_code})", self.ping)  # type:ignore[arg-type]

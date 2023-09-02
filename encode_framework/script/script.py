@@ -13,7 +13,6 @@ from typing import Any, Callable, cast
 from vsmuxtools import src_file
 from vstools import CustomError, Keyframes, SceneChangeMode, SPath, SPathLike, set_output, vs
 
-from ..integrations.discord import DiscordEmbedder
 from ..filter.kernels import ZewiaCubicNew
 from ..util.logging import Log
 from ..types import TrimAuto
@@ -169,14 +168,6 @@ class ScriptInfo:
 
         ini.edit("show", self.show_title)  # Don't remember why I did this ngl.
 
-        if ftp:
-            from .config import Config
-            Config.create_ftp_config()
-
-        if discord:
-            from .config import Config
-            Config.create_discord_config()
-
     def generate_keyframes(
         self, clip: vs.VideoNode | None = None,
         mode: SceneChangeMode = SceneChangeMode.WWXD,
@@ -293,7 +284,6 @@ class ScriptInfo:
         self.end_time = elapsed
 
         return delta
-
 
     def upload_to_ftp(self) -> None:
         raise NotImplementedError

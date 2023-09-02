@@ -1,15 +1,17 @@
-from configparser import ConfigParser
+from configparser import ConfigParser, NoOptionError, NoSectionError
 from typing import Any
 
 from lautils import get_caller_module
 from vstools import SPath, SPathLike
 
-from ..util.logging import Log
-
 __all__: list[str] = [
     "touch_ini",
+
     "add_section",
-    "add_option",
+
+    "add_option", "get_option",
+
+    "get_items"
 ]
 
 
@@ -57,6 +59,8 @@ def touch_ini(
             config.write(f)
 
         if raise_on_new:
+            from ..util.logging import Log
+
             raise Log.error(f"Template config created at {filename.resolve()}.\nPlease configure it!", caller)
 
     config.read(filename.to_str())
@@ -111,6 +115,8 @@ def add_option(
     filename = SPath(name)
 
     if not filename.exists():
+        from ..util.logging import Log
+
         raise Log.error(f"The config file \"{filename.name}\" does not exist!", add_option)  # type:ignore[arg-type]
 
     if not config:
@@ -123,3 +129,27 @@ def add_option(
         config_obj.set(section, *(str(f) for f in field))
 
     return config_obj
+
+
+def get_items(file: str, section: str) -> list[tuple[str, str]]:
+    """Get all items of a specific section from a given config file."""
+    config = ConfigParser()
+
+    config.read(file)
+
+    try:
+        return config.items(section)
+    except NoSectionError:
+        return []
+
+
+def get_option(file: str, section: str, option: str) -> str:
+    """Get a specific option from a given config file and section."""
+    config = ConfigParser()
+
+    config.read(file)
+
+    try:
+        return config.get(section, option)
+    except (NoOptionError, NoSectionError):
+        return ""

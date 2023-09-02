@@ -8,7 +8,7 @@ from typing import Any, Callable, Literal
 from rich.logging import RichHandler
 from vstools import CustomError
 
-from .config import get_option
+from ..config import get_option
 
 __all__: list[str] = [
     "Logger",

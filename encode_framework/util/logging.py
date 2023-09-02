@@ -1,4 +1,4 @@
-import logging
+import logging  # type:ignore[import]
 import sys
 import time
 from datetime import datetime

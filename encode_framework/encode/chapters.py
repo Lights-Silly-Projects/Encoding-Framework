@@ -1,14 +1,14 @@
 from typing import Any
 
-from vsmuxtools import Chapters
+from vsmuxtools import Chapters  # type:ignore[import]
 
 from ..util.logging import Log
 from .base import _BaseEncoder
 
-
 __all__: list[str] = [
     "_Chapters"
 ]
+
 
 class _Chapters(_BaseEncoder):
     """Class containing methods pertaining to handling chapters."""

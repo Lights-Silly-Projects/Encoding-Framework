@@ -81,7 +81,10 @@ class AniListAnime:
         ]).strip()
 
         self.url = str(kwargs.pop("siteUrl", "https://anilist.co/"))  # type:ignore[assignment]
-        self.img = self._handle_img(kwargs.pop("bannerImage", ""), kwargs.pop("coverImage", {}))
+        self.img = self._handle_img(
+            kwargs.pop("bannerImage", ""),  # type:ignore[arg-type]
+            kwargs.pop("coverImage", {})  # type:ignore[arg-type]
+        )
 
         if (airing_schedule := kwargs.pop("nextAiringEpisode", None)) is None:
             self.next_airing_episode = airing_schedule

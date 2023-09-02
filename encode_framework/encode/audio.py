@@ -2,7 +2,7 @@ import re
 import shutil
 from typing import Any, Literal
 
-from vsmuxtools import AudioFile, AudioTrack, Encoder, FFMpeg, HasTrimmer, ensure_path, qAAC
+from vsmuxtools import AudioFile, AudioTrack, Encoder, FFMpeg, HasTrimmer, ensure_path, qAAC  # type:ignore[import]
 from vstools import (CustomNotImplementedError, CustomRuntimeError, CustomValueError, FileNotExistsError, FileType,
                      SPath, SPathLike, vs)
 
@@ -12,6 +12,7 @@ from .base import _BaseEncoder
 __all__: list[str] = [
     "_AudioEncoder"
 ]
+
 
 class _AudioEncoder(_BaseEncoder):
     """Class containing methods pertaining to handling audio encoding."""
@@ -56,7 +57,7 @@ class _AudioEncoder(_BaseEncoder):
         else:
             Log.debug("DGIndex(NV) input found! Trying to find audio tracks...", self.find_audio_files)
 
-            audio_files: list[SPath] = []
+            audio_files: list[SPath] = []  # type:ignore[no-redef]
 
             for f in dgi_file.parent.glob(f"{dgi_file.stem}*.*"):
                 Log.debug(f"Checking the following file: \"{f.name}\"...", self.find_audio_files)
@@ -73,7 +74,7 @@ class _AudioEncoder(_BaseEncoder):
 
             for f in audio_files:
                 try:
-                    Log.info(f"    - \"{f.name if isinstance(f, SPath) else f.file}\"")
+                    Log.info(f"    - \"{f.name if isinstance(f, SPath) else f.file}\"")  # type:ignore[attr-defined]
                 except (AttributeError, ValueError) as e:
                     Log.warn(f"    - Unknown track!\n{e}")
             self.audio_files += audio_files
@@ -173,9 +174,9 @@ class _AudioEncoder(_BaseEncoder):
 
         if audio_file is not None and audio_file:
             if isinstance(audio_file, vs.AudioNode):
-                audio_file = [audio_file]
+                audio_file = [audio_file]  # type:ignore[list-item]
             elif not isinstance(audio_file, list):
-                audio_file = [SPath(audio_file)]
+                audio_file = [SPath(str(audio_file))]
 
         if any([isinstance(audio_file, vs.AudioNode)]):
             is_file = False
@@ -185,7 +186,7 @@ class _AudioEncoder(_BaseEncoder):
 
         # Remove acopy files first so they don't mess with reorder and stuff.
         if is_file:
-            self.__clean_acopy(process_files[0])
+            self.__clean_acopy(process_files[0])  # type:ignore[index]
 
         wclip = ref or self.script_info.src.init()
 
@@ -203,10 +204,10 @@ class _AudioEncoder(_BaseEncoder):
 
         # Normalising reordering of tracks.
         if reorder and is_file:
-            if len(reorder) > len(process_files):
-                reorder = reorder[:len(process_files)]
+            if len(reorder) > len(process_files):  # type:ignore[arg-type]
+                reorder = reorder[:len(process_files)]  # type:ignore[arg-type]
 
-            process_files = [process_files[i] for i in reorder]
+            process_files = [process_files[i] for i in reorder]  # type:ignore[index, misc]
 
         codec = self._get_audio_codec(encoder)
         encoder = encoder() if callable(encoder) else encoder
@@ -217,13 +218,18 @@ class _AudioEncoder(_BaseEncoder):
         )
 
         # TODO: Figure out how much I can move out of this for loop.
-        for i, (audio_file, trim) in enumerate(zip_longest(process_files, trims, fillvalue=trims[-1])):
-            Log.debug(f"Processing audio track {i + 1}/{len(process_files)}...", self.encode_audio)
+        for i, (audio_file, trim) in enumerate(  # type:ignore[arg-type, assignment]
+            zip_longest(process_files, trims, fillvalue=trims[-1])  # type:ignore[arg-type]
+        ):
+            Log.debug(
+                f"Processing audio track {i + 1}/{len(process_files)}...",  self.encode_audio  # type:ignore[arg-type]
+            )
             Log.debug(f"Processing audio file \"{audio_file}\"...", self.encode_audio)
 
             # This is mainly meant to support weird trims we don't typically support and should not be used otherwise!
             if isinstance(audio_file, vs.AudioNode):
-                Log.warn("Not properly supported yet! This may fail!", self.encode_audio, CustomNotImplementedError)
+                Log.warn("Not properly supported yet! This may fail!", self.encode_audio,
+                         CustomNotImplementedError)  # type:ignore[arg-type]
 
                 self.audio_tracks += [
                     do_audio(audio_file, encoder=encoder)

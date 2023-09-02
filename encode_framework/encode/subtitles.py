@@ -2,13 +2,12 @@ import os
 
 from babelfish import Language  # type:ignore[import]
 from magic import Magic
-from vsmuxtools import SubFile, SubTrack, frame_to_ms
+from vsmuxtools import SubFile, SubTrack, frame_to_ms  # type:ignore[import]
 from vstools import SPath, SPathLike
 
+from ..git import clone_git_repo
 from ..types import IsWindows, TextSubExt
-from ..util import cargo_build, check_program_installed, run_cmd
-from ..util.git import clone_git_repo
-from ..util.logging import Log
+from ..util import Log, cargo_build, check_program_installed, run_cmd
 from .base import _BaseEncoder
 
 __all__: list[str] = [
@@ -113,7 +112,8 @@ class _Subtitles(_BaseEncoder):
             clone_git_repo("https://github.com/tesseract-ocr/tessdata_best.git")
         except Exception as e:
             if not "exit code(128)" in str(e):
-                Log.error(f"Some kind of error occurred while cloning the \"tessdata_best\" repo!\n{e}", self.process_subs)
+                Log.error(
+                    f"Some kind of error occurred while cloning the \"tessdata_best\" repo!\n{e}", self.process_subs)
 
                 return sub_files
 
@@ -167,14 +167,14 @@ class _Subtitles(_BaseEncoder):
                             repo = clone_git_repo("https://github.com/microsoft/vcpkg")
 
                             if IsWindows:
-                                run_cmd([repo / "bootstrap-vcpkg.bat"])
-                                run_cmd([repo / "vcpkg", "integrate", "install"])
+                                run_cmd([str(repo / "bootstrap-vcpkg.bat")])
+                                run_cmd([str(repo / "vcpkg"), "integrate", "install"])
                             else:
-                                run_cmd([repo / "bootstrap-vcpkg.sh"])
+                                run_cmd([str(repo / "bootstrap-vcpkg.sh")])
 
                         cargo_build("vobsubocr")
 
-                    run_cmd(["vobsubocr", "-l", langs[0], "-o", out, idx])
+                    run_cmd(["vobsubocr", "-l", langs[0], "-o", out.to_str(), idx.to_str()])
 
                     proc_files += [out]
                     ocrd += [out]

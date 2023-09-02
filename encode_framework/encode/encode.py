@@ -2,9 +2,9 @@ from typing import Any, cast
 
 from vstools import CustomRuntimeError, SPath, SPathLike, vs
 
-from .util.logging import Log
-from .script import ScriptInfo
-from .tracks import _EncodeDiagnostics
+from ..script import ScriptInfo
+from ..util import Log
+from . import _AudioEncoder, _Chapters, _Subtitles, _VideoEncoder
 
 __all__: list[str] = [
     "Encoder"
@@ -12,7 +12,8 @@ __all__: list[str] = [
 
 # TODO: Rewrite this etnire thing + tracks/*.py
 
-class Encoder(_EncodeDiagnostics):
+
+class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
     """Class containing core encoding methods."""
 
     def __init__(self, script_info: ScriptInfo, out_clip: vs.VideoNode | None = None, **kwargs: Any) -> None:
@@ -40,9 +41,9 @@ class Encoder(_EncodeDiagnostics):
 
     def mux(self, out_path: SPathLike | None = None, move_once_done: bool = False, lang: str = "ja") -> SPath:
         """Mux the different tracks together."""
-        from vsmuxtools import mux
+        from vsmuxtools import mux  # type:ignore[import]
 
-        if self.script_info.tc_path.exists():
+        if SPath(self.script_info.tc_path).exists():  # type:ignore[arg-type]
             Log.info(f"Timecode file found at \"{self.script_info.tc_path}\"!", self.mux)
 
             tc_path = self.script_info.tc_path

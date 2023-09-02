@@ -1,6 +1,3 @@
-"""
-    Common boilerplate in most of my scripts.
-"""
 from __future__ import annotations
 
 import inspect

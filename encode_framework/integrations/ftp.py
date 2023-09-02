@@ -44,7 +44,7 @@ class Ftp:
     """The directory to upload the files to."""
 
     def __init__(self, config_file: SPathLike = "ftp.ini") -> None:
-        raise CustomNotImplementedError(None, self)
+        raise CustomNotImplementedError(None, self)  # type:ignore[arg-type]
         self.config_file = SPath(config_file).with_suffix(".ini")
 
         self.config_parsed = ConfigParser()

@@ -1,15 +1,12 @@
-
 from __future__ import annotations
 
-from datetime import datetime
-from pathlib import Path
-from typing import Any, no_type_check
+from typing import no_type_check
 
 from git import GitCommandError, RemoteProgress, Repo
 from rich import console, progress
 from vstools import SPath, SPathLike
 
-from .logging import Log
+from ..util import Log
 
 __all__: list[str] = [
     "clone_git_repo",

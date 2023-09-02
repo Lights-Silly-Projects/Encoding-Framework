@@ -1,5 +1,4 @@
 from typing import Literal
-from vsmuxtools import Trim
 
 __all__: list[str] = [
     "Zones",

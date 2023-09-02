@@ -60,7 +60,7 @@ class DiscordEmbedder(DiscordWebhook):
     last_embed: Response | None = None
     """The last embed that was passed."""
 
-    _encode_embed_opts: set[DiscordEmbedOpts] = []
+    _encode_embed_opts: set[DiscordEmbedOpts] = set()
     """Enum options for embeds."""
 
     _history: list[Response] = []

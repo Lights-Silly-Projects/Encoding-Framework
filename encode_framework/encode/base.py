@@ -4,7 +4,6 @@ from vstools import CustomRuntimeError, finalize_clip, vs
 
 from ..script import ScriptInfo
 
-
 __all__: list[str] = [
     "_BaseEncoder"
 ]
@@ -33,6 +32,6 @@ class _BaseEncoder:
                 "Please output just one node!", __file__, len(out_clip)  # type:ignore[arg-type]
             )
 
-        self.out_clip = self._finalize_clip(out_clip, **kwargs)  # type:ignore[arg-type]
+        self.out_clip = finalize_clip(out_clip, **kwargs)  # type:ignore[arg-type]
 
         self.video_file = None  # type:ignore

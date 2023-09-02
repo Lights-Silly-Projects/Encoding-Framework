@@ -333,7 +333,7 @@ class DiscordEmbedder(DiscordWebhook):
                 )]
             elif track.track_type == "Menu":
                 tracks += [(
-                    "Chapters", len(str(vars(track))[23:-1].split(",")) - 1
+                    "Chapters", str(len(str(vars(track))[23:-1].split(",")) - 1)
                 )]
             else:
                 Log.debug(f"Unprocessed track: {vars(track)}", self._get_track_info)

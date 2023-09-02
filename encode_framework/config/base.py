@@ -148,7 +148,7 @@ def add_option(
 def get_items(
     name: SPathLike, section: str,
     config: ConfigParser | None = None
-) -> list[tuple[str, str]]:
+) -> dict[str, str]:
     """
     Get all items of a specific section from a given config file.
 
@@ -157,7 +157,7 @@ def get_items(
     filename = SPath(name)
 
     if not filename.exists():
-        return []
+        return dict()
 
     if not config:
         config_obj = ConfigParser()
@@ -166,9 +166,9 @@ def get_items(
         config_obj = config
 
     try:
-        return config_obj.items(section)
+        return dict(config_obj.items(section))
     except NoSectionError:
-        return []
+        return dict()
 
 
 def get_option(

@@ -145,7 +145,7 @@ class DiscordEmbedder(DiscordWebhook):
             embed = self._set_anilist_title(embed, "has finished encoding!")
 
         if DiscordEmbedOpts.TRACKS_INFO in self._encode_embed_opts:
-            embed = self._track_sizes(embed)
+            embed = self._track_info(embed)
 
         if DiscordEmbedOpts.PLOTBITRATE in self._encode_embed_opts:
             embed = self._set_plotbitrate(embed)
@@ -288,10 +288,10 @@ class DiscordEmbedder(DiscordWebhook):
 
         return embed
 
-    def _track_sizes(self, embed: DiscordEmbed) -> DiscordEmbed:
-        tracks = self._get_track_sizes()
+    def _track_info(self, embed: DiscordEmbed) -> DiscordEmbed:
+        tracks = self._get_track_info()
 
-        desc = f"* Total filesize: {tracks[0][1]}"
+        desc = f"{self.encoder.premux_path.name}\n* Total filesize: {tracks[0][1]}"
 
         for track_type, file_size in tracks[1:]:
             desc += f"\n * {track_type}: {file_size}"
@@ -300,7 +300,7 @@ class DiscordEmbedder(DiscordWebhook):
 
         return embed
 
-    def _get_track_sizes(self, premux_path: SPathLike | None = None) -> list[tuple[str, str]]:
+    def _get_track_info(self, premux_path: SPathLike | None = None) -> list[tuple[str, str]]:
         if premux_path is None:
             premux_path = self.encoder.premux_path
 
@@ -311,18 +311,32 @@ class DiscordEmbedder(DiscordWebhook):
         for track in MediaInfo.parse(premux_path, full=False).tracks:
             if track.track_type == "General":
                 tracks += [(track.track_type, track.file_size)]
-            elif track.track_type in ("Video", "Audio"):
-                tracks += [
-                    (f"{track.track_type} ({track.track_id}) [{str(track.format).split(' ')[0].upper()}]",
-                     track.stream_size)
-                ]
+            elif track.track_type == "Video":
+                tracks += [(
+                    f"[{track.track_id}] {track.track_type} ({str(track.format).split(' ')[0].upper()} "
+                    f"{str(track.width).replace(' ', '').replace('pixels', '')}x"
+                    f"{str(track.height).replace(' ', '').replace('pixels', '')} "
+                    f"@ {str(track.frame_rate).lower()})",
+                    track.stream_size
+                )]
+            elif track.track_type == "Audio":
+                tracks += [(
+                    f"[{track.track_id}] {track.track_type} "
+                    f"({str(track.format).split(' ')[0].upper()} "
+                    f"({track.channel_s}))",
+                    track.stream_size
+                )]
             elif track.track_type == "Text":
-                tracks += [
-                    (f"Subtitles ({track.track_id}) [{str(track.format).split(' ')[0].upper()}]",
-                     track.stream_size)
-                ]
-
-            Log.info(vars(track), self._get_track_sizes)
+                tracks += [(
+                    f"[{track.track_id}] Subtitles ({str(track.format).split(' ')[0].upper()})",
+                    track.stream_size
+                )]
+            elif track.track_type == "Menu":
+                tracks += [(
+                    "Chapters", len(str(vars(track))[23:-1].split(",")) - 1
+                )]
+            else:
+                Log.debug(f"Unprocessed track: {vars(track)}", self._get_track_info)
 
         return tracks
 

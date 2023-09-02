@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-import setuptools
+import setuptools  # type:ignore[import]
 
 package_name = 'encode_framework'
 
@@ -31,8 +31,9 @@ setuptools.setup(
     packages=[
         package_name,
         f"{package_name}.config",
-        f"{package_name}.distribute",
         f"{package_name}.filter",
+        f"{package_name}.git",
+        f"{package_name}.integrations",
         f"{package_name}.script",
         f"{package_name}.tracks",
         f"{package_name}.types",

@@ -4,6 +4,7 @@ from configparser import ConfigParser
 from lautils import get_all_functions, get_caller_module
 from vstools import SPath
 
+from ..git import append_gitignore
 from .base import add_section, touch_ini
 
 __all__: list[str] = [
@@ -12,7 +13,7 @@ __all__: list[str] = [
 
 
 def setup_auth() -> ConfigParser:
-    """Create the auth file."""
+    """Create the auth file and accompanying gitignore file."""
     from . import auth
 
     filepath = SPath("auth.ini")
@@ -27,6 +28,8 @@ def setup_auth() -> ConfigParser:
 
     config = ConfigParser()
     config.read(filepath)
+
+    append_gitignore(options=["auth.ini"])
 
     return config
 

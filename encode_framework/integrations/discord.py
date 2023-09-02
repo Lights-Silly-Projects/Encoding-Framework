@@ -44,7 +44,7 @@ class DiscordEmbedOpts(str, Enum):
     TIME_ELAPSED = auto()
     """Amount of time that has elapsed since the last embed."""
 
-    TRACKS = auto()
+    TRACKS_INFO = auto()
     """Display the number of tracks and basic information about each track."""
 
 
@@ -60,7 +60,7 @@ class DiscordEmbedder(DiscordWebhook):
     last_embed: Response | None = None
     """The last embed that was passed."""
 
-    _encode_embed_opts: list[DiscordEmbedOpts] = []
+    _encode_embed_opts: set[DiscordEmbedOpts] = []
     """Enum options for embeds."""
 
     _history: list[Response] = []
@@ -70,14 +70,14 @@ class DiscordEmbedder(DiscordWebhook):
         self,
         script_info: ScriptInfo,
         encoder: Encoder,
-        options: list[DiscordEmbedOpts] = [
+        options: set[DiscordEmbedOpts] = {
             DiscordEmbedOpts.ANIME_INFO,
             DiscordEmbedOpts.EXCEPTION,
             DiscordEmbedOpts.PLOTBITRATE,
             DiscordEmbedOpts.SHOW_FPS,
             DiscordEmbedOpts.TIME_ELAPSED,
-            DiscordEmbedOpts.TRACKS,
-        ],
+            DiscordEmbedOpts.TRACKS_INFO,
+        },
         **webhook_kwargs: Any
     ) -> None:
         self._set_webhook_url()
@@ -91,8 +91,6 @@ class DiscordEmbedder(DiscordWebhook):
         self.encoder = encoder
         self.project_options = self._get_project_options()
 
-        self._encode_embed_opts = options
-
         webhook_kwargs.pop("webhook_url", False)
 
         init_kwargs = {
@@ -104,6 +102,13 @@ class DiscordEmbedder(DiscordWebhook):
         init_kwargs |= webhook_kwargs
 
         super().__init__(self.webhook_url, **init_kwargs)
+
+        if not isinstance(options, set):
+            options = {options}
+        elif isinstance(options, list):
+            options = set(options)
+
+        self._encode_embed_opts = options
 
         if DiscordEmbedOpts.ANIME_INFO in self._encode_embed_opts:
             self._set_anilist()
@@ -139,7 +144,7 @@ class DiscordEmbedder(DiscordWebhook):
         if DiscordEmbedOpts.ANIME_INFO in self._encode_embed_opts:
             embed = self._set_anilist_title(embed, "has finished encoding!")
 
-        if DiscordEmbedOpts.TRACKS in self._encode_embed_opts:
+        if DiscordEmbedOpts.TRACKS_INFO in self._encode_embed_opts:
             embed = self._track_sizes(embed)
 
         if DiscordEmbedOpts.PLOTBITRATE in self._encode_embed_opts:

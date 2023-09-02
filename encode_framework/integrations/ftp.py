@@ -6,11 +6,12 @@ from configparser import ConfigParser
 from ftplib import FTP
 
 from ..util.logging import Log
-from ..util import create_gitignore
+from ..git.ignore import append_gitignore
 
 __all__: list[str] = [
     "Ftp"
 ]
+
 
 class Ftp:
     """Class representing an FTP worker."""
@@ -82,7 +83,7 @@ class Ftp:
 
         # We really don't want users accidentally pushing these files to a public repo...
         if not SPath(".gitignore").exists():
-            create_gitignore(options=[self.config_file])
+            append_gitignore(options=[self.config_file])
 
     def get_welcome(self) -> None:
         ...

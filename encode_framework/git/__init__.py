@@ -1,1 +1,1 @@
-from .ignore import   # noqa: F401, F403
+from .ignore import *  # noqa: F401, F403

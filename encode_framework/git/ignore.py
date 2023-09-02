@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 
 __all__: list[str] = [
-    "create_gitignore",
+    "append_gitignore",
 ]
 
 

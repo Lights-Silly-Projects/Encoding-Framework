@@ -159,13 +159,13 @@ class DiscordEmbedder(DiscordWebhook):
         self._safe_add_embed(embed)
         self._safe_execute(self.start)
 
-    def fail(self, msg: str = "", exception: BaseException | str | None = None) -> None:
+    def fail(self, msg: str = "", exception: BaseException | str | None = None) -> Exception:
         """Encode fail embed."""
         if not self.webhook_url:
             return
 
         if not self._start:
-            Log.error(f"You must run \"{self.__class__.__name__}.start\" first!", self.fail)
+            return Log.error(f"You must run \"{self.__class__.__name__}.start\" first!", self.fail)
 
         embed = DiscordEmbed(title=self._get_base_title("has failed while encoding!"), description=msg, color=12582912)
 
@@ -177,6 +177,8 @@ class DiscordEmbedder(DiscordWebhook):
 
         self._safe_add_embed(embed)
         self._safe_execute(self.start)
+
+        return Exception(exception)
 
     def ping(self) -> None:
         """Ping the webhook to see if it's alive."""

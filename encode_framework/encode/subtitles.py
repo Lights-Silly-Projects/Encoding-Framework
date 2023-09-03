@@ -2,7 +2,8 @@ import os
 
 from babelfish import Language  # type:ignore[import]
 from magic import Magic
-from vsmuxtools import SubFile, SubTrack, frame_to_ms  # type:ignore[import]
+from muxtools import SubTrack, frame_to_ms, make_output  # type:ignore[import]
+from vsmuxtools import SubFile  # type:ignore[import]
 from vstools import SPath, SPathLike
 
 from ..git import clone_git_repo
@@ -43,7 +44,12 @@ class _Subtitles(_BaseEncoder):
 
             get_mime = mg.from_file(f.to_str())
 
-            sub_file = SubFile(f, source=dgi_file)
+            try:
+                sub_file = SubFile(f, source=dgi_file)
+            except (UnicodeDecodeError, ValueError) as e:
+                Log.debug(str(e), self.find_sub_files)
+
+                continue
 
             if get_mime == "application/octet-stream" and f.to_str().endswith((".sup", ".pgs")):
                 self.subtitle_files += [sub_file]
@@ -53,6 +59,8 @@ class _Subtitles(_BaseEncoder):
                 self.subtitle_files += [sub_file]
 
         if not self.subtitle_files:
+            Log.debug("No subtitle files found!", self.find_sub_files)
+
             return self.subtitle_files
 
         Log.info("The following subtitle files were found!", self.find_sub_files)

@@ -2,9 +2,9 @@ import os
 
 from babelfish import Language  # type:ignore[import]
 from magic import Magic
-from muxtools import SubTrack, frame_to_ms, make_output  # type:ignore[import]
+from muxtools import FontFile, SubTrack, frame_to_ms, make_output  # type:ignore[import]
 from vsmuxtools import SubFile  # type:ignore[import]
-from vstools import SPath, SPathLike
+from vstools import SPath, SPathLike, vs
 
 from ..git import clone_git_repo
 from ..types import IsWindows, TextSubExt
@@ -24,6 +24,9 @@ class _Subtitles(_BaseEncoder):
     subtitle_tracks: list[SubTrack] = []
     """A list of all subtitle tracks."""
 
+    font_files: list[FontFile] = []
+    """A list of fonts collected from the file."""
+
     def find_sub_files(self, dgi_path: SPathLike | None = None) -> list[SPath]:
         """
         Find accompanying DGIndex(NV) demuxed pgs tracks.
@@ -34,6 +37,7 @@ class _Subtitles(_BaseEncoder):
 
         if not dgi_file.to_str().endswith(".dgi"):
             Log.error("Input file is not a dgi file, not returning any subs", self.find_sub_files)
+
             return []
 
         mg = Magic(mime=True)
@@ -44,19 +48,12 @@ class _Subtitles(_BaseEncoder):
 
             get_mime = mg.from_file(f.to_str())
 
-            try:
-                sub_file = SubFile(f, source=dgi_file)
-            except (UnicodeDecodeError, ValueError) as e:
-                Log.debug(str(e), self.find_sub_files)
-
-                continue
-
             if get_mime == "application/octet-stream" and f.to_str().endswith((".sup", ".pgs")):
-                self.subtitle_files += [sub_file]
+                self.subtitle_files += [f]
             elif get_mime == "video/mpeg" and f.to_str().endswith(".sub"):
-                self.subtitle_files += [sub_file]
+                self.subtitle_files += [f]
             elif f.to_str().endswith(TextSubExt):
-                self.subtitle_files += [sub_file]
+                self.subtitle_files += [f]
 
         if not self.subtitle_files:
             Log.debug("No subtitle files found!", self.find_sub_files)
@@ -75,6 +72,7 @@ class _Subtitles(_BaseEncoder):
 
     def process_subs(
         self, subtitle_files: SPathLike | list[SPath] | None = None,
+        ref: vs.VideoNode | None = None,
         langs: list[Language] = [Language("eng"), Language("jpn")],
         sub_delay: int | None = None, strict: bool = False
     ) -> list[SubTrack]:
@@ -154,8 +152,11 @@ class _Subtitles(_BaseEncoder):
                 if pgsrip.rip(Sup(sub), Options(languages=langs, overwrite=not strict, one_per_lang=False)):
                     Log.info(f"[{i + 1}/{len(sub_files)}] Done!", self.process_subs)
 
-                    proc_files += [sub_spath.with_suffix(".srt")]
-                    ocrd += [sub_spath.with_suffix(".srt")]
+                    # Move to workdir
+                    new_path = sub_spath.with_suffix(".srt").rename(make_output(sub_spath, "srt", "ocrd", False))
+
+                    proc_files += [new_path]
+                    ocrd += [new_path]
                 else:
                     Log.warn(
                         f"An error occurred while OCRing \"{sub_spath.name}\"! Passing the original file instead...",
@@ -203,7 +204,25 @@ class _Subtitles(_BaseEncoder):
         if len(proc_files) != len(proc_set):
             Log.debug(f"Removed duplicate tracks ({len(proc_files)} -> {len(proc_set)})", self.process_subs)
 
+        # Fixing a handful of very common OCR errors I encountered myself...
+        for ocrd_file in ocrd:
+            ocrd_file = SPath(ocrd_file)
+
+            clean = ocrd_file.with_stem(ocrd_file.stem + "_clean")
+
+            with open(ocrd_file, "rt") as fin:
+                with open(clean, "wt") as fout:
+                    for line in fin:
+                        line = line.replace("|", "I")
+
+                        fout.write(line)
+
+            ocrd_file.unlink()
+            clean.rename(ocrd_file)
+
         first_track_removed = False
+
+        ref = ref or self.out_clip
 
         for i, sub in enumerate(proc_set):
             if os.stat(sub).st_size == 0:
@@ -218,8 +237,12 @@ class _Subtitles(_BaseEncoder):
             if sub in ocrd:
                 name = "OCR'd"
 
-            self.subtitle_tracks += [SubTrack(
-                sub, name=name, default=first_track_removed or not bool(i), delay=int(sub_delay)
-            )]
+            ass_file = SubFile.from_srt(sub)
+            ass_file = ass_file.truncate_by_video(ref)
+
+            # TODO: Fix it not truncating properly? I think it's just not writing it as it should?
+
+            self.subtitle_tracks += [ass_file.to_track(name, default=first_track_removed or not bool(i))]
+            self.font_files = ass_file.collect_fonts(search_current_dir=False)
 
         return self.subtitle_tracks

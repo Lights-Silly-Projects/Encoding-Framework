@@ -51,8 +51,6 @@ class _VideoEncoder(_BaseEncoder):
         in_clip = input_clip or self.script_info.clip_cut
         out_clip = output_clip or self.out_clip or in_clip
 
-        assert isinstance(encoder, SupportsQP)
-
         settings_file = SPath(str(settings).format(encoder=encoder.__name__))
 
         if not isinstance(out_clip, vs.VideoNode):

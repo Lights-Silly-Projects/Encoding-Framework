@@ -13,7 +13,7 @@ __all__: list[str] = [
     "Encoder"
 ]
 
-# TODO: Rewrite this etnire thing + tracks/*.py
+# TODO: Rewrite this entire thing + tracks/*.py
 
 
 class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
@@ -71,7 +71,8 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
                 Log.debug(f"   - [CHAPTERS] {[ch[1] for ch in self.chapters.chapters]}", self.mux)
 
         self.premux_path = SPath(mux(
-            video_track, *self.audio_tracks, *self.subtitle_tracks,
+            video_track, *self.audio_tracks,
+            *self.subtitle_tracks, *self.font_files,
             self.chapters, outfile=out_path
         ))
 

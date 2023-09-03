@@ -225,7 +225,9 @@ class _Subtitles(_BaseEncoder):
         ref = ref or self.out_clip
 
         for i, sub in enumerate(proc_set):
-            if os.stat(sub).st_size == 0:
+            sub = SPath(sub)
+
+            if sub.stat().st_size == 0:
                 Log.warn(f"\"{SPath(sub).name}\" is an empty file! Ignoring...", self.process_subs)
 
                 first_track_removed = True
@@ -237,12 +239,17 @@ class _Subtitles(_BaseEncoder):
             if sub in ocrd:
                 name = "OCR'd"
 
-            ass_file = SubFile.from_srt(sub)
-            ass_file = ass_file.truncate_by_video(ref)
+            if sub.to_str().endswith(".srt"):
+                sub = SubFile.from_srt(sub)
+                sub.delay = int(sub_delay)
+            else:
+                sub = SubFile(sub, delay=int(sub_delay))
+
+            sub = sub.truncate_by_video(ref)
 
             # TODO: Fix it not truncating properly? I think it's just not writing it as it should?
 
-            self.subtitle_tracks += [ass_file.to_track(name, default=first_track_removed or not bool(i))]
-            self.font_files = ass_file.collect_fonts(search_current_dir=False)
+            self.subtitle_tracks += [sub.to_track(name, default=first_track_removed or not bool(i))]
+            self.font_files = sub.collect_fonts(search_current_dir=False)
 
         return self.subtitle_tracks

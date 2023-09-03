@@ -5,7 +5,7 @@ from enum import Enum, auto
 from typing import Any, cast
 
 from discord_webhook import DiscordEmbed, DiscordWebhook
-from pymediainfo import MediaInfo  # type:ignore[import]
+from pymediainfo import MediaInfo, Track  # type:ignore[import]
 from pyupload.uploader import CatboxUploader  # type:ignore
 from requests import Response  # type:ignore[import]
 from vstools import SPath, SPathLike, vs
@@ -173,7 +173,9 @@ class DiscordEmbedder(DiscordWebhook):
             embed = self._set_anilist_title(embed, "has failed while encoding!")
 
         if DiscordEmbedOpts.EXCEPTION in self._encode_embed_opts:
-            embed = self._prettify_exception(embed, exception)
+            embed = self._prettify_exception(embed, markdownify(exception))
+
+        embed.set_description(f"```{embed.description}```")
 
         self._safe_add_embed(embed)
         self._safe_execute(self.start)
@@ -293,16 +295,28 @@ class DiscordEmbedder(DiscordWebhook):
     def _track_info(self, embed: DiscordEmbed) -> DiscordEmbed:
         tracks = self._get_track_info()
 
-        desc = f"{self.encoder.premux_path.name}\n* Total filesize: {tracks[0][1]}"
+        desc = f"```markdown\n{self.encoder.premux_path.name}\n * Total Filesize: {tracks[0][1]}```"
 
-        for track_type, file_size in tracks[1:]:
-            desc += f"\n * {track_type}: {file_size}"
+        desc += f"```markdown\n"
 
-        embed = self._append_to_embed_description(embed, desc)
+        for track_title, track_info in tracks[1:]:
+            desc += f"**{track_title}**"
+
+            if track_info:
+                desc += ":\n    - "
+                desc += "\n    - ".join(track_info)
+
+            desc += "\n\n"
+
+        desc += "```"
+
+        Log.debug(f"Discord embed for tracks:\n{desc.strip()}", self._track_info)
+
+        embed = self._append_to_embed_description(embed, desc.strip())
 
         return embed
 
-    def _get_track_info(self, premux_path: SPathLike | None = None) -> list[tuple[str, str]]:
+    def _get_track_info(self, premux_path: SPathLike | None = None) -> list[tuple[str, list[str]]]:
         if premux_path is None:
             premux_path = self.encoder.premux_path
 
@@ -310,40 +324,110 @@ class DiscordEmbedder(DiscordWebhook):
 
         tracks: list[tuple[str, str]] = []
 
-        for track in MediaInfo.parse(premux_path, full=False).tracks:
-            if track.track_type == "General":
-                tracks += [(track.track_type, track.file_size)]
-            elif track.track_type == "Video":
-                tracks += [(
-                    f"[{track.track_id}] {track.track_type} ({str(track.format).split(' ')[0].upper()} "
-                    f"{str(track.width).replace(' ', '').replace('pixels', '')}x"
-                    f"{str(track.height).replace(' ', '').replace('pixels', '')} "
-                    f"@ {str(track.frame_rate).lower()})",
-                    track.stream_size
-                )]
-            elif track.track_type == "Audio":
-                tracks += [(
-                    f"[{track.track_id}] {track.track_type} "
-                    f"({str(track.format).split(' ')[0].upper()} "
-                    f"({track.channel_s}))",
-                    track.stream_size
-                )]
-            elif track.track_type == "Text":
-                tracks += [(
-                    f"[{track.track_id}] Subtitles ({str(track.format).split(' ')[0].upper()})",
-                    track.stream_size
-                )]
-            elif track.track_type == "Menu":
-                tracks += [(
-                    "Chapters", str(len(str(vars(track))[23:-1].split(",")) - 1)
-                )]
-            else:
-                Log.debug(f"Unprocessed track: {vars(track)}", self._get_track_info)
+        try:
+            for track in MediaInfo.parse(premux_path).tracks:
+                if track.track_type == "General":
+                    tracks += [(track.track_type, track.other_file_size[0])]
+                elif track.track_type == "Video":
+                    tracks += [self._get_video_track_info(track)]
+                elif track.track_type == "Audio":
+                    tracks += [self._get_audio_track_info(track)]
+                elif track.track_type == "Text":
+                    tracks += [(self._get_subtitle_track_info(track))]
+                elif track.track_type == "Menu":
+                    ch = self._get_menu_track_info(track)
+
+                    if ch:
+                        tracks += [ch]
+                else:
+                    Log.debug(f"Unprocessed track: {vars(track)}", self._get_track_info)
+        except:
+            Log.error(str(vars(track)), self._get_track_info)
+
+            raise Log.error(f"An error occured with the \"{track.track_type}\" track!", self._get_track_info)
 
         return tracks
 
+    def _get_basic_track_title(self, track: Track) -> str:
+        return " ".join([
+            f"[{track.track_id}] {track.track_type}",
+            f"({track.commercial_name})",
+            f"{track.other_stream_size[0]}"
+        ]).replace("] Text ", "] Subtitles ").strip()
+
+    def _get_video_track_info(self, track: Track) -> tuple[str, list[str]]:
+        t_data = track.to_data()
+
+        res = f"{track.width}x{track.height}"
+
+        # TODO: Add a check for progressive/interlaced video
+        res += "p"
+
+        info = [
+            # Framerate check (can help you figure out whether the encode truly finished)
+            f"{track.frame_count}/{self.encoder.out_clip.num_frames} frames",
+            # Base resolution + Bit depth
+            f"{res} ({track.other_display_aspect_ratio[0]}) {track.other_bit_depth[0][:-1]}",
+            # Frame rate
+            f"{str(track.other_frame_rate[0]).lower()} ({track.frame_rate_mode})",
+        ]
+
+        # True resolution PAR =/= 1  TODO: Figure out how to calc this!
+        # if not float(eval(track.pixel_aspect_ratio)).is_integer():
+        #     info.insert(1, f"Sampled resolution: {track.sampled_width}x{track.sampled_height}")
+
+        # Colorimetry, but only if set by the user.
+        if t_data.get("matrix_coefficients_source", "") == "Stream":
+            info += [" / ".join([
+                f"{track.matrix_coefficients} (M)",
+                f"{track.transfer_characteristics} (T)",
+                f"{track.color_primaries} (P)"
+            ])]
+
+        return (self._get_basic_track_title(track), info)
+
+
+    def _get_audio_track_info(self, track: Track) -> tuple[str, list[str]]:
+        info = [
+            # Number of channels
+            str(track.other_channel_s[0]),
+        ]
+
+        if track.commercial_name == "FLAC":
+            info += [
+                # Bit depth
+                str(track.other_bit_depth[0])
+            ]
+
+        return (self._get_basic_track_title(track), info)
+
+    def _get_subtitle_track_info(self, track: Track) -> tuple[str, list[str]]:
+        return (self._get_basic_track_title(track), [])
+
+    def _get_menu_track_info(self, track: Track) -> tuple[str, list[str]]:
+        chapters = []
+
+        for k, v in dict(sorted(vars(track).items())).items():
+            try:
+                _ = int(str(k).replace("_", ""))
+                chapters += [f"{k.replace('_', ':')} - {v.split(':', 1)[1]}"]
+                print(chapters)
+            except (TypeError, ValueError) as e:
+                Log.debug(e, self._get_menu_track_info)
+                break
+
+        if not chapters:
+            return ()
+
+        return (f"[+] Chapters ({len(chapters)})", chapters)
+
     def _set_plotbitrate(self, embed: DiscordEmbed) -> DiscordEmbed:
-        embed.set_image(self._make_plotbitrate())
+        url = self._make_plotbitrate()
+
+        try:
+            embed.set_image(url)
+        except Exception as e:
+            Log.warn(str(e), self._set_plotbitrate)
 
         return embed
 
@@ -355,9 +439,25 @@ class DiscordEmbedder(DiscordWebhook):
 
         out_path = premux_path.with_suffix(".png")
 
-        sp.run(["plotbitrate", "-o", out_path.to_str(), "-f", "png", "--show-frame-types", premux_path.to_str()])
+        url = ""
 
-        url = CatboxUploader(out_path.to_str()).execute()
+        try:
+            args = [
+                "plotbitrate", "-o", out_path.to_str(), "-f", "png",
+                "--show-frame-types", premux_path.to_str()
+            ]
+
+            sp.run(args)
+        except sp.CalledProcessError:
+            Log.error(
+                f"An error occurred while trying to create a bitrate plot! Params:\n{args}",
+                self._make_plotbitrate
+            )
+
+        try:
+            url = CatboxUploader(out_path.to_str()).execute()
+        except FileNotFoundError as e:
+            Log.error(str(e), "CatboxUploader.execute")
 
         out_path.unlink(missing_ok=True)
 

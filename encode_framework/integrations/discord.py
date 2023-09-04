@@ -157,7 +157,7 @@ class DiscordEmbedder(DiscordWebhook):
             embed = self._success_add_next_airing(embed)
 
         self._safe_add_embed(embed)
-        self._safe_execute(self.start)
+        self._safe_execute(self.success)
 
     def fail(self, msg: str = "", exception: BaseException | str | None = None) -> Exception:
         """Encode fail embed."""
@@ -178,7 +178,7 @@ class DiscordEmbedder(DiscordWebhook):
         embed.set_description(f"```{embed.description}```")
 
         self._safe_add_embed(embed)
-        self._safe_execute(self.start)
+        self._safe_execute(self.fail)
 
         return Exception(exception)
 
@@ -385,7 +385,6 @@ class DiscordEmbedder(DiscordWebhook):
             ])]
 
         return (self._get_basic_track_title(track), info)
-
 
     def _get_audio_track_info(self, track: Track) -> tuple[str, list[str]]:
         info = [

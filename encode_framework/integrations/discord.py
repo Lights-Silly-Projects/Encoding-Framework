@@ -90,6 +90,7 @@ class DiscordEmbedder(DiscordWebhook):
         self.script_info = script_info
         self.encoder = encoder
         self.project_options = self._get_project_options()
+        self._history = []
 
         webhook_kwargs.pop("webhook_url", False)
 
@@ -534,6 +535,9 @@ class DiscordEmbedder(DiscordWebhook):
             setattr(self, k, v)
 
         del saved_props
+
+        if not hasattr(self, "_history"):
+            self._history = []
 
         self._history += [r]
 

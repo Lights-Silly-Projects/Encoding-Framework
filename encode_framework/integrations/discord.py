@@ -203,6 +203,9 @@ class DiscordEmbedder(DiscordWebhook):
     def _set_webhook_url(self, auth: str = "auth.ini") -> str:
         self.webhook_url = get_option("auth.ini", "DISCORD", "webhook_url")
 
+        if "support.discord.com" in str(self.webhook_url):
+            self.webhook_url = None
+
         if not self.webhook_url:
             Log.error(f"You MUST set a webhook url to use Discord embeds!", self._set_webhook_url)
 

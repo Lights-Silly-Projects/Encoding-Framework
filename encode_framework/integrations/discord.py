@@ -410,7 +410,6 @@ class DiscordEmbedder(DiscordWebhook):
             try:
                 _ = int(str(k).replace("_", ""))
                 chapters += [f"{k.replace('_', ':')} - {v.split(':', 1)[1]}"]
-                print(chapters)
             except (TypeError, ValueError) as e:
                 Log.debug(e, self._get_menu_track_info)
                 break

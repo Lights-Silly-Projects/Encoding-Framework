@@ -1,4 +1,4 @@
-from typing import cast
+from typing import Any, cast
 
 from vsmuxtools import VideoFile, x265  # type:ignore[import]
 from vsmuxtools.video.encoders import SupportsQP  # type:ignore[import]
@@ -34,6 +34,7 @@ class _VideoEncoder(_BaseEncoder):
         settings: SPathLike = "_settings/{encoder}_settings",
         lossless: bool = False,
         encoder: SupportsQP = x265,
+        **encoder_kwargs: Any
     ) -> VideoFile:
         """
         Encode the video node.
@@ -75,7 +76,7 @@ class _VideoEncoder(_BaseEncoder):
                 self.encode_video, FileNotExistsError  # type:ignore[arg-type]
             )
 
-        video_file = encoder(settings_file, zones, qpfile, in_clip) \
+        video_file = encoder(settings_file, zones, qpfile, in_clip, **encoder_kwargs) \
             .encode(finalize_clip(out_clip))  # type:ignore[arg-type]
 
         self.video_file = cast(VideoFile, video_file)

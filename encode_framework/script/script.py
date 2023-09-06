@@ -127,6 +127,15 @@ class ScriptInfo:
         self.src = src_file(self.src_file.to_str(), trim=trim)
         self.clip_cut = cast(vs.VideoNode, self.src.init_cut()).std.SetFrameProps(Name="src")
 
+        self.trim = self.update_trims(trim)
+
+        if name is not None:
+            self.clip_cut = self.clip_cut.std.SetFrameProps(Name=name)
+
+        return self.clip_cut
+
+    def update_trims(self, trim) -> tuple[int, int]:
+        """Update trims if necessary. Useful for if you adjust the trims during prefiltering."""
         if any(x is None for x in trim):
             trim = list(trim)  # type:ignore[assignment]
 
@@ -136,12 +145,7 @@ class ScriptInfo:
             if trim[1] is None:
                 trim[1] = self.clip_cut.num_frames + 1  # type:ignore[index]
 
-            self.src.trim = tuple(trim)
-
-        if name is not None:
-            self.clip_cut = self.clip_cut.std.SetFrameProps(Name=name)
-
-        return self.clip_cut
+        self.src.trim = tuple(trim)
 
     def setup_muxtools(self, **setup_kwargs: Any) -> None:
         """Create the config file for muxtools."""

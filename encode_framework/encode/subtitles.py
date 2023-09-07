@@ -89,8 +89,7 @@ class _Subtitles(_BaseEncoder):
 
         wclip = ref or self.out_clip
 
-        if sub_delay is not None:
-            sub_delay = frame_to_ms(sub_delay, wclip.fps, compensate=True)
+        sub_delay = frame_to_ms(sub_delay or 0, wclip.fps)
 
         Log.info("The following subtitle files were found!", self.process_subs)
 

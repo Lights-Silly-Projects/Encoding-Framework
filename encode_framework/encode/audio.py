@@ -193,12 +193,9 @@ class _AudioEncoder(_BaseEncoder):
         # Normalising trims.
         if trims is None:
             if is_file:
-                trims = [self.script_info.src.trim]
+                trims = [self.script_info.trim]
             else:
-                trims = [(
-                    frames_to_samples(self.script_info.src.trim[0]),
-                    frames_to_samples(self.script_info.src.trim[1])
-                )]
+                trims = [tuple(frames_to_samples(x) for x in self.script_info.trim[0])]
         elif isinstance(trims, tuple):
             trims = [trims]
 

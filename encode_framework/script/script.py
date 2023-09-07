@@ -127,17 +127,27 @@ class ScriptInfo:
         self.src = src_file(self.src_file.to_str(), trim=trim)
         self.clip_cut = cast(vs.VideoNode, self.src.init_cut()).std.SetFrameProps(Name="src")
 
-        self.trim = self.update_trims(trim)
+        self.update_trims(trim)
 
         if name is not None:
             self.clip_cut = self.clip_cut.std.SetFrameProps(Name=name)
 
         return self.clip_cut
 
-    def update_trims(self, trim) -> tuple[int, int]:
+    def update_trims(self, trim: int | tuple[int, int] | list[int] | None = None) -> tuple[int, int]:
         """Update trims if necessary. Useful for if you adjust the trims during prefiltering."""
+        if isinstance(trim, list):
+            if any(isinstance(x, tuple) for x in trim):
+                trim = trim[0]
+            elif len(trim) > 1:
+                trim = (trim[0], trim[1])
+            else:
+                trim = tuple(trim)
+        elif not isinstance(trim, tuple):
+            trim = (trim, trim)
+
         if any(x is None for x in trim):
-            trim = list(trim)  # type:ignore[assignment]
+            trim = list(trim)
 
             if trim[0] is None:
                 trim[0] = 0  # type:ignore[assignment, index]
@@ -145,7 +155,32 @@ class ScriptInfo:
             if trim[1] is None:
                 trim[1] = self.clip_cut.num_frames + 1  # type:ignore[index]
 
-        self.src.trim = tuple(trim)
+            trim = tuple(trim)
+
+        if inspect.stack()[1][3] in ("trim"):
+            return trim
+
+        self._trim = trim
+        self.src.trim = trim
+
+    @property
+    def trim(self) -> tuple[int, int]:
+        """The clip trim. Exclusive trim."""
+        tr = self._trim
+
+        if tr is None:
+            tr = (None, None)
+        elif isinstance(tr, list):
+            tr = self.update_trims(tr)
+
+        if any(t is None for t in tr):
+            if tr[0] is None:
+                tr[0] = 0  # type:ignore[assignment, index]
+
+            if tr[1] is None:
+                tr[1] = self.clip_cut.num_frames + 1  # type:ignore[index]
+
+        return tuple(tr)
 
     def setup_muxtools(self, **setup_kwargs: Any) -> None:
         """Create the config file for muxtools."""

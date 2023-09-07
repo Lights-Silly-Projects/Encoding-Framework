@@ -1,5 +1,3 @@
-import os
-
 from babelfish import Language  # type:ignore[import]
 from magic import Magic
 from muxtools import FontFile, SubTrack, frame_to_ms, make_output  # type:ignore[import]
@@ -78,6 +76,8 @@ class _Subtitles(_BaseEncoder):
     ) -> list[SubTrack]:
         """
         OCR and process any files that are found.
+
+        :param sub_delay:           Delay in frames. Will use the ref clip as a reference.
         """
         if subtitle_files is not None and not isinstance(subtitle_files, list):
             subtitle_files = [SPath(subtitle_files)]
@@ -87,6 +87,11 @@ class _Subtitles(_BaseEncoder):
         if not sub_files:
             return sub_files
 
+        wclip = ref or self.out_clip
+
+        if sub_delay is not None:
+            sub_delay = frame_to_ms(sub_delay, wclip.fps, compensate=True)
+
         Log.info("The following subtitle files were found!", self.process_subs)
 
         for sub in sub_files:
@@ -94,11 +99,6 @@ class _Subtitles(_BaseEncoder):
                 Log.info(f"    - \"{SPath(sub).name}\"", self.process_subs)
             except (AttributeError, ValueError) as e:
                 Log.warn(f"    - Could not determine track name!\n{e}", self.process_subs)
-
-        if sub_delay is None:
-            sub_delay = frame_to_ms(self.script_info.src.trim[0], self.out_clip.fps, compensate=True) * -1
-
-        # TODO: Add trim logic from SubFile.
 
         try:
             check_program_installed("tesseract", "https://codetoprosper.com/tesseract-ocr-for-windows/", _raise=True)
@@ -222,8 +222,6 @@ class _Subtitles(_BaseEncoder):
 
         first_track_removed = False
 
-        ref = ref or self.out_clip
-
         for i, sub in enumerate(proc_set):
             sub = SPath(sub)
 
@@ -241,13 +239,12 @@ class _Subtitles(_BaseEncoder):
 
             if sub.to_str().endswith(".srt"):
                 sub = SubFile.from_srt(sub)
-                sub.delay = int(sub_delay)
+                sub.container_delay = int(sub_delay)
             else:
                 sub = SubFile(sub, delay=int(sub_delay))
 
-            sub = sub.truncate_by_video(ref)
-
-            # TODO: Fix it not truncating properly? I think it's just not writing it as it should?
+            sub = sub.shift(-self.script_info.trim[0])
+            sub = sub.truncate_by_video(wclip)
 
             self.subtitle_tracks += [sub.to_track(name, default=first_track_removed or not bool(i))]
             self.font_files = sub.collect_fonts(search_current_dir=False)

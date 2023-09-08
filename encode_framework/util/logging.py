@@ -32,14 +32,14 @@ class Logger:
         datefmt: str = "[%X]",
         **kwargs: Any
     ) -> None:
-        log_name = logger_name or "Project"
+        log_name = logger_name or "Encode_Framework"
 
         self._config_file = Path() / "config.ini"
 
         config = ConfigParser()
         config.read(str(self._config_file))
 
-        if not logger_name:
+        if not logger_name and self._config_file.exists():
             log_name = config.get("SETUP", "show_name") or log_name
 
         log_name = log_name.replace(" ", "_")

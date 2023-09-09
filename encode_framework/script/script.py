@@ -6,11 +6,11 @@ from time import time
 from typing import Any, cast
 
 from vsmuxtools import src_file  # type:ignore[import]
-from vstools import Keyframes, SceneChangeMode, SPath, SPathLike, set_output, vs
+from vstools import CustomValueError, Keyframes, SceneChangeMode, SPath, SPathLike, set_output, vs
 
-from ..filter.kernels import ZewiaCubicNew
-from ..types import TrimAuto
-from ..util.logging import Log
+from ..filter import ZewiaCubicNew
+from ..types import TrimAuto, is_iterable
+from ..util import Log, assert_truthy
 
 __all__: list[str] = [
     "ScriptInfo",
@@ -22,10 +22,13 @@ class ScriptInfo:
     """Class containing core information necessary for the encode script."""
 
     file: SPath
-    """Path to the current work file."""
+    """Path to the current working script file."""
+
+    src_file: SPath | list[SPath]
+    """A path or list of paths to the source ideo file to work from."""
 
     src: src_file
-    """The working source file object."""
+    """The source video file object."""
 
     clip_cut: vs.VideoNode | tuple[vs.VideoNode]
     """The work clip with trimming applied. Can also be a list in case of prefilter shenanigans."""
@@ -86,15 +89,31 @@ class ScriptInfo:
         self.tc_path = SPath(f"_assets/{self.file.stem}_timecodes.txt")
 
     def index(
-        self, path: SPathLike, trim: TrimAuto | int | None = None,
+        self, path: SPathLike | list[SPathLike], trim: TrimAuto | int | None = None,
         name: str | None = None, force_dgi: bool = True
     ) -> vs.VideoNode:
         """Index the given file. Returns a tuple containing the `src_file` object and the `init_cut` node."""
-        from vssource import DGIndexNV
-
         from .trim import get_post_trim, get_pre_trim
 
-        self.src_file = SPath(path)
+        path_is_iterable = is_iterable(path)
+
+        if path_is_iterable and not force_dgi:
+            raise CustomValueError("You may only pass a list of files if you set \"force_dgi=True\"!", self.index)
+        elif force_dgi:
+            path = list(path) if path_is_iterable else [path]
+
+        self.src_file = [SPath(p).resolve() for p in path] if path_is_iterable else SPath(path).resolve()
+
+        if path_is_iterable:
+            path = path[0]
+
+        if force_dgi and not path.endswith(".dgi"):
+            from vssource import DGIndexNV
+
+            try:
+                self.src_file = DGIndexNV().index(self.src_file, False, False, None, "-a")[0]
+            except (Exception, vs.Error) as e:
+                raise Log.error(e, self.index)
 
         if trim is None:
             trim = (None, None)
@@ -114,15 +133,7 @@ class ScriptInfo:
 
             trim = (trim_pre, trim_post)
 
-        if force_dgi and not self.src_file.to_str().endswith(".dgi"):
-            try:
-                dgi = DGIndexNV().index([self.src_file.absolute()], False, False, None, "-a")[0]
-            except (Exception, vs.Error) as e:
-                Log.warn(f"Some kind of error ocurred!", self.index)  # type:ignore[arg-type]
-
-                raise e
-
-            self.src_file = dgi
+        assert_truthy(not is_iterable(self.src_file))
 
         self.src = src_file(self.src_file.to_str(), trim=trim)
         self.clip_cut = cast(vs.VideoNode, self.src.init_cut()).std.SetFrameProps(Name="src")

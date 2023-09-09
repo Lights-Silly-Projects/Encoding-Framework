@@ -1,4 +1,10 @@
 import os
+from typing import Any
+
+try:
+    from typing import Iterable
+except AttributeError:
+    from collections import Iterable
 
 __all__: list[str] = [
     "SystemName",
@@ -7,6 +13,8 @@ __all__: list[str] = [
     "TrueOutputs",
 
     "TextSubExt",
+
+    "is_iterable",
 ]
 
 SystemName = os.name
@@ -20,3 +28,13 @@ TrueOutputs = ("yes", "y", "1")
 
 TextSubExt = (".ass", ".srt", ".vtt")
 """Text-based subtitle extensions"""
+
+
+def is_iterable(obj: Any, count_str: bool = False) -> bool:
+    """Check whether the given object is iterable (but not a string unless accepted)."""
+    is_iter = isinstance(obj, Iterable)
+
+    if count_str:
+        return is_iter
+
+    return is_iter and not isinstance(obj, str)

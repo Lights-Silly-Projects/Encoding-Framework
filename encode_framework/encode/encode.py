@@ -68,7 +68,7 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
                     Log.debug(f"   - [SUBTITLES] {track.file}", self.mux)
 
             if self.chapters:
-                Log.debug(f"   - [CHAPTERS] {[ch[1] for ch in self.chapters.chapters]}", self.mux)
+                Log.debug(f"   - [CHAPTERS] {[ch for ch in self.chapters.chapters]}", self.mux)
 
         self.premux_path = SPath(mux(
             video_track, *self.audio_tracks,

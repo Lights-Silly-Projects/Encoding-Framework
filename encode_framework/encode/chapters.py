@@ -16,7 +16,7 @@ class _Chapters(_BaseEncoder):
     chapters: Chapters | None = None
     """Chapters obtained from the m2ts playlist or elsewhere."""
 
-    def get_chapters(self, force: bool = False, **kwargs: Any) -> Chapters:
+    def get_chapters(self, force: bool = False, **kwargs: Any) -> Chapters | None:
         """Create chapter objects if chapter files exist."""
         from vsmuxtools import frame_to_timedelta
 
@@ -31,6 +31,9 @@ class _Chapters(_BaseEncoder):
             else:
                 Log.warn("Not an episode, but \"force=True\" was set!", self.get_chapters)
 
-        self.chapters = Chapters(self.script_info.src, **kwargs)
+        chapters = Chapters(self.script_info.src, **kwargs)
+
+        if chapters.chapters:
+            self.chapters = chapters
 
         return self.chapters

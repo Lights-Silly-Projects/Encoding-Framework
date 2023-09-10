@@ -1,6 +1,6 @@
 from typing import Any, cast
 
-from vstools import CustomRuntimeError, SPath, SPathLike, vs
+from vstools import CustomRuntimeError, SPath, SPathLike, finalize_clip, vs
 
 from ..script import ScriptInfo
 from ..util import Log
@@ -33,6 +33,7 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
 
         assert isinstance(out_clip, vs.VideoNode)
 
+        out_clip = finalize_clip(out_clip, **kwargs)
         self.out_clip = cast(vs.VideoNode, out_clip)
 
         self.video_file = None  # type:ignore

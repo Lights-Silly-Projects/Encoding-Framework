@@ -25,6 +25,9 @@ class _VideoEncoder(_BaseEncoder):
     lossless_path: SPath
     """Path to a lossless intermediary encode."""
 
+    encoder: SupportsQP = x265
+    """The encoder used for the encode."""
+
     def encode_video(
         self,
         input_clip: vs.VideoNode | None = None,
@@ -52,7 +55,8 @@ class _VideoEncoder(_BaseEncoder):
         in_clip = input_clip or self.script_info.clip_cut
         out_clip = output_clip or self.out_clip or in_clip
 
-        settings_file = SPath(str(settings).format(encoder=encoder.__name__))
+        self.encoder = encoder
+        settings_file = SPath(str(settings).format(encoder=self.encoder.__name__))
 
         if not isinstance(out_clip, vs.VideoNode):
             raise Log.error(
@@ -76,7 +80,7 @@ class _VideoEncoder(_BaseEncoder):
                 self.encode_video, FileNotExistsError  # type:ignore[arg-type]
             )
 
-        video_file = encoder(settings_file, zones, qpfile, in_clip, **encoder_kwargs) \
+        video_file = self.encoder(settings_file, zones, qpfile, in_clip, **encoder_kwargs) \
             .encode(finalize_clip(out_clip))  # type:ignore[arg-type]
 
         self.video_file = cast(VideoFile, video_file)

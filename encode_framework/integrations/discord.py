@@ -3,11 +3,13 @@ import time
 from datetime import datetime, timedelta, timezone
 from enum import Enum, auto
 from typing import Any, cast
+from shlex import split
 
 from discord_webhook import DiscordEmbed, DiscordWebhook
 from pymediainfo import MediaInfo, Track  # type:ignore[import]
 from pyupload.uploader import CatboxUploader  # type:ignore
 from requests import Response  # type:ignore[import]
+from vsmuxtools.video.settings import fill_props, file_or_default, settings_builder_x265, settings_builder_x264
 from vstools import SPath, SPathLike, vs
 
 from ..config import get_items, get_option
@@ -37,6 +39,9 @@ class DiscordEmbedOpts(str, Enum):
 
     PLOTBITRATE = auto()
     """Embed an image with the plotted bitrate of the output file if possible."""
+
+    SETTINGS_VIDEO_ENCODE = auto()
+    """Show the settings used for the encode, if a settings file is found."""
 
     SHOW_FPS = auto()
     """Convert elapsed time to frames-per-second. Requires TIME_ELAPSED."""
@@ -74,6 +79,7 @@ class DiscordEmbedder(DiscordWebhook):
             DiscordEmbedOpts.ANIME_INFO,
             DiscordEmbedOpts.EXCEPTION,
             DiscordEmbedOpts.PLOTBITRATE,
+            DiscordEmbedOpts.SETTINGS_VIDEO_ENCODE,
             DiscordEmbedOpts.SHOW_FPS,
             DiscordEmbedOpts.TIME_ELAPSED,
             DiscordEmbedOpts.TRACKS_INFO,
@@ -126,6 +132,9 @@ class DiscordEmbedder(DiscordWebhook):
         if DiscordEmbedOpts.ANIME_INFO in self._encode_embed_opts:
             embed = self._start_anime_info(embed)
 
+        if DiscordEmbedOpts.SETTINGS_VIDEO_ENCODE in self._encode_embed_opts:
+            embed = self._video_enc_settings(embed)
+
         self._safe_add_embed(embed)
         self._safe_execute(self.start)
 
@@ -176,7 +185,7 @@ class DiscordEmbedder(DiscordWebhook):
         if DiscordEmbedOpts.EXCEPTION in self._encode_embed_opts:
             embed = self._prettify_exception(embed, markdownify(exception))
 
-        embed.set_description(f"```{embed.description}```")
+        embed = self._append_to_embed_description(embed, f"```{embed.description}```")
 
         self._safe_add_embed(embed)
         self._safe_execute(self.fail)
@@ -285,16 +294,50 @@ class DiscordEmbedder(DiscordWebhook):
         if self._anime.format not in ("TV"):
             self._anime.tv_season = self._anime.tv_season.split(" ")[-1]
 
-        desc = f"Aired: {self._anime.tv_season} ({self._anime.status})"
+        desc = f"Aired: {self._anime.tv_season} (Airing Status: {self._anime.status})"
 
-        if embed.description:
-            desc += f"\n{embed.description}"
+        if self._anime.next_airing_episode is not None:
+            desc += "\nTODO: add airing info :D (remind @lightarrowsexe if you see this)"
+
+        embed = self._append_to_embed_description(embed, desc)
 
         embed = self._set_anilist_title(embed, "has started encoding!")
         embed.set_description(desc)
         embed.set_image(self._anime.img)
 
         return embed
+
+    def _video_enc_settings(self, embed: DiscordEmbed) -> DiscordEmbed:
+        from vsmuxtools import x265
+
+        if not (sfile := SPath(f"_settings/{self.encoder.encoder.__name__}_settings")):
+            return embed
+
+        enc_is_x265 = isinstance(self.encoder.encoder, x265)
+
+        settings = file_or_default(sfile.to_str(), settings_builder_x265() if enc_is_x265 else settings_builder_x265())
+        settings = fill_props(settings[0], self.encoder.out_clip, enc_is_x265)
+
+        desc = f"\nEncoder: {self.encoder.encoder.__name__}\n```bash\nEncoder settings:\n\n"
+
+        settings = [x.replace("--") for x in settings.split(" --")]
+        settings.sort()
+
+        for setting in settings:
+            if not setting.startswith("--"):
+                setting = "--" + setting
+
+            if (len(desc.split("\n")[-1] + setting)) > 42:
+                desc += "\n"
+
+            if " " in setting:
+                desc += "=".join(setting.split(" ", maxsplit=1)) + " "
+            else:
+                desc += f"{setting} "
+
+        desc += "\n```"
+
+        return self._append_to_embed_description(embed, desc)
 
     def _track_info(self, embed: DiscordEmbed) -> DiscordEmbed:
         tracks = self._get_track_info()

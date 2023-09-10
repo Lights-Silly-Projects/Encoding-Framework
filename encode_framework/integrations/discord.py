@@ -157,14 +157,14 @@ class DiscordEmbedder(DiscordWebhook):
         if DiscordEmbedOpts.TRACKS_INFO in self._encode_embed_opts:
             embed = self._track_info(embed)
 
-        if DiscordEmbedOpts.PLOTBITRATE in self._encode_embed_opts:
-            embed = self._set_plotbitrate(embed)
-
         if DiscordEmbedOpts.TIME_ELAPSED in self._encode_embed_opts:
             embed = self._success_add_elapsed(embed)
 
         if DiscordEmbedOpts.ANIME_INFO in self._encode_embed_opts:
             embed = self._success_add_next_airing(embed)
+
+        if DiscordEmbedOpts.PLOTBITRATE in self._encode_embed_opts:
+            embed = self._set_plotbitrate(embed)
 
         self._safe_add_embed(embed)
         self._safe_execute(self.success)
@@ -469,10 +469,11 @@ class DiscordEmbedder(DiscordWebhook):
     def _set_plotbitrate(self, embed: DiscordEmbed) -> DiscordEmbed:
         url = self._make_plotbitrate()
 
-        try:
+        if url:
             embed.set_image(url)
-        except Exception as e:
-            Log.warn(str(e), self._set_plotbitrate)
+        else:
+            Log.error("Could not upload image!", self._set_plotbitrate)
+            embed = self._append_to_embed_description(embed, "< Could not upload bitrate plot >")
 
         return embed
 
@@ -499,12 +500,17 @@ class DiscordEmbedder(DiscordWebhook):
                 self._make_plotbitrate
             )
 
+        e = None
+
         try:
             url = CatboxUploader(out_path.to_str()).execute()
         except FileNotFoundError as e:
             Log.error(str(e), "CatboxUploader.execute")
+        except Exception as e:
+            Log.error(str(e), "CatboxUploader.execute")
 
-        out_path.unlink(missing_ok=True)
+        if e is None:
+            out_path.unlink(missing_ok=True)
 
         return url
 

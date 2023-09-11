@@ -1,10 +1,15 @@
+import shutil
 import subprocess
 import sys
-import shutil
 from importlib.util import find_spec
+from pathlib import Path
+from tempfile import gettempdir
+from typing import Any, overload
+from urllib.request import urlretrieve
+from zipfile import ZipFile
 
+from ..types import TruthyInput
 from .logging import Log
-from ..types import TrueOutputs
 
 __all__: list[str] = [
     "cargo_build",
@@ -13,6 +18,8 @@ __all__: list[str] = [
     "iew_latest",
     "install_package",
     "run_cmd",
+    "temp_download",
+    "unpack_zip",
 ]
 
 # TODO: Improve a bunch of these.
@@ -27,7 +34,7 @@ def install_package(pkg: str, extra_params: list[str] = [], prompt: bool = False
     """Install a given Python package."""
     Log.info(f"Installing \"{pkg}\" via pip!", install_package)
 
-    if prompt and not input("Continue with this process? [Y/n] ").strip().lower() in TrueOutputs:
+    if prompt and not input("Continue with this process? [Y/n] ").strip().lower() in TruthyInput:
         return False
 
     try:
@@ -48,43 +55,107 @@ def iew_latest() -> None:
         raise Log.error(str(e))
 
 
-def check_binary_installed(exe: str) -> bool:
-    """Check whether the given binary is installed."""
-    return bool(shutil.which(exe))  # TODO: Add _binaries dir check
+def check_program_installed(program: str, installer: str | None = None, warn: bool = False) -> bool:
+    """
+    Check whether a program is installed and warn the user if it isn't.
 
+    :param program:         The program you're looking for as called in the terminal.
+    :param installer:       An optional string including installation instructions.
+                            In most cases, this will be a link to an installer.
+    :param warn:            Whether to warn the user about the missing program.
 
-def check_program_installed(program: str, installer: str | None = None, _raise: bool = False) -> bool:
-    """Check whether a program is installed and raise a FileNotFoundError if it isn't."""
-    if not shutil.which(program):
-        if not _raise:
-            return False
+    :return:                Bool representing whether the program is installed or not.
+    """
+    if x := bool(shutil.which(program)):
+        return x
 
-        raise FileNotFoundError(
-            f"\"{program}\" could not be found on this system! "
-            "If you've installed it, you may need to add it to your PATH."
-            + f" Installation instructions: \"{installer}\"" if installer else ""
+    if warn:
+        Log.warn(
+            f"The program \"{program}\" could not be found on this system! "
+            "If you've installed it, you may need to add it to your PATH. "
+            + f"Installation instructions: \"{installer}\"" if installer else "",
+            check_program_installed
         )
 
-    return True
+    return x
 
 
 def cargo_build(package: str) -> bool:
     """Attempt to build a given cargo package."""
-    check_program_installed("cargo", "https://www.rust-lang.org/tools/install/", _raise=True)
+    if not check_program_installed("cargo", "https://www.rust-lang.org/tools/install/", warn=True):
+        return False
+
+    params = ["cargo", "install"]
+
+    if "github.com" in package:
+        params += ["--git"]
+
+    params += [str(package)]
 
     try:
-        subprocess.run(["cargo", "install", str(package)], shell=True)
+        subprocess.run(params, shell=True)
     except subprocess.SubprocessError as e:
-        raise ValueError(f"An error occurred while trying to build this cargo! \n{str(e)}")
+        Log.warn(f"An error occurred while trying to build the cargo for {package}! \n{str(e)}")
+
+        return False
 
     return True
 
 
 def run_cmd(params: list[str] = [], shell: bool = True) -> bool:
     """Try to run a commandline instance with the given params."""
+    p = list(str(param) for param in params)
+
     try:
-        subprocess.run(list(str(param) for param in params), shell=shell)
+        subprocess.run(p, shell=shell)
     except subprocess.SubprocessError as e:
-        raise ValueError(f"An error occurred while trying to run this command! \n{str(e)}")
+        Log.error(
+            f"An error occurred while trying to run this command! \n{str(e)}\n"
+            f"Command run: {p}", run_cmd
+        )
+
+        return False
 
     return True
+
+
+def temp_download(url: str, filename: str | None = None) -> Path:
+    """Install the latest package from a direct link using curl."""
+    if filename is None:
+        filename = url.split("/")[-1]
+
+    out = urlretrieve(url, f"{gettempdir()}/{filename}")[0]
+
+    out_file = Path(out)
+
+    if not out_file.exists():
+        raise FileNotFoundError(f"The file \"{out}\" was not found!")
+
+    return out_file
+
+
+@overload
+def unpack_zip(path: str, file_to_extract: str | None = None, **kwargs: Any) -> list[str]:
+    ...
+
+@overload
+def unpack_zip(path: str, file_to_extract: str | None = "", **kwargs: Any) -> str:
+    ...
+
+def unpack_zip(path: str, file_to_extract: str | None = None, **kwargs: Any) -> list[str] | str:
+    """Try to unpack a zip file. Returns either an individual filepath or a list of extracted contents."""
+    zip_file = Path(path)
+
+    if not zip_file.exists():
+        raise ValueError(f"Could no find the path \"{path}\"!")
+
+    out_dir = zip_file.parent / zip_file.stem
+    out_dir.mkdir(exist_ok=True)
+
+    with ZipFile(zip_file) as z:
+        if file_to_extract:
+            return z.extract(file_to_extract, out_dir, **kwargs)
+
+        z.extractall(out_dir, **kwargs)
+
+    return list(str(x) for x in out_dir.glob("*"))

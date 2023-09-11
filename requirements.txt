@@ -1,7 +1,7 @@
 babelfish>=0.6.0
 discord-webhook>=1.3.0
 GitPython>=3.1.32
-lautils @ git+https://github.com/Lights-Silly-Projects/py-lautils.git
+py-lautils @ git+https://github.com/Lights-Silly-Projects/py-lautils.git
 pgsrip>=0.1.9
 pymediainfo>=6.0.1
 python-magic-bin>=0.4.14

@@ -24,8 +24,8 @@ class ScriptInfo:
     file: SPath
     """Path to the current working script file."""
 
-    src_file: SPath | list[SPath]
-    """A path or list of paths to the source ideo file to work from."""
+    src_file: list[SPath]
+    """A list of paths to the source video file to work from."""
 
     src: src_file
     """The source video file object."""
@@ -102,12 +102,9 @@ class ScriptInfo:
         elif force_dgi:
             path = list(path) if path_is_iterable else [path]
 
-        self.src_file = [SPath(p).resolve() for p in path] if path_is_iterable else SPath(path).resolve()
+        self.src_file = [SPath(p).resolve() for p in path]
 
-        if path_is_iterable:
-            path = path[0]
-
-        if force_dgi and not path.endswith(".dgi"):
+        if force_dgi and not self.src_file[0].to_str().endswith(".dgi"):
             from vssource import DGIndexNV
 
             try:

@@ -33,6 +33,10 @@ class _Subtitles(_BaseEncoder):
         """
         dgi_file = SPath(dgi_path) if dgi_path is not None else self.script_info.src_file
 
+        # TODO: Add logic to find and merge subs from multiple files, i.e. VOBs
+        if isinstance(dgi_file, list):
+            dgi_file = dgi_file[0]
+
         if not dgi_file.to_str().endswith(".dgi"):
             Log.error("Input file is not a dgi file, not returning any subs", self.find_sub_files)
 

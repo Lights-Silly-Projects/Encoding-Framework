@@ -10,7 +10,7 @@ __all__: list[str] = [
     "SystemName",
     "IsWindows",
 
-    "TrueOutputs",
+    "TruthyInput",
 
     "TextSubExt",
 
@@ -23,7 +23,7 @@ SystemName = os.name
 IsWindows = SystemName in ("nt")
 """Bool indicating whether we're on a Windows machine."""
 
-TrueOutputs = ("yes", "y", "1")
+TruthyInput = ("yes", "y", "1")
 """Outputs that should be considered as \"True\" for user input."""
 
 TextSubExt = (".ass", ".srt", ".vtt")

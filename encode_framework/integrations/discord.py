@@ -321,6 +321,7 @@ class DiscordEmbedder(DiscordWebhook):
         desc = f"\nEncoder: {self.encoder.encoder.__name__}\n```bash\nEncoder settings:\n\n"
 
         settings = [x.replace("--") for x in settings.split(" --")]
+        settings = [x.replace("--", "").strip() for x in settings.split(" --")]
         settings.sort()
 
         for setting in settings:

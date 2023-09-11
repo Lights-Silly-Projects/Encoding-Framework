@@ -1,3 +1,4 @@
+import re
 from typing import Any, cast
 
 from vstools import CustomRuntimeError, SPath, SPathLike, finalize_clip, vs
@@ -100,6 +101,27 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
             Log.warn(str(e), self._move_once_done)
 
         return target
+
+    def _move_old_premuxes_once_done(self, dir_name: str = "_old") -> list[SPath]:
+        out_dir = self.premux_path / dir_name
+        targets: list[SPath] = []
+
+        premux_path_no_crc = re.sub(r"\s?\[[0-f]{8}\]*", r"", self.premux_path.name)
+
+        for pmx in self.premux_path.parent.glob(f"{premux_path_no_crc}*.mkv"):
+            if pmx == self.premux_path:
+                continue
+
+            target = out_dir / pmx.name
+
+            Log.debug(f"Moving old premux \"{pmx.name}\" -> \"{target}\"...", self._move_old_premuxes_once_done)
+
+            pmx.rename(target)
+
+            if target.exists():
+                targets += [target]
+
+        return targets
 
     # TODO:
     def _update_premux_filename(self) -> SPath:

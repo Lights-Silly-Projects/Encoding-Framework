@@ -108,6 +108,9 @@ def get_post_trim(clip: vs.VideoNode | SPathLike, kf_file: SPathLike, lock_file:
 
 def _get_clip(clip: vs.VideoNode | SPathLike) -> vs.VideoNode:
     if not isinstance(clip, vs.VideoNode):
+        if isinstance(clip, list):
+            clip = clip[0]
+
         clip = SPath(clip)  # type:ignore[arg-type]
 
         if clip.suffix == ".dgi":

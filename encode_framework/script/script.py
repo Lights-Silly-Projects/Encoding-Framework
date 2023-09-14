@@ -108,7 +108,7 @@ class ScriptInfo:
             from vssource import DGIndexNV
 
             try:
-                self.src_file = DGIndexNV().index(self.src_file, False, False, None, "-a")[0]
+                self.src_file = DGIndexNV().index(self.src_file, False, False, None, "-a")
             except (Exception, vs.Error) as e:
                 raise Log.error(e, self.index)
 
@@ -130,9 +130,9 @@ class ScriptInfo:
 
             trim = (trim_pre, trim_post)
 
-        assert_truthy(not is_iterable(self.src_file))
+        assert_truthy(is_iterable(self.src_file))
 
-        self.src = src_file(self.src_file.to_str(), trim=trim)
+        self.src = src_file(self.src_file[0].to_str(), trim=trim)
         self.clip_cut = cast(vs.VideoNode, self.src.init_cut()).std.SetFrameProps(Name="src")
 
         self.update_trims(trim)
@@ -252,7 +252,7 @@ class ScriptInfo:
 
     def replace_prefilter(
         self, prefilter: vs.VideoNode | tuple[vs.VideoNode],
-        force: bool = False
+        sc: bool = True, force: bool = False
     ) -> vs.VideoNode:
         """Replace the clip_cut attribute with a prefiltered clip. Useful for telecined clips."""
         if isinstance(prefilter, (tuple, list)):
@@ -264,24 +264,31 @@ class ScriptInfo:
             self.sc_force = force
 
         # Check whether sc_path exists, and remove if the last keyframe exceeds the prefiltered clip's total frames.
-        if self.sc_path.exists() and isinstance(self.clip_cut, vs.VideoNode) and not self.sc_lock_file.exists():
+        if sc and self.sc_path.exists() and isinstance(self.clip_cut, vs.VideoNode) and not self.sc_lock_file.exists():
             assert isinstance(self.clip_cut, vs.VideoNode)  # typing
 
             if Keyframes.from_file(self.sc_path)[-1] > prefilter.num_frames:  # type:ignore[union-attr]
                 Log.warn("Prefilter passed but keyframes don't match! Regenerating...", self.replace_prefilter)
                 self.sc_path.unlink(missing_ok=True)
 
-            self.generate_keyframes(prefilter)  # type:ignore[arg-type]
-
-            self.sc_lock_file.touch(exist_ok=True)
-
-            with open(self.sc_lock_file, "w") as f:
-                f.write(
-                    f"This is a lock file for \"{self.sc_path.name}\".\n"
-                    "To regenerate the scenechange file, delete this lock file!\n"
-                )
+            self.generate_keyframes(prefilter)
+            self._make_sf_lock()
+        elif sc and not self.sc_path.exists():
+            self.generate_keyframes(prefilter)
+            self._make_sf_lock()
 
         return prefilter  # type:ignore[return-value]
+
+    def _make_sf_lock(self) -> SPath:
+        self.sc_lock_file.touch(exist_ok=True)
+
+        with open(self.sc_lock_file, "w") as f:
+            f.write(
+                f"This is a lock file for \"{self.sc_path.name}\".\n"
+                "To regenerate the scenechange file, delete this lock file!\n"
+            )
+
+        return self.sc_lock_file
 
     def unsupported_call(self, caller: str | None = None) -> None:
         """Called when the user is trying to run a script through unsupported methods."""

@@ -500,16 +500,18 @@ class DiscordEmbedder(DiscordWebhook):
                 self._make_plotbitrate
             )
 
-        e = None
+        err = 0
 
         try:
             url = CatboxUploader(out_path.to_str()).execute()
         except FileNotFoundError as e:
             Log.error(str(e), "CatboxUploader.execute")
+            err = 1
         except Exception as e:
             Log.error(str(e), "CatboxUploader.execute")
+            err = 1
 
-        if e is None:
+        if not err:
             out_path.unlink(missing_ok=True)
 
         return url

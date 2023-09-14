@@ -34,7 +34,7 @@ class _AudioEncoder(_BaseEncoder):
         if dgi_path is not None:
             dgi_file = SPath(dgi_path)
         else:
-            dgi_file = self.script_info.src_file
+            dgi_file = self.script_info.src_file[0]
 
         # Pre-clean acopy files because it's a pain if you ran this after updating...
         self.__clean_acopy(dgi_file)

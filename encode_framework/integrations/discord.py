@@ -303,7 +303,12 @@ class DiscordEmbedder(DiscordWebhook):
 
         embed = self._set_anilist_title(embed, "has started encoding!")
         embed.set_description(desc)
-        embed.set_image(self._anime.img)
+
+        if self._anime.img:
+            Log.info(self._anime.img, self._start_anime_info)
+            embed.set_image(self._anime.img)
+        else:
+            Log.warn("No image could be found to attach!", self._start_anime_info)
 
         return embed
 

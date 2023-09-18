@@ -31,6 +31,9 @@ class _AudioEncoder(_BaseEncoder):
         If it is, it will try to extract those audio tracks and return those.
         If input file is not a dgi file, it will throw an error.
         """
+        if isinstance(dgi_path, list):
+            dgi_path = dgi_path[0]
+
         if dgi_path is not None:
             dgi_file = SPath(dgi_path)
         else:

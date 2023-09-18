@@ -28,6 +28,9 @@ class _VideoEncoder(_BaseEncoder):
     encoder: SupportsQP = x265
     """The encoder used for the encode."""
 
+    video_container_args: list[str] = []
+    """Additional arguments that must be passed to the container."""
+
     def encode_video(
         self,
         input_clip: vs.VideoNode | None = None,
@@ -79,6 +82,15 @@ class _VideoEncoder(_BaseEncoder):
                 f"No settings file found at \"{settings_file}\"! Falling back to defaults...",
                 self.encode_video, FileNotExistsError  # type:ignore[arg-type]
             )
+        else:
+            self._set_container_args(encoder, settings_file)
+
+        if self.video_container_args:
+            Log.info(
+                "Applying the following container settings:\n"
+                f"\"{' '.join(self.video_container_args)}\"",
+                self.encode_video
+            )
 
         video_file = self.encoder(settings_file, zones, qpfile, in_clip, **encoder_kwargs) \
             .encode(finalize_clip(out_clip))  # type:ignore[arg-type]
@@ -86,6 +98,20 @@ class _VideoEncoder(_BaseEncoder):
         self.video_file = cast(VideoFile, video_file)
 
         return self.video_file
+
+    def _set_container_args(self, encoder: SupportsQP, settings_file: SPath) -> list[str]:
+        """Set additional container arguments if relevant."""
+        psets = str(encoder(settings_file).settings).split(" ")
+
+        if all(x in psets for x in ("--overscan", "--display-window")):
+            overscan_idx = psets.index("--overscan")
+            display_window_idx = psets.index("--display-window")
+
+            if psets[overscan_idx + 1] == "crop":
+                self.video_container_args += ["--cropping", f"0:{psets[display_window_idx + 1]}"]
+
+        return self.video_container_args
+
 
     def _encode_lossless(self, clip_to_process: vs.VideoNode, caller: str | None = None) -> vs.VideoNode:
         from vsmuxtools import FFV1, LosslessPreset, get_workdir

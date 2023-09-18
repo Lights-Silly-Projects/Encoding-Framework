@@ -95,6 +95,12 @@ class ScriptInfo:
         """Index the given file. Returns a tuple containing the `src_file` object and the `init_cut` node."""
         from .trim import get_post_trim, get_pre_trim
 
+        if isinstance(trim, list) and all(isinstance(x, tuple) for x in trim):
+            if len(trim) > 1:
+                Log.warn(f"Multiple trims found! Only grabbing the first ({trim[0][0]} => {trim[0][1]})...")
+
+            trim = trim[0]
+
         path_is_iterable = is_iterable(path)
 
         if path_is_iterable and not force_dgi:
@@ -189,6 +195,17 @@ class ScriptInfo:
                 tr[1] = self.clip_cut.num_frames + 1  # type:ignore[index]
 
         return tuple(tr)
+
+    def update_tc(self, tc_path: SPathLike) -> SPath:
+        """Update the timecode properties."""
+        tc_loc = SPath(tc_path)
+
+        if not tc_loc.exists():
+            raise Log.error(f"The file \"{tc_loc}\" could not be found!", self.update_tc, FileNotFoundError)
+
+        self.tc_path = tc_loc
+
+        return self.tc_path
 
     def setup_muxtools(self, **setup_kwargs: Any) -> None:
         """Create the config file for muxtools."""
@@ -340,7 +357,7 @@ class Preview:
 
                 continue
 
-            name = get_prop(clip, "Name", bytes, default=False)  # type:ignore[arg-type, assignment]
+            name = get_prop(clip, "Name", bytes, default=False, func=self.set_video_outputs)  # type:ignore[arg-type, assignment]
 
             if isinstance(name, bytes):
                 name = name.decode('utf-8')  # type:ignore[assignment]

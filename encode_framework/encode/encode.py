@@ -51,15 +51,23 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         if SPath(self.script_info.tc_path).exists():  # type:ignore[arg-type]
             Log.info(f"Timecode file found at \"{self.script_info.tc_path}\"!", self.mux)
 
-            tc_path = self.script_info.tc_path
-        else:
-            tc_path = None
+        if self.video_container_args:
+            mkvmerge_args = " ".join(self.video_container_args)
+            lang += f" {mkvmerge_args}"
 
-        video_track = self.video_file.to_track(default=True, timecode_file=tc_path, lang=lang)
+        video_track = self.video_file.to_track(
+            default=True, timecode_file=self.script_info.tc_path, lang=lang.strip()
+        )
 
         if Log.is_debug:
             Log.debug("Merging the following files:", self.mux)
             Log.debug(f"   - [VIDEO] {video_track.file}", self.mux)
+
+            if SPath(self.script_info.tc_path).exists():
+                Log.info(f"       - [+] Timecodes: {self.script_info.tc_path}", self.mux)
+
+            if self.video_container_args:
+                Log.info(f"       - [+] Additional args: \"{mkvmerge_args}\"", self.mux)
 
             if self.audio_tracks:
                 for track in self.audio_tracks:
@@ -95,12 +103,17 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
 
         out_dir.mkdir(exist_ok=True)
 
-        try:
-            self.script_info.file.rename(target)
-        except FileNotFoundError as e:
-            Log.warn(str(e), self._move_once_done)
+        if target.exists():
+            Log.warn("Target file already exists! Please move this manually...", self._move_once_done)
 
-        return target
+            return self.script_info.file.parent
+
+        try:
+            return self.script_info.file.rename(target)
+        except Exception as e:
+            Log.error(str(e), self._move_once_done)
+
+        return self.script_info.file
 
     def _move_old_premuxes_once_done(self, dir_name: str = "_old") -> list[SPath]:
         out_dir = self.premux_path / dir_name

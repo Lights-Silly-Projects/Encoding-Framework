@@ -169,3 +169,8 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         final_clip = finalize_clip(final_clip)
 
         set_output(final_clip)
+
+    @property
+    def __name__(self) -> str:
+        """Hopefully this will shut up Log..."""
+        return "Encoder"

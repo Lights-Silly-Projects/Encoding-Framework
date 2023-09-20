@@ -320,8 +320,10 @@ class DiscordEmbedder(DiscordWebhook):
 
         enc_is_x265 = isinstance(self.encoder.encoder, x265)
 
+        out_clip = self.encoder._finalize_clip(self.encoder.out_clip, func=self._video_enc_settings)
+
         settings = file_or_default(sfile.to_str(), settings_builder_x265() if enc_is_x265 else settings_builder_x265())
-        settings = fill_props(settings[0], self.encoder.out_clip, enc_is_x265)
+        settings = fill_props(settings[0], out_clip, enc_is_x265)
 
         desc = f"\nEncoder: {self.encoder.encoder.__name__}\n```bash\nEncoder settings:\n\n"
 

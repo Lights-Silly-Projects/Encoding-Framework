@@ -1,7 +1,7 @@
 import re
 from typing import Any, cast
 
-from vstools import CustomRuntimeError, SPath, SPathLike, finalize_clip, vs
+from vstools import CustomRuntimeError, SPath, SPathLike, finalize_clip, vs, DitherType, depth, get_prop
 
 from ..script import ScriptInfo
 from ..util import Log
@@ -23,19 +23,17 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
     def __init__(self, script_info: ScriptInfo, out_clip: vs.VideoNode | None = None, **kwargs: Any) -> None:
         self.script_info = script_info
 
-        if out_clip is None:
-            out_clip = self.script_info.clip_cut  # type:ignore[assignment]
+        oclip = out_clip or self.script_info.clip_cut
 
-        if not isinstance(out_clip, vs.VideoNode):
+        if not isinstance(oclip, vs.VideoNode):
             raise CustomRuntimeError(
                 "Multiple output nodes detected in filterchain! "
-                "Please output just one node!", __file__, len(out_clip)  # type:ignore[arg-type]
+                "Please output just one node!", __file__, len(oclip)  # type:ignore[arg-type]
             )
 
-        assert isinstance(out_clip, vs.VideoNode)
+        assert isinstance(oclip, vs.VideoNode)
 
-        out_clip = finalize_clip(out_clip, **kwargs)
-        self.out_clip = cast(vs.VideoNode, out_clip)
+        self.out_clip = cast(vs.VideoNode, oclip)
 
         self.video_file = None  # type:ignore
 
@@ -136,16 +134,16 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
 
         return targets
 
-    # TODO:
-    def _update_premux_filename(self) -> SPath:
-        """Add versioning to premuxes."""
-        # base_name = SPath(re.sub(r' \[[0-9A-F]{8}\]', "", self.premux_path.to_str()))
-        # found = SPath(self.premux_path.parent).glob(f"{base_name.stem}*.mkv")
-        # if len(found) > 1:
-        #     ep_num =
-        #     self.premux_path
+    # TODO: Read show title from config, check ep num matches, auto-add version numbers.
+    # def _update_premux_filename(self) -> SPath:
+    #     """Add versioning to premuxes."""
+    #     encodes = SPath(self.premux_path.parent) \
+    #         .glob(f"{self.script_info}*.mkv")
 
-        return SPath()
+    #     if len(encodes):
+    #         self.premux_path
+
+    #     return SPath()
 
     def clean_workdir(self) -> None:
         from vsmuxtools import clean_temp_files

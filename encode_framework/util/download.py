@@ -4,7 +4,6 @@ import sys
 from importlib.util import find_spec
 from pathlib import Path
 from tempfile import gettempdir
-from typing import Any, overload
 from typing import Any, Literal, overload
 from urllib.request import urlretrieve
 from zipfile import ZipFile
@@ -143,14 +142,30 @@ def temp_download(url: str, filename: str | None = None) -> Path:
 
 
 @overload
-def unpack_zip(path: str, file_to_extract: str | None = None, **kwargs: Any) -> list[str]:
+def unpack_zip(
+    path: str, file_to_extract: str | None = None,
+    location: str | None = None, **kwargs: Any
+) -> list[str]:
     ...
 
 @overload
-def unpack_zip(path: str, file_to_extract: str | None = "", **kwargs: Any) -> str:
+def unpack_zip(
+    path: str, file_to_extract: str | None = "",
+    location: str | None = None, **kwargs: Any
+) -> str:
     ...
 
-def unpack_zip(path: str, file_to_extract: str | None = None, **kwargs: Any) -> list[str] | str:
+@overload
+def unpack_zip(
+    path: str, file_to_extract: str | None = None,
+    location: str | None = "", **kwargs: Any
+) -> str:
+    ...
+
+def unpack_zip(
+    path: str, file_to_extract: str | None = None,
+    location: str | None = None, **kwargs: Any
+) -> list[str] | str:
     """Try to unpack a zip file. Returns either an individual filepath or a list of extracted contents."""
     zip_file = Path(path)
 
@@ -166,7 +181,17 @@ def unpack_zip(path: str, file_to_extract: str | None = None, **kwargs: Any) -> 
 
         z.extractall(out_dir, **kwargs)
 
-    return list(str(x) for x in out_dir.glob("*"))
+    contents = list(str(x) for x in out_dir.glob("*"))
+
+    if location is None:
+        return contents
+
+    bin = Path.cwd() / "_binaries"
+    bin.mkdir(exist_ok=True)
+
+    return str(shutil.copytree(out_dir, bin / out_dir.name, dirs_exist_ok=True))
+
+
 def install_docker() -> str | Literal[False]:
     docker_pf_path = Path("C:/") / "Program Files" / "Docker" / "Docker" / "resources" / "bin" / "docker.exe"
     docker_param = "docker"

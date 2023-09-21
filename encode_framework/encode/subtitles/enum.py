@@ -1,8 +1,8 @@
 import os
 from enum import Enum, auto
-from typing import Any
+from typing import Any, Literal
 
-from vstools import SPath, SPathLike
+from vstools import SPath, SPathLike, vs
 
 from ...git import clone_git_repo
 from ...types import IsWindows
@@ -23,6 +23,12 @@ class OcrProgram(str, Enum):
     PGSRIP = auto()
     """https://github.com/ratoaq2/pgsrip"""
 
+    SUBEXTRACTOR = auto()
+    """https://www.videohelp.com/software/SubExtractor"""
+
+    SUBTITLEEDIT = auto()
+    """https://github.com/SubtitleEdit/subtitleedit"""
+
     def __str__(self) -> str:
         return self.name.lower()
 
@@ -36,31 +42,33 @@ class OcrProgram(str, Enum):
         :param *args:           Arguments to pass to the program.
         :param **kwargs:        Keyword arguments to pass to the program.
         """
-        pfile = SPath(file)
+        sfile = SPath(file)
 
-        if x := self._run_method("__run_", pfile, *args, **kwargs):
+        if not sfile.exists():
+            Log.error(f"Could not find the file \"{sfile}\"!", self.ocr)
+
+            return sfile
+
+        if x := self._run_method("__run", *args, file=sfile, **kwargs):
             return x
 
         Log.warn(f"No OCR method found for \"{self.program_name}\"!", self.ocr)
 
-        return pfile
+        return sfile
 
-    def install(self) -> bool:
+    def install(self, *args: Any, **kwargs: Any) -> bool:
         """Install the current member. Returns a bool representing success."""
         if self.installed:
             return self.installed
 
-        Log.info(f"Trying to install \"{self.program_name}\" and its dependencies!", self.install)
+        Log.info(f"Trying to install \"{self.program_name}\" and its dependencies...", self.install)
 
-        self._run_method("__install_")
+        return self._run_method("__install", *args, **kwargs)
 
     def __run_vobsubocr(self, file: SPath, *args: Any, **kwargs: Any) -> SPath:
         out = file.with_suffix(".srt")
-        idx = file.with_suffix(".idx")
 
-        if not idx.exists():
-            Log.error(f"Accompanying \".idx\" file for \"{file}\" not found!", self.ocr)
-
+        if not (idx := self._check_idx_exists(out)):
             return file
 
         kwargs_params = [v for p in zip([f"-{k}" for k in kwargs.keys()], list(kwargs.values())) for v in p]
@@ -86,7 +94,32 @@ class OcrProgram(str, Enum):
 
         return out
 
-    def __install_vobsubocr(self) -> bool:
+    def __run_subextractor(self, file: SPath, ass: bool = True, *args: Any, **kwargs: Any) -> SPath:
+        out = file.with_suffix(".ass" if ass else ".srt")
+
+        Log.info(f"Running SubExtractor. You MUST save the output file to \"{out.resolve()}\"!", self.ocr)
+
+        run_cmd(self.installed)
+
+        return out
+
+    def __run_subtitleedit(
+        self, file: SPath, ass: bool = True,
+        ref: vs.VideoNode | None = None, **kwargs: Any
+    ) -> SPath:
+        """https://www.nikse.dk/subtitleedit/help#commandline"""
+        out = file.with_suffix(".ass" if ass else ".srt")
+
+        clip_args = []
+
+        if ref:
+            clip_args = [f"/fps:{ref.fps.numerator // 1001}"]
+
+        run_cmd([self.installed, "/convert", file, "ass" if ass else "subrip"] + clip_args)
+
+        return out
+
+    def __install_vobsubocr(self, *args: Any, **kwargs: Any) -> bool:
         if not check_program_installed("cargo", "https://www.rust-lang.org/tools/install", True):
             return False
 
@@ -118,20 +151,20 @@ class OcrProgram(str, Enum):
         if not check_program_installed(repo / "vcpkg.exe"):
             repo = clone_git_repo("https://github.com/microsoft/vcpkg")
 
-            run_cmd([str(repo / "bootstrap-vcpkg.bat"), "-disableMetrics"])
-            run_cmd([str(repo / "vcpkg"), "integrate", "install"])
+            run_cmd([repo / "bootstrap-vcpkg.bat", "-disableMetrics"])
+            run_cmd([repo / "vcpkg", "integrate", "install"])
 
-        run_cmd([str(repo / "vcpkg"), "install", "leptonica", "--triplet=x64-windows-static-md"])
+        run_cmd([repo / "vcpkg", "install", "leptonica", "--triplet=x64-windows-static-md"])
 
         if (x := SPath("InstallationLog.txt")).exists():
             x.unlink(missing_ok=True)
 
-        if not cargo_build("https://github.com/elizagamedev/vobsubocr"):
-            return False
+        if not (x:= cargo_build("https://github.com/elizagamedev/vobsubocr")):
+            return x
 
         return self.installed
 
-    def __install_pgsrip(self) -> bool:
+    def __install_pgsrip(self, *args: Any, **kwargs: Any) -> bool:
         if x := check_program_installed("tesseract", "https://codetoprosper.com/tesseract-ocr-for-windows/", True):
             return x
 
@@ -151,24 +184,81 @@ class OcrProgram(str, Enum):
 
         return self.installed
 
-    def _run_method(self, prefix: str, **kwargs: Any) -> Any:
+    def __install_subextractor(self, *args: Any, **kwargs: Any) -> bool:
+        if (x := temp_download(
+            "https://www.digital-digest.com/software/getdownload.php?sid=2245&did=1&code=4hpfb3lK&decode=c58bdbe4625585881a03b5fa2df2e1d1",
+            "SubExtractor1032d.zip")
+        ) is False:
+            return x
+
+        return unpack_zip(x, location=SPath.cwd().to_str())
+
+    def __install_subtitleedit(self) -> bool:
+        if (x := temp_download(
+            "https://github.com/SubtitleEdit/subtitleedit/releases/download/4.0.1/SubtitleEdit-4.0.1-Setup.exe"
+        )) is False:
+            return x
+
+        if not (x := run_cmd([x])):
+            return x
+
+        if not self.installed:
+            Log.error("The program was not installed correctly!", self.install)
+
+        return self.installed
+
+    def __check_installed_vobsubocr(self, *args: Any, **kwargs: Any) -> bool:
+        return check_program_installed(self.program_name)
+
+    def __check_installed_pgsrip(self, *args: Any, **kwargs: Any) -> bool:
+        return check_package_installed(self.program_name)
+
+    def __check_installed_subextractor(self, *args: Any, **kwargs: Any) -> bool:
+        if x := check_program_installed("DvdSubExtractor"):
+            return x
+
+        if (x := (SPath.cwd() / "_binaries" / "SubExtractor1032d" / "DvdSubExtractor.exe")).exists():
+            return x
+
+        return x
+
+    def __check_installed_subtitleedit(self, *args: Any, **kwargs: Any) -> bool:
+        if x := check_program_installed("subtitleedit-cli"):
+            return x
+
+        if (x := SPath("C:/") / "Program Files" / "Subtitle Edit" / "SubtitleEdit.exe"):
+            return x
+
+        return x
+
+    def _check_idx_exists(self, file: SPathLike) -> SPath | Literal[False]:
+        idx = SPath(file).with_suffix(".idx")
+
+        if not (x := idx.exists()):
+            Log.error(f"Accompanying \".idx\" file for \"{file}\" not found!", self.ocr)
+
+            return x
+
+        return idx
+
+    def _run_method(self, prefix: str, *args: Any, **kwargs: Any) -> Any:
         """Try to find and run a method using self's name and a prefix."""
-        method = f"{prefix}{self.program_name}"
+        method = f"{prefix}_{self.program_name}"
 
         if method.startswith("__"):
             method = f"_{self.__class__.__name__}{method}"
 
         if hasattr(OcrProgram, method):
-            return getattr(OcrProgram, method)(self, **kwargs)
+            return getattr(OcrProgram, method)(self, *args, **kwargs)
 
-        Log.warn(f"Could not find \"{self}.{method}\"!", self._run_method)
+        Log.debug(f"Could not find \"{self}.{method}\"!", self._run_method)
 
         return False
 
     @property
     def program_name(self) -> str:
-        return str(self)
+        return str(self).lower()
 
     @property
-    def installed(self) -> bool:
-        return check_package_installed(self.program_name)
+    def installed(self) -> bool | Any:
+        return self._run_method("__check_installed")

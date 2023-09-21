@@ -22,3 +22,4 @@ test*
 /vcpkg/**/*
 tessdata_best
 vcpkg
+/_binaries/**/*

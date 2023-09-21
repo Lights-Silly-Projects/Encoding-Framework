@@ -5,6 +5,7 @@ from importlib.util import find_spec
 from pathlib import Path
 from tempfile import gettempdir
 from typing import Any, overload
+from typing import Any, Literal, overload
 from urllib.request import urlretrieve
 from zipfile import ZipFile
 
@@ -20,6 +21,7 @@ __all__: list[str] = [
     "run_cmd",
     "temp_download",
     "unpack_zip",
+    "install_docker",
 ]
 
 # TODO: Improve a bunch of these.
@@ -159,3 +161,21 @@ def unpack_zip(path: str, file_to_extract: str | None = None, **kwargs: Any) -> 
         z.extractall(out_dir, **kwargs)
 
     return list(str(x) for x in out_dir.glob("*"))
+def install_docker() -> str | Literal[False]:
+    docker_pf_path = Path("C:/") / "Program Files" / "Docker" / "Docker" / "resources" / "bin" / "docker.exe"
+    docker_param = "docker"
+
+    if check_program_installed(docker_param):
+        return docker_param
+    elif docker_pf_path.exists():
+        return docker_pf_path
+
+    if not (x := temp_download(
+        "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe?utm_source=docker&utm_medium=webreferral&utm_campaign=dd-smartbutton&utm_location=module",
+        "Docker Desktop Installer.exe"
+    )):
+        return x
+
+    run_cmd(x)
+
+    return docker_param

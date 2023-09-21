@@ -154,7 +154,7 @@ class _Subtitles(_BaseEncoder):
         else:
             sub_file = SubFile(file, container_delay=int(sub_delay))
 
-        sub_file = sub_file.shift(-self.script_info.trim[0])
+        sub_file = sub_file.shift(-self.script_info.trim[0], self.script_info.clip_cut.fps)
 
         if ref:
             sub_file = sub_file.truncate_by_video(ref)

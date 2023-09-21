@@ -104,7 +104,7 @@ class _Subtitles(_BaseEncoder):
                 Log.warn(f"    - Could not determine track name!\n{e}", self.process_subs)
 
         try:
-            check_program_installed("tesseract", "https://codetoprosper.com/tesseract-ocr-for-windows/", _raise=True)
+            check_program_installed("tesseract", "https://codetoprosper.com/tesseract-ocr-for-windows/", warn=True)
         except FileNotFoundError as e:
             Log.error(str(e), self.process_subs)
 

@@ -106,6 +106,9 @@ def cargo_build(package: str) -> bool:
 
 def run_cmd(params: list[str] = [], shell: bool = True) -> bool:
     """Try to run a commandline instance with the given params."""
+    if not isinstance(params, list):
+        params = [params]
+
     p = list(str(param) for param in params)
 
     try:

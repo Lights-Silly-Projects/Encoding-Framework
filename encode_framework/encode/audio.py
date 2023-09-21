@@ -31,10 +31,13 @@ class _AudioEncoder(_BaseEncoder):
         If it is, it will try to extract those audio tracks and return those.
         If input file is not a dgi file, it will throw an error.
         """
+        if isinstance(dgi_path, list):
+            dgi_path = dgi_path[0]
+
         if dgi_path is not None:
             dgi_file = SPath(dgi_path)
         else:
-            dgi_file = self.script_info.src_file
+            dgi_file = self.script_info.src_file[0]
 
         # Pre-clean acopy files because it's a pain if you ran this after updating...
         self.__clean_acopy(dgi_file)

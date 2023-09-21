@@ -1,7 +1,7 @@
 import re
 from typing import Any, cast
 
-from vstools import CustomRuntimeError, SPath, SPathLike, finalize_clip, vs
+from vstools import CustomRuntimeError, SPath, SPathLike, finalize_clip, vs, DitherType, depth, get_prop
 
 from ..script import ScriptInfo
 from ..util import Log
@@ -23,19 +23,17 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
     def __init__(self, script_info: ScriptInfo, out_clip: vs.VideoNode | None = None, **kwargs: Any) -> None:
         self.script_info = script_info
 
-        if out_clip is None:
-            out_clip = self.script_info.clip_cut  # type:ignore[assignment]
+        oclip = out_clip or self.script_info.clip_cut
 
-        if not isinstance(out_clip, vs.VideoNode):
+        if not isinstance(oclip, vs.VideoNode):
             raise CustomRuntimeError(
                 "Multiple output nodes detected in filterchain! "
-                "Please output just one node!", __file__, len(out_clip)  # type:ignore[arg-type]
+                "Please output just one node!", __file__, len(oclip)  # type:ignore[arg-type]
             )
 
-        assert isinstance(out_clip, vs.VideoNode)
+        assert isinstance(oclip, vs.VideoNode)
 
-        out_clip = finalize_clip(out_clip, **kwargs)
-        self.out_clip = cast(vs.VideoNode, out_clip)
+        self.out_clip = cast(vs.VideoNode, oclip)
 
         self.video_file = None  # type:ignore
 
@@ -51,15 +49,23 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         if SPath(self.script_info.tc_path).exists():  # type:ignore[arg-type]
             Log.info(f"Timecode file found at \"{self.script_info.tc_path}\"!", self.mux)
 
-            tc_path = self.script_info.tc_path
-        else:
-            tc_path = None
+        if self.video_container_args:
+            mkvmerge_args = " ".join(self.video_container_args)
+            lang += f" {mkvmerge_args}"
 
-        video_track = self.video_file.to_track(default=True, timecode_file=tc_path, lang=lang)
+        video_track = self.video_file.to_track(
+            default=True, timecode_file=self.script_info.tc_path, lang=lang.strip()
+        )
 
         if Log.is_debug:
             Log.debug("Merging the following files:", self.mux)
             Log.debug(f"   - [VIDEO] {video_track.file}", self.mux)
+
+            if SPath(self.script_info.tc_path).exists():
+                Log.info(f"       - [+] Timecodes: {self.script_info.tc_path}", self.mux)
+
+            if self.video_container_args:
+                Log.info(f"       - [+] Additional args: \"{mkvmerge_args}\"", self.mux)
 
             if self.audio_tracks:
                 for track in self.audio_tracks:
@@ -95,12 +101,17 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
 
         out_dir.mkdir(exist_ok=True)
 
-        try:
-            self.script_info.file.rename(target)
-        except FileNotFoundError as e:
-            Log.warn(str(e), self._move_once_done)
+        if target.exists():
+            Log.warn("Target file already exists! Please move this manually...", self._move_once_done)
 
-        return target
+            return self.script_info.file.parent
+
+        try:
+            return self.script_info.file.rename(target)
+        except Exception as e:
+            Log.error(str(e), self._move_once_done)
+
+        return self.script_info.file
 
     def _move_old_premuxes_once_done(self, dir_name: str = "_old") -> list[SPath]:
         out_dir = self.premux_path / dir_name
@@ -123,16 +134,16 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
 
         return targets
 
-    # TODO:
-    def _update_premux_filename(self) -> SPath:
-        """Add versioning to premuxes."""
-        # base_name = SPath(re.sub(r' \[[0-9A-F]{8}\]', "", self.premux_path.to_str()))
-        # found = SPath(self.premux_path.parent).glob(f"{base_name.stem}*.mkv")
-        # if len(found) > 1:
-        #     ep_num =
-        #     self.premux_path
+    # TODO: Read show title from config, check ep num matches, auto-add version numbers.
+    # def _update_premux_filename(self) -> SPath:
+    #     """Add versioning to premuxes."""
+    #     encodes = SPath(self.premux_path.parent) \
+    #         .glob(f"{self.script_info}*.mkv")
 
-        return SPath()
+    #     if len(encodes):
+    #         self.premux_path
+
+    #     return SPath()
 
     def clean_workdir(self) -> None:
         from vsmuxtools import clean_temp_files
@@ -156,3 +167,8 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         final_clip = finalize_clip(final_clip)
 
         set_output(final_clip)
+
+    @property
+    def __name__(self) -> str:
+        """Hopefully this will shut up Log..."""
+        return "Encoder"

@@ -303,7 +303,12 @@ class DiscordEmbedder(DiscordWebhook):
 
         embed = self._set_anilist_title(embed, "has started encoding!")
         embed.set_description(desc)
-        embed.set_image(self._anime.img)
+
+        if self._anime.img:
+            Log.info(self._anime.img, self._start_anime_info)
+            embed.set_image(self._anime.img)
+        else:
+            Log.warn("No image could be found to attach!", self._start_anime_info)
 
         return embed
 
@@ -315,12 +320,13 @@ class DiscordEmbedder(DiscordWebhook):
 
         enc_is_x265 = isinstance(self.encoder.encoder, x265)
 
+        out_clip = self.encoder._finalize_clip(self.encoder.out_clip, func=self._video_enc_settings)
+
         settings = file_or_default(sfile.to_str(), settings_builder_x265() if enc_is_x265 else settings_builder_x265())
-        settings = fill_props(settings[0], self.encoder.out_clip, enc_is_x265)
+        settings = fill_props(settings[0], out_clip, enc_is_x265)
 
         desc = f"\nEncoder: {self.encoder.encoder.__name__}\n```bash\nEncoder settings:\n\n"
 
-        settings = [x.replace("--") for x in settings.split(" --")]
         settings = [x.replace("--", "").strip() for x in settings.split(" --")]
         settings.sort()
 
@@ -365,8 +371,7 @@ class DiscordEmbedder(DiscordWebhook):
         return embed
 
     def _get_track_info(self, premux_path: SPathLike | None = None) -> list[tuple[str, list[str]]]:
-        if premux_path is None:
-            premux_path = self.encoder.premux_path
+        premux_path = premux_path or self.encoder.premux_path
 
         premux_path = SPath(premux_path)
 
@@ -501,16 +506,18 @@ class DiscordEmbedder(DiscordWebhook):
                 self._make_plotbitrate
             )
 
-        e = None
+        err = 0
 
         try:
             url = CatboxUploader(out_path.to_str()).execute()
         except FileNotFoundError as e:
             Log.error(str(e), "CatboxUploader.execute")
+            err = 1
         except Exception as e:
             Log.error(str(e), "CatboxUploader.execute")
+            err = 1
 
-        if e is None:
+        if not err:
             out_path.unlink(missing_ok=True)
 
         return url

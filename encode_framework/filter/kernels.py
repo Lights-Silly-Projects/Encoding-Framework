@@ -17,8 +17,6 @@ __all__: list[str] = [
     "FixLanczos",
     "FixBilinear",
 
-    "ZewiaCubicNew",
-
     "LinearBicubic",
 ]
 
@@ -86,13 +84,6 @@ class FixBilinear(Bilinear):
             return args | dict(border_handling=1)
 
         return args
-
-
-class ZewiaCubicNew(Bicubic):
-    """Bicubic b=-1/2, c=-1/4"""
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(b=-1/2, c=-1/4, **kwargs)
 
 
 class LinearBicubic(Scaler):

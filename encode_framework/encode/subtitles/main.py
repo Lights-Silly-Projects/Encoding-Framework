@@ -1,15 +1,13 @@
-from typing import Any
+import shutil
 
-from babelfish import Language  # type:ignore[import]
-from magic import Magic
-from muxtools import FontFile, SubTrack, frame_to_ms, make_output  # type:ignore[import]
-from vsmuxtools import SubFile  # type:ignore[import]
+from muxtools import FontFile, frame_to_ms, get_setup_attr, uniquify_path, get_workdir  # type:ignore[import]
+from vsmuxtools import SubFile, SubTrack  # type:ignore[import]
 from vstools import SPath, SPathLike, vs
 
-from ...git import clone_git_repo
-from ...types import IsWindows, TextSubExt
-from ...util import Log, cargo_build, check_program_installed, run_cmd
+from ...types import TextSubExt
+from ...util import Log
 from .base import _BaseEncoder
+from .enum import OcrProgram
 
 __all__: list[str] = [
     "_Subtitles"
@@ -36,18 +34,18 @@ class _Subtitles(_BaseEncoder):
         """
         dgi_file = SPath(dgi_path) if dgi_path is not None else self.script_info.src_file
 
+        if isinstance(dgi_file, list):
+            dgi_file = dgi_file[0]
+
         if not dgi_file.to_str().endswith(".dgi"):
-            Log.error("Input file is not a dgi file, not returning any subs", self.find_sub_files)
+            Log.error("Input file is not a dgi file, not returning any subs.", self.find_sub_files)
 
             return []
 
-        # TODO: make sure this checks the stem of the filename so it doesn't grab the wrong sup's.
         for f in dgi_file.parent.glob(f"{dgi_file.stem}*.*"):
             Log.debug(f"Checking the following file: \"{f.name}\"...", self.find_sub_files)
 
-            if self.can_be_ocrd(f):
-                self.subtitle_files += [f]
-            elif f.to_str().endswith(TextSubExt):
+            if self._can_be_ocrd(f) or f.to_str().endswith(TextSubExt):
                 self.subtitle_files += [f]
 
         if not self.subtitle_files:
@@ -65,79 +63,26 @@ class _Subtitles(_BaseEncoder):
 
         return self.subtitle_files
 
-    def ocr_subs(self, file) -> SPath:
-            get_mime = mg.from_file(SPath(sub).to_str())
-
-            if get_mime == "application/octet-stream" and sub_spath.to_str().endswith((".sup", ".pgs")):
-                from pgsrip import Options, Sup, pgsrip  # type:ignore
-
-                if pgsrip.rip(Sup(sub), Options(languages=langs, overwrite=not strict, one_per_lang=False)):
-                    Log.info(f"[{i + 1}/{len(sub_files)}] Done!", self.process_subs)
-
-                    # Move to workdir
-                    new_path = sub_spath.with_suffix(".srt") \
-                        .rename(SPath.cwd()
-                                / "_subtitles"
-                                / make_output(sub_spath, "srt", "ocrd", False).name
-                            )
-
-                    Log.debug(f"Moved OCR'd subtitle file to \"{new_path}\"!")
-
-                    proc_files += [new_path]
-                    ocrd += [new_path]
-                else:
-                    Log.warn(
-                        f"An error occurred while OCRing \"{sub_spath.name}\"! Passing the original file instead...",
-                        self.process_subs
-                    )
-
-                    proc_files += [sub_spath]
-            elif get_mime == "video/mpeg" and sub_spath.to_str().endswith(".sub"):
-                idx = SPath(sub).with_suffix(".idx")
-                out = sub_spath.with_suffix(".srt")
-
-                try:
-                    if not check_program_installed("vobsubocr"):
-                        Log.error("\"vobsubocr\" could not be found! Attempting to build...", self.process_subs)
-
-                        if not check_program_installed("vcpkg"):
-                            repo = clone_git_repo("https://github.com/microsoft/vcpkg")
-
-                            if IsWindows:
-                                run_cmd([str(repo / "bootstrap-vcpkg.bat")])
-                                run_cmd([str(repo / "vcpkg"), "integrate", "install"])
-                            else:
-                                run_cmd([str(repo / "bootstrap-vcpkg.sh")])
-
-                        cargo_build("vobsubocr")
-
-                    run_cmd(["vobsubocr", "-l", langs[0], "-o", out.to_str(), idx.to_str()])
-
-                    proc_files += [out]
-                    ocrd += [out]
-                except Exception as e:
-                    Log.error(str(e), self.process_subs)
-
-                    proc_files += [sub_spath]
-            else:
-                Log.info(
-                    f"[{i + 1}/{len(sub_files)}] \"{sub_spath.name}\" is not a text-based "
-                    "subtitle format, but could not process. Not touching.", self.process_subs
-                )
-
     def process_subs(
         self, subtitle_files: SPathLike | list[SPath] | None = None,
         ref: vs.VideoNode | None = None,
-        langs: list[Language] = [Language("eng"), Language("jpn")],
-        sub_delay: int | None = None, strict: bool = False
+        ocr_program: OcrProgram = OcrProgram.SUBTITLEEDIT,
+        sub_delay: int | None = None,
+        save: bool = True,
     ) -> list[SubTrack]:
         """
         OCR and process any files that are found.
 
+        :param subtitle_files:      A list of subtitle files. If None, gets it from previous subs found.
+        :param ref:                 A reference video node to use for processing.
+        :param ocr_program:         The OCR program to use. See `OcrProgram` for more information.
         :param sub_delay:           Delay in frames. Will use the ref clip as a reference.
+        :param save:                Whether to save the subtitles in a different directory.
         """
         if subtitle_files is not None and not isinstance(subtitle_files, list):
             subtitle_files = [SPath(subtitle_files)]
+        elif isinstance(subtitle_files, list):
+            subtitle_files = [SPath(x) for x in subtitle_files]
 
         sub_files = subtitle_files or self.subtitle_files
 
@@ -146,45 +91,124 @@ class _Subtitles(_BaseEncoder):
 
         wclip = ref or self.out_clip
 
-        sub_delay = frame_to_ms(sub_delay or 0, wclip.fps)
+        proc_files, ocrd_files = self._process_files(sub_files, ocr_program, wclip)
 
-        try:
-            check_program_installed("tesseract", "https://codetoprosper.com/tesseract-ocr-for-windows/", _raise=True)
-        except FileNotFoundError as e:
-            Log.error(str(e), self.process_subs)
+        proc_set = set(proc_files)
 
-            Log.warn("Will still convert the files to tracks...", self.process_subs)
+        if len(proc_files) != len(proc_set):
+            Log.debug(f"Removed duplicate tracks ({len(proc_files)} -> {len(proc_set)})", self.process_subs)
 
-            self.subtitle_tracks = list([
-                SubTrack(sub, default=not bool(i), delay=int(sub_delay))
-                for i, sub in enumerate(self.subtitle_files)
-            ])
+        # Fixing a handful of very common OCR errors I encountered myself and other minor adjustments...
+        for ocrd_file in ocrd_files:
+            self._process_ocr_file(SPath(ocrd_file))
 
-            return self.subtitle_tracks
+        self._trackify(proc_set, ocrd_files, wclip, frame_to_ms(sub_delay or 0, wclip.fps))
+        self._clean_ocr(sub_files, self.script_info.src_file[0])
 
-        try:
-            clone_git_repo("https://github.com/tesseract-ocr/tessdata_best.git")
-        except Exception as e:
-            if not "exit code(128)" in str(e):
-                Log.error(
-                    f"Some kind of error occurred while cloning the \"tessdata_best\" repo!\n{e}", self.process_subs)
+        if save:
+            for f in self._save(self.script_info.src_file[0]):
+                Log.info(f"Saving subs at \"{f}\"!", self.process_subs)
 
-                return sub_files
+        return self.subtitle_tracks
 
-            pass
+    def _save(self, og_name: SPathLike) -> list[SPath]:
+        show_name = get_setup_attr("show_name", "Example")
+        episode = get_setup_attr("episode", "01")
 
-        mg = Magic(mime=True)
-        proc_files = []
-        ocrd = []
+        (SPath.cwd() / "_subs").mkdir(exist_ok=True)
 
-        for i, sub in enumerate(sub_files):
-            sub_spath = SPath(sub)
+        new_files: list[SPath] = []
 
-            Log.info(f"[{i + 1}/{len(sub_files)}] OCRing \"{sub_spath.name}\"...", self.process_subs)
+        for sub in list(get_workdir().glob(f"{SPath(og_name).stem}*_vof.[as][sr][st]")):
+            new_files += [SPath(shutil.copy(sub, uniquify_path(SPath.cwd() / "_subs" / f"{show_name} {episode}.ass")))]
+
+        return new_files
+
+    def _can_be_ocrd(self, file: SPath) -> bool:
+        return SPath(file).to_str().endswith((".pgs", ".sup", ".sub", ".idx"))
+
+    def _process_ocr_file(self, file: SPath) -> None:
+        clean = file.with_stem(file.stem + "_clean")
+
+        with open(file, "rt") as fin:
+            with open(clean, "wt") as fout:
+                for line in fin:
+                    line = line.replace("|", "I")
+                    line = line.replace("{\i}", "{\i0}")
+
+                    fout.write(line)
+
+        file.unlink()
+        clean.rename(file)
+
+    def _check_filesize(self, file: SPath) -> bool:
+        if (x := file.stat().st_size == 0):
+            Log.warn(f"\"{SPath(file).name}\" is an empty file! Ignoring...", self.process_subs)
+
+        return x
+
+    def _prepare_subfile(self, file: SPath, ref: vs.VideoNode | None = None, sub_delay: int = 0) -> SubFile:
+        if file.to_str().endswith(".srt"):
+            sub_file = SubFile.from_srt(file)
+            sub_file.container_delay = int(sub_delay)
+        else:
+            sub_file = SubFile(file, container_delay=int(sub_delay))
+
+        sub_file = sub_file.shift(-self.script_info.trim[0])
+
+        if ref:
+            sub_file = sub_file.truncate_by_video(ref)
+
+        return sub_file
+
+    def _clean_ocr(self, files: list[SPath], og_name: SPathLike) -> None:
+        if not isinstance(files, list):
+            files = [files]
+
+        for f in files:
+            if not self._can_be_ocrd(f):
+                continue
+
+            for s in f.parent.glob(f"{SPath(og_name).stem}.[as][sr][st]"):
+                Log.debug(f"Cleaning up \"{s}\"...", self.process_subs)
+                s.unlink()
+
+    def _trackify(
+        self, processed_files: list[SPath], ocrd_files: list[SPath],
+        ref: vs.VideoNode | None = None, sub_delay: int = 0
+    ) -> None:
+        first_track_removed = False
+
+        for i, sub in enumerate(processed_files):
+            sub = SPath(sub)
+
+            if self._check_filesize(sub):
+                first_track_removed = True
+                continue
+
+            name = "OCR'd" if sub in ocrd_files else ""
+
+            sub_file = self._prepare_subfile(sub, ref, sub_delay)
+
+            self.subtitle_tracks += [sub_file.to_track(name, default=first_track_removed or not bool(i))]
+            self.font_files = sub_file.collect_fonts(search_current_dir=False)
+
+    def _process_files(
+        self, sub_files: list[SPath],
+        ocr_program: OcrProgram,
+        ref: vs.VideoNode | None = None
+    ) -> tuple[list[SPath], list[SPath]]:
+        proc_files: list[SPath] = []
+        ocrd_files: list[SPath] = []
+
+        for i, sub_file in enumerate(sub_files):
+            sub_spath = SPath(sub_file)
+
+            num = f"[{i + 1}/{len(sub_files)}]"
 
             if sub_spath.to_str().endswith(TextSubExt):
                 Log.info(
-                    f"[{i + 1}/{len(sub_files)}] \"{sub_spath.name}\" is a text-based "
+                    f"{num} \"{sub_spath.name}\" is a text-based "
                     "subtitle format. Skipping OCR!", self.process_subs
                 )
 
@@ -192,56 +216,24 @@ class _Subtitles(_BaseEncoder):
 
                 continue
 
-            proc_files += [sub_spath]
-
-        proc_set = set(proc_files)
-
-        if len(proc_files) != len(proc_set):
-            Log.debug(f"Removed duplicate tracks ({len(proc_files)} -> {len(proc_set)})", self.process_subs)
-
-        # Fixing a handful of very common OCR errors I encountered myself...
-        for ocrd_file in ocrd:
-            ocrd_file = SPath(ocrd_file)
-
-            clean = ocrd_file.with_stem(ocrd_file.stem + "_clean")
-
-            with open(ocrd_file, "rt") as fin:
-                with open(clean, "wt") as fout:
-                    for line in fin:
-                        line = line.replace("|", "I")
-
-                        fout.write(line)
-
-            ocrd_file.unlink()
-            clean.rename(ocrd_file)
-
-        first_track_removed = False
-
-        for i, sub in enumerate(proc_set):
-            sub = SPath(sub)
-
-            if sub.stat().st_size == 0:
-                Log.warn(f"\"{SPath(sub).name}\" is an empty file! Ignoring...", self.process_subs)
-
-                first_track_removed = True
+            if x := list(get_workdir().glob(f"{sub_spath.stem}*_vof.[as][sr][st]")):
+                for y in x:
+                    Log.info(f"{num} \"{SPath(y).name}\" found! Skipping processing...", self.process_subs)
+                    proc_files = [y]
 
                 continue
 
-            name = ""
+            if not (proc := ocr_program.ocr(sub_spath, ref=ref)):
+                Log.warn(
+                    f"{num} \"{sub_spath.name}\" is likely not a text-based subtitle format, "
+                    "but could not process it. Leaving it untouched!", self.process_subs
+                )
 
-            if sub in ocrd:
-                name = "OCR'd"
+                proc_files += [sub_spath]
 
-            if sub.to_str().endswith(".srt"):
-                sub = SubFile.from_srt(sub)
-                sub.container_delay = int(sub_delay)
-            else:
-                sub = SubFile(sub, delay=int(sub_delay))
+                continue
 
-            sub = sub.shift(-self.script_info.trim[0])
-            sub = sub.truncate_by_video(wclip)
+            proc_files += [proc]
+            ocrd_files += [proc]
 
-            self.subtitle_tracks += [sub.to_track(name, default=first_track_removed or not bool(i))]
-            self.font_files = sub.collect_fonts(search_current_dir=False)
-
-        return self.subtitle_tracks
+        return proc_files, ocrd_files

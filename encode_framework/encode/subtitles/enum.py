@@ -104,8 +104,9 @@ class OcrProgram(str, Enum):
         return out
 
     def __run_subtitleedit(
-        self, file: SPath, ass: bool = True,
-        ref: vs.VideoNode | None = None, **kwargs: Any
+        self, file: SPath, ass: bool = False,
+        ref: vs.VideoNode | None = None,
+        *args: Any, **kwargs: Any
     ) -> SPath:
         """https://www.nikse.dk/subtitleedit/help#commandline"""
         out = file.with_suffix(".ass" if ass else ".srt")

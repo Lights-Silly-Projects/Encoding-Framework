@@ -7,8 +7,8 @@ from typing import Any, cast
 
 from vsmuxtools import src_file  # type:ignore[import]
 from vstools import CustomValueError, Keyframes, SceneChangeMode, SPath, SPathLike, set_output, vs
+from vskernels import Hermite
 
-from ..filter import ZewiaCubicNew
 from ..types import TrimAuto, is_iterable
 from ..util import Log, assert_truthy
 
@@ -255,7 +255,7 @@ class ScriptInfo:
             )
 
         # Prefiltering.
-        wclip = ZewiaCubicNew.scale(wclip, get_w(height, wclip), height)
+        wclip = Hermite.scale(wclip, get_w(height, wclip), height)
         wclip = prefilter_to_full_range(wclip, range_conversion)
 
         kf = Keyframes.from_clip(wclip, mode)

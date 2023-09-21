@@ -129,6 +129,9 @@ def temp_download(url: str, filename: str | None = None) -> Path:
     if filename is None:
         filename = url.split("/")[-1]
 
+    if (x := Path(gettempdir()) / filename).exists():
+        return x
+
     out = urlretrieve(url, f"{gettempdir()}/{filename}")[0]
 
     out_file = Path(out)

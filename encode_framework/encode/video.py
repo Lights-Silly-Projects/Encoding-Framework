@@ -193,6 +193,4 @@ class _VideoEncoder(_BaseEncoder):
 
             norm_zones += [zone]
 
-        print(norm_zones)
-
         return norm_zones

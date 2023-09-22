@@ -107,7 +107,7 @@ class _Subtitles(_BaseEncoder):
 
         if save:
             for f in self._save(self.script_info.src_file[0]):
-                Log.info(f"Saving subs at \"{f}\"!", self.process_subs)
+                Log.info(f"Copying subs to \"{f}\"!", self.process_subs)
 
         return self.subtitle_tracks
 

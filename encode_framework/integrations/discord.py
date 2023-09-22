@@ -297,6 +297,7 @@ class DiscordEmbedder(DiscordWebhook):
         desc = f"Aired: {self._anime.tv_season} (Airing Status: {self._anime.status})"
 
         if self._anime.next_airing_episode is not None:
+            # TODO: this
             desc += "\nTODO: add airing info :D (remind @lightarrowsexe if you see this)"
 
         embed = self._append_to_embed_description(embed, desc)
@@ -325,7 +326,9 @@ class DiscordEmbedder(DiscordWebhook):
         settings = file_or_default(sfile.to_str(), settings_builder_x265() if enc_is_x265 else settings_builder_x265())
         settings = fill_props(settings[0], out_clip, enc_is_x265)
 
-        desc = f"\nEncoder: {self.encoder.encoder.__name__}\n```bash\nEncoder settings:\n\n"
+        desc = f"\nTotal number of frames: {out_clip.num_frames}\n"
+        desc += f"Encoder: {self.encoder.encoder.__name__}\n\n"
+        desc += "```bash\nEncoder settings:\n\n"
 
         settings = [x.replace("--", "").strip() for x in settings.split(" --")]
         settings.sort()
@@ -349,8 +352,7 @@ class DiscordEmbedder(DiscordWebhook):
     def _track_info(self, embed: DiscordEmbed) -> DiscordEmbed:
         tracks = self._get_track_info()
 
-        desc = f"```markdown\n{self.encoder.premux_path.name}\n * Total Filesize: {tracks[0][1]}```"
-
+        desc = f"```markdown\n{self.encoder.premux_path.name}\n * Total Filesize: {tracks[0][1]}```\n"
         desc += f"```markdown\n"
 
         for track_title, track_info in tracks[1:]:

@@ -58,24 +58,24 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         )
 
         Log.info("Merging the following files:", self.mux)
-        Log.info(f"   - [VIDEO] {video_track.file}", self.mux)
+        Log.info(f"   - [VIDEO] \"{video_track.file}\"", self.mux)
 
         if SPath(self.script_info.tc_path).exists():
-            Log.info(f"       - [+] Timecodes: {self.script_info.tc_path}", self.mux)
+            Log.info(f"       - [+] Timecodes: \"{self.script_info.tc_path}\"", self.mux)
 
         if self.video_container_args:
             Log.info(f"       - [+] Additional args: \"{mkvmerge_args}\"", self.mux)
 
         if self.audio_tracks:
             for track in self.audio_tracks:
-                Log.info(f"   - [AUDIO] {track.file}", self.mux)
+                Log.info(f"   - [AUDIO] \"{track.file}\"", self.mux)
 
         if self.subtitle_tracks:
             for track in self.subtitle_tracks:
-                Log.info(f"   - [SUBTITLES] {track.file}", self.mux)
+                Log.info(f"   - [SUBTITLES] \"{track.file}\"", self.mux)
 
         if self.chapters:
-            Log.info(f"   - [CHAPTERS] {[ch for ch in self.chapters.chapters]}", self.mux)
+            Log.info(f"   - [CHAPTERS] {[f'{ch[1]} ({ch[0]})' for ch in self.chapters.chapters]}", self.mux)
 
         self.premux_path = SPath(mux(
             video_track, *self.audio_tracks,
@@ -106,6 +106,7 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
             return self.script_info.file.parent
 
         try:
+            Log.debug(f"\"{self.script_info.file}\" --> \"{target}\"", self._move_once_done)
             return self.script_info.file.rename(target)
         except Exception as e:
             Log.error(str(e), self._move_once_done)
@@ -124,7 +125,7 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
 
             target = out_dir / pmx.name
 
-            Log.debug(f"Moving old premux \"{pmx.name}\" -> \"{target}\"...", self._move_old_premuxes_once_done)
+            Log.debug(f"\"{pmx.name}\" --> \"{target}\"", self._move_old_premuxes_once_done)
 
             pmx.rename(target)
 

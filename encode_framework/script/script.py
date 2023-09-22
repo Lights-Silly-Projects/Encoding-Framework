@@ -5,9 +5,9 @@ import sys
 from time import time
 from typing import Any, cast
 
+from vskernels import Hermite
 from vsmuxtools import src_file  # type:ignore[import]
 from vstools import CustomValueError, Keyframes, SceneChangeMode, SPath, SPathLike, set_output, vs
-from vskernels import Hermite
 
 from ..types import TrimAuto, is_iterable
 from ..util import Log, assert_truthy
@@ -155,6 +155,9 @@ class ScriptInfo:
                 trim = trim[0]
             elif len(trim) > 1:
                 trim = (trim[0], trim[1])
+            # TODO: this one is a bug in wobblyparser. Gotta fix this.
+            elif isinstance(trim[0], list):
+                trim = (trim[0][0], trim[0][1])
             else:
                 trim = tuple(trim)
         elif not isinstance(trim, tuple):

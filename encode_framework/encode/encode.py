@@ -57,26 +57,25 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
             default=True, timecode_file=self.script_info.tc_path, lang=lang.strip()
         )
 
-        if Log.is_debug:
-            Log.debug("Merging the following files:", self.mux)
-            Log.debug(f"   - [VIDEO] {video_track.file}", self.mux)
+        Log.info("Merging the following files:", self.mux)
+        Log.info(f"   - [VIDEO] {video_track.file}", self.mux)
 
-            if SPath(self.script_info.tc_path).exists():
-                Log.info(f"       - [+] Timecodes: {self.script_info.tc_path}", self.mux)
+        if SPath(self.script_info.tc_path).exists():
+            Log.info(f"       - [+] Timecodes: {self.script_info.tc_path}", self.mux)
 
-            if self.video_container_args:
-                Log.info(f"       - [+] Additional args: \"{mkvmerge_args}\"", self.mux)
+        if self.video_container_args:
+            Log.info(f"       - [+] Additional args: \"{mkvmerge_args}\"", self.mux)
 
-            if self.audio_tracks:
-                for track in self.audio_tracks:
-                    Log.debug(f"   - [AUDIO] {track.file}", self.mux)
+        if self.audio_tracks:
+            for track in self.audio_tracks:
+                Log.info(f"   - [AUDIO] {track.file}", self.mux)
 
-            if self.subtitle_tracks:
-                for track in self.subtitle_tracks:
-                    Log.debug(f"   - [SUBTITLES] {track.file}", self.mux)
+        if self.subtitle_tracks:
+            for track in self.subtitle_tracks:
+                Log.info(f"   - [SUBTITLES] {track.file}", self.mux)
 
-            if self.chapters:
-                Log.debug(f"   - [CHAPTERS] {[ch for ch in self.chapters.chapters]}", self.mux)
+        if self.chapters:
+            Log.info(f"   - [CHAPTERS] {[ch for ch in self.chapters.chapters]}", self.mux)
 
         self.premux_path = SPath(mux(
             video_track, *self.audio_tracks,

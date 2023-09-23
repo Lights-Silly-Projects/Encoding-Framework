@@ -1,4 +1,5 @@
-from typing import Any
+import filecmp
+from typing import Any, Callable
 
 from vstools import CustomRuntimeError, SPath, finalize_clip, vs
 
@@ -37,8 +38,19 @@ class _BaseEncoder:
 
         self.video_file = None  # type:ignore
 
-    def _check_filesize(self, file: SPath, warn: bool = True, caller: Any | None = None) -> bool:
-        if (x := file.stat().st_size == 0) and warn:
-            Log.warn(f"\"{SPath(file).name}\" is an empty file! Ignoring...", caller)
+    def check_is_empty(self, file: SPath) -> bool:
+        """Check whether a file is empty (0 bits big)."""
+        return file.stat().st_size == 0
 
-        return x
+    def check_identical(
+        self, *files: SPath, shallow: bool = False,
+        caller: str | Callable[[Any], Any] | None = None
+    ) -> bool:
+        """Check whether an arbitrary amount of files are bit-identical. Must pass at least 2 files."""
+        if len(files) < 2:
+            raise Log.error("You must compare at least two files!", caller)
+        elif len(files) == 2:
+            return filecmp.cmp(*files, shallow=bool(shallow))
+
+        # TODO: Add support for multiple files
+        return False

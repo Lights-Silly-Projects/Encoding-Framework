@@ -1,4 +1,3 @@
-import filecmp
 import shutil
 
 from vsmuxtools import GJM_GANDHI_PRESET, SubFile, SubTrack, frame_to_ms, get_setup_attr, get_workdir, uniquify_path
@@ -63,8 +62,7 @@ class _ProcessSubtitles(_BaseSubtitles):
         self._clean_ocr(ocrd_files)
 
         if save:
-            for f in self._save(self.script_info.src_file[0]):
-                Log.info(f"Copying subs to \"{f}\"!", self.process_subs)
+            self._save(self.script_info.src_file[0])
 
         return self.subtitle_tracks
 
@@ -75,17 +73,20 @@ class _ProcessSubtitles(_BaseSubtitles):
         new_files: list[SPath] = []
 
         for sub in list(get_workdir().glob(f"{SPath(name).stem}*_vof.[as][sr][st]")):
-            if self._check_filesize(sub, caller=self._save):
+            if self.check_is_empty(sub, caller=self._save):
+                Log.debug(f"\"{SPath(sub).name}\" is an empty file! Ignoring...", self._save)
                 continue
 
             out = SPath.cwd() / "_subs" / f"{show_name} - {episode}.ass"
 
-            if out.exists() and filecmp.cmp(sub, out, shallow=False):
+            if out.exists() and self.check_identical(sub, out, caller=self._save):
                 Log.debug(f"\"{sub.name}\" already exists in the out dir. Skipping...", self._save)
                 new_files += [out]
                 continue
 
             (SPath.cwd() / "_subs").mkdir(exist_ok=True)
+
+            Log.info(f"Saving subtitle file to \"{out}\"!", self.process_subs)
 
             new_files += [SPath(shutil.copy(sub, uniquify_path(out)))]
 
@@ -108,7 +109,7 @@ class _ProcessSubtitles(_BaseSubtitles):
         except Exception as e:
             Log.debug(f"An error occurred while trying to clean \"{file}\"!\n{e}", self._process_ocr_file)
 
-        if self._check_filesize(clean, warn=False, caller=self._process_ocr_file):
+        if self.check_is_empty(clean):
             clean.unlink()
             return
 
@@ -149,7 +150,8 @@ class _ProcessSubtitles(_BaseSubtitles):
         for i, sub in enumerate(processed_files):
             sub = SPath(sub)
 
-            if self._check_filesize(sub, caller=self._trackify):
+            if self.check_is_empty(sub):
+                Log.debug(f"\"{SPath(sub).name}\" is an empty file! Ignoring...", self._trackify)
                 first_track_removed = True
                 continue
 
@@ -184,11 +186,12 @@ class _ProcessSubtitles(_BaseSubtitles):
                 found: list[SPath] = []
 
                 for y in x:
-                    if self._check_filesize(y, caller=self._process_files):
+                    if self.check_is_empty(y):
+                        Log.debug(f"\"{y.name}\" is an empty file! Ignoring...", self.process_subs)
                         y.unlink()
                         continue
 
-                    Log.info(f"{num} \"{SPath(y).name}\" found! Skipping processing...", self.process_subs)
+                    Log.info(f"{num} \"{y.name}\" found! Skipping processing...", self.process_subs)
                     proc_files = [y]
                     found += [y]
 

@@ -66,7 +66,7 @@ class _Subtitles(_BaseEncoder):
     def process_subs(
         self, subtitle_files: SPathLike | list[SPath] | None = None,
         ref: vs.VideoNode | None = None,
-        ocr_program: OcrProgram = OcrProgram.SUBTITLEEDIT,
+        ocr_program: OcrProgram | None = OcrProgram.SUBTITLEEDIT,
         sub_delay: int | None = None,
         save: bool = True,
     ) -> list[SubTrack]:
@@ -79,6 +79,9 @@ class _Subtitles(_BaseEncoder):
         :param sub_delay:           Delay in frames. Will use the ref clip as a reference.
         :param save:                Whether to save the subtitles in a different directory.
         """
+        if ocr_program is None:
+            ocr_program = OcrProgram.PASSTHROUGH
+
         if subtitle_files is not None and not isinstance(subtitle_files, list):
             subtitle_files = [SPath(subtitle_files)]
         elif isinstance(subtitle_files, list):
@@ -195,9 +198,12 @@ class _Subtitles(_BaseEncoder):
 
     def _process_files(
         self, sub_files: list[SPath],
-        ocr_program: OcrProgram,
+        ocr_program: OcrProgram | None,
         ref: vs.VideoNode | None = None
     ) -> tuple[list[SPath], list[SPath]]:
+        if ocr_program is None:
+            ocr_program = OcrProgram.PASSTHROUGH
+
         proc_files: list[SPath] = []
         ocrd_files: list[SPath] = []
 
@@ -206,16 +212,7 @@ class _Subtitles(_BaseEncoder):
 
             num = f"[{i + 1}/{len(sub_files)}]"
 
-            if sub_spath.to_str().endswith(TextSubExt):
-                Log.info(
-                    f"{num} \"{sub_spath.name}\" is a text-based "
-                    "subtitle format. Skipping OCR!", self.process_subs
-                )
-
-                proc_files += [sub_spath]
-
-                continue
-
+            # Existing processed subs already exist
             if x := list(get_workdir().glob(f"{sub_spath.stem}*_vof.[as][sr][st]")):
                 for y in x:
                     Log.info(f"{num} \"{SPath(y).name}\" found! Skipping processing...", self.process_subs)
@@ -223,6 +220,18 @@ class _Subtitles(_BaseEncoder):
 
                 continue
 
+            # Softsubs found, do not do anything special.
+            if sub_spath.to_str().endswith(TextSubExt):
+                Log.info(
+                    f"{num} \"{sub_spath.name}\" is a text-based subtitle format. "
+                    "Skipping OCR!", self.process_subs
+                )
+
+                proc_files += [sub_spath]
+
+                continue
+
+            # Try to run the OCR tool
             if not (proc := ocr_program.ocr(sub_spath, ref=ref)):
                 Log.warn(
                     f"{num} \"{sub_spath.name}\" is likely not a text-based subtitle format, "

@@ -73,7 +73,7 @@ class _ProcessSubtitles(_BaseSubtitles):
         new_files: list[SPath] = []
 
         for sub in list(get_workdir().glob(f"{SPath(name).stem}*_vof.[as][sr][st]")):
-            if self.check_is_empty(sub, caller=self._save):
+            if self.check_is_empty(sub):
                 Log.debug(f"\"{SPath(sub).name}\" is an empty file! Ignoring...", self._save)
                 continue
 

@@ -29,6 +29,9 @@ class OcrProgram(str, Enum):
     SUBTITLEEDIT = auto()
     """https://github.com/SubtitleEdit/subtitleedit"""
 
+    PASSTHROUGH = auto()
+    """Simply pass the subtitle file through."""
+
     def __str__(self) -> str:
         return self.name.lower()
 
@@ -47,6 +50,9 @@ class OcrProgram(str, Enum):
         if not sfile.exists():
             Log.error(f"Could not find the file \"{sfile}\"!", self.ocr)
 
+            return sfile
+
+        if self is OcrProgram.PASSTHROUGH:
             return sfile
 
         if self._install_failed:

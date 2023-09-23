@@ -1,3 +1,4 @@
+import filecmp
 import shutil
 from typing import Any
 
@@ -141,14 +142,19 @@ class _Subtitles(_BaseEncoder):
         new_files: list[SPath] = []
 
         for sub in list(get_workdir().glob(f"{SPath(og_name).stem}*_vof.[as][sr][st]")):
-            if not self._check_filesize(sub, caller=self._save):
-                (SPath.cwd() / "_subs").mkdir(exist_ok=True)
+            if self._check_filesize(sub, caller=self._save):
+                continue
 
-                new_files += [
-                    SPath(shutil.copy(sub, uniquify_path(
-                        SPath.cwd() / "_subs" / f"{show_name} - {episode}.ass"))
-                    )
-                ]
+            out = SPath.cwd() / "_subs" / f"{show_name} - {episode}.ass"
+
+            if out.exists() and filecmp.cmp(sub, out, shallow=False):
+                Log.debug(f"\"{sub.name}\" already exists in the out dir. Skipping...", self._save)
+                new_files += [out]
+                continue
+
+            (SPath.cwd() / "_subs").mkdir(exist_ok=True)
+
+            new_files += [SPath(shutil.copy(sub, uniquify_path(out)))]
 
         return new_files
 

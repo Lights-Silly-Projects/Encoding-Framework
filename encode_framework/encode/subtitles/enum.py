@@ -49,6 +49,12 @@ class OcrProgram(str, Enum):
 
             return sfile
 
+        if self._install_failed:
+            return sfile
+
+        if not self.installed and not self.install():
+            return sfile
+
         if x := self._run_method("__run", *args, file=sfile, **kwargs):
             return x
 
@@ -121,13 +127,16 @@ class OcrProgram(str, Enum):
         return out
 
     def __install_vobsubocr(self, *args: Any, **kwargs: Any) -> bool:
-        if not check_program_installed("cargo", "https://www.rust-lang.org/tools/install", True):
+        if self._install_failed:
             return False
+
+        if not check_program_installed("cargo", "https://www.rust-lang.org/tools/install", True):
+            return self._set_install_failed()
 
         if not IsWindows:
             Log.error("I do not know how to build this on Unix. Please build it yourself!", self.install)
 
-            return False
+            return self._set_install_failed()
 
         if not os.environ.get("LIBCLANG_PATH", False):
             if not check_program_installed("C:/msys64/mingw64.exe"):
@@ -141,7 +150,7 @@ class OcrProgram(str, Enum):
             if not clang.exists():
                 Log.error("Could not install dependency: \"clang\"!", self.install)
 
-                return False
+                return self._set_install_failed()
 
             os.environ["LIBCLANG_PATH"] = clang.parent.to_str()
 
@@ -160,17 +169,20 @@ class OcrProgram(str, Enum):
         if (x := SPath("InstallationLog.txt")).exists():
             x.unlink(missing_ok=True)
 
-        if not (x:= cargo_build("https://github.com/elizagamedev/vobsubocr")):
-            return x
+        if not cargo_build("https://github.com/elizagamedev/vobsubocr"):
+            return self._set_install_failed()
 
         return self.installed
 
     def __install_pgsrip(self, *args: Any, **kwargs: Any) -> bool:
-        if x := check_program_installed("tesseract", "https://codetoprosper.com/tesseract-ocr-for-windows/", True):
-            return x
+        if self._install_failed:
+            return False
 
-        if (x := install_package(self.program_name)) is False:
-            return x
+        if not check_program_installed("tesseract", "https://codetoprosper.com/tesseract-ocr-for-windows/", True):
+            return self._set_install_failed()
+
+        if install_package(self.program_name) is False:
+            return self._set_install_failed()
 
         try:
             clone_git_repo("https://github.com/tesseract-ocr/tessdata_best.git")
@@ -181,32 +193,46 @@ class OcrProgram(str, Enum):
                     self.__install_pgsrip
                 )
 
-                return False
+                return self._set_install_failed()
 
         return self.installed
 
     def __install_subextractor(self, *args: Any, **kwargs: Any) -> bool:
-        if (x := temp_download(
-            "https://www.digital-digest.com/software/getdownload.php?sid=2245&did=1&code=4hpfb3lK&decode=c58bdbe4625585881a03b5fa2df2e1d1",
+        if self._install_failed:
+            return False
+
+        if not (x := temp_download(
+            "https://www.digital-digest.com/software/getdownload.php?sid=2245&did=1"
+            "&code=4hpfb3lK&decode=c58bdbe4625585881a03b5fa2df2e1d1",
             "SubExtractor1032d.zip")
-        ) is False:
-            return x
+        ):
+            return self._set_install_failed()
 
         return unpack_zip(x, location=SPath.cwd().to_str())
 
     def __install_subtitleedit(self) -> bool:
-        if (x := temp_download(
-            "https://github.com/SubtitleEdit/subtitleedit/releases/download/4.0.1/SubtitleEdit-4.0.1-Setup.exe"
-        )) is False:
-            return x
+        if self._install_failed:
+            return False
 
-        if not (x := run_cmd([x])):
-            return x
+        if not (x := temp_download(
+            "https://github.com/SubtitleEdit/subtitleedit/releases/download/4.0.1/SubtitleEdit-4.0.1-Setup.exe"
+        )):
+            return self._set_install_failed()
+
+        if not run_cmd([x]):
+            return self._set_install_failed()
 
         if not self.installed:
             Log.error("The program was not installed correctly!", self.install)
+            self._set_install_failed()
 
         return self.installed
+
+    def _set_install_failed(self) -> Literal[False]:
+        """Sets `self._install_failed=True` and returns `False` to indicate install was unsuccesful."""
+        self._install_failed = True
+
+        return False
 
     def __check_installed_vobsubocr(self, *args: Any, **kwargs: Any) -> bool:
         return check_program_installed(self.program_name)
@@ -241,6 +267,10 @@ class OcrProgram(str, Enum):
             return x
 
         return idx
+
+    @property
+    def _install_failed(self) -> bool:
+        return self.installed or False  # TODO: Add better checks
 
     def _run_method(self, prefix: str, *args: Any, **kwargs: Any) -> Any:
         """Try to find and run a method using self's name and a prefix."""

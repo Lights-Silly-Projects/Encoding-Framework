@@ -1,8 +1,9 @@
 from typing import Any
 
-from vstools import CustomRuntimeError, finalize_clip, vs
+from vstools import CustomRuntimeError, SPath, finalize_clip, vs
 
 from ..script import ScriptInfo
+from ..util import Log
 
 __all__: list[str] = [
     "_BaseEncoder"
@@ -35,3 +36,9 @@ class _BaseEncoder:
         self.out_clip = finalize_clip(out_clip, **kwargs)  # type:ignore[arg-type]
 
         self.video_file = None  # type:ignore
+
+    def _check_filesize(self, file: SPath, warn: bool = True, caller: Any | None = None) -> bool:
+        if (x := file.stat().st_size == 0) and warn:
+            Log.warn(f"\"{SPath(file).name}\" is an empty file! Ignoring...", caller)
+
+        return x

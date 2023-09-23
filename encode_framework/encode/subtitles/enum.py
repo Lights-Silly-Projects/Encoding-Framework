@@ -116,19 +116,18 @@ class OcrProgram(str, Enum):
         return out
 
     def __run_subtitleedit(
-        self, file: SPath, ass: bool = False,
-        ref: vs.VideoNode | None = None,
+        self, file: SPath, ref: vs.VideoNode | None = None,
         *args: Any, **kwargs: Any
     ) -> SPath:
         """https://www.nikse.dk/subtitleedit/help#commandline"""
-        out = file.with_suffix(".ass" if ass else ".srt")
+        out = file.with_suffix(".srt")
 
         clip_args = []
 
         if ref:
             clip_args = [f"/fps:{ref.fps.numerator // 1001}"]
 
-        run_cmd([self.installed, "/convert", file, "ass" if ass else "subrip"] + clip_args)
+        run_cmd([self.installed, "/convert", file, "subrip"] + clip_args)
 
         return out
 

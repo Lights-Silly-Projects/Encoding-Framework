@@ -1,7 +1,7 @@
 import re
 from typing import Any, cast
 
-from vstools import CustomRuntimeError, SPath, SPathLike, finalize_clip, vs, DitherType, depth, get_prop
+from vstools import CustomRuntimeError, SPath, SPathLike, vs
 
 from ..script import ScriptInfo
 from ..util import Log

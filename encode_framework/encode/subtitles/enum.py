@@ -52,10 +52,7 @@ class OcrProgram(str, Enum):
 
             return sfile
 
-        if self is OcrProgram.PASSTHROUGH:
-            return sfile
-
-        if self._install_failed:
+        if self is OcrProgram.PASSTHROUGH or self._install_failed:
             return sfile
 
         if not self.installed and not self.install():
@@ -275,7 +272,7 @@ class OcrProgram(str, Enum):
 
     @property
     def _install_failed(self) -> bool:
-        return self.installed or False  # TODO: Add better checks
+        return not self.installed or False  # TODO: Add better checks
 
     def _run_method(self, prefix: str, *args: Any, **kwargs: Any) -> Any:
         """Try to find and run a method using self's name and a prefix."""

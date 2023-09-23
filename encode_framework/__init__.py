@@ -1,4 +1,4 @@
-from muxtools import Setup  # type:ignore[import]
+from vsmuxtools import Setup  # type:ignore[import]
 
 from .config import *  # noqa: F401, F403
 from .encode import *  # noqa: F401, F403

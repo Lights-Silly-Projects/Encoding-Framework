@@ -13,6 +13,7 @@ __all__: list[str] = [
     "TruthyInput",
 
     "TextSubExt",
+    "BitmapSubExt",
 
     "is_iterable",
 ]
@@ -28,6 +29,9 @@ TruthyInput = ("yes", "y", "1")
 
 TextSubExt = (".ass", ".srt", ".vtt")
 """Text-based subtitle extensions"""
+
+BitmapSubExt = (".idx", ".pgs", ".sub", ".sup")
+"""Bitmap-based subtitle extensions"""
 
 
 def is_iterable(obj: Any, count_str: bool = False) -> bool:

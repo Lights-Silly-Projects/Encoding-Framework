@@ -1,12 +1,13 @@
 import shutil
+from typing import Any
 
-from muxtools import FontFile, frame_to_ms, get_setup_attr, uniquify_path, get_workdir  # type:ignore[import]
-from vsmuxtools import SubFile, SubTrack  # type:ignore[import]
+from vsmuxtools import (GJM_GANDHI_PRESET, FontFile, SubFile, SubTrack, frame_to_ms,  # type:ignore[import]
+                        get_setup_attr, get_workdir, uniquify_path)
 from vstools import SPath, SPathLike, vs
 
-from ...types import TextSubExt
+from ...types import BitmapSubExt, TextSubExt
 from ...util import Log
-from .base import _BaseEncoder
+from ..base import _BaseEncoder
 from .enum import OcrProgram
 
 __all__: list[str] = [
@@ -44,6 +45,24 @@ class _Subtitles(_BaseEncoder):
 
         for f in dgi_file.parent.glob(f"{dgi_file.stem}*.*"):
             Log.debug(f"Checking the following file: \"{f.name}\"...", self.find_sub_files)
+
+            f_no_undersc = SPath(f.to_str().split("_")[0])
+
+            bitmap_exist = any(
+                f.with_suffix(ext).exists() or
+                f_no_undersc.with_suffix(ext).exists()
+                for ext in BitmapSubExt
+            )
+
+            if f.suffix in TextSubExt and bitmap_exist:
+                Log.debug(
+                    f"\"{f.name}\" is an OCR'd subtitle file from an existing "
+                    "bitmap subtitle file. Skipping...",
+                    self.find_sub_files
+                )
+                f.unlink()
+
+                continue
 
             if self._can_be_ocrd(f) or f.to_str().endswith(TextSubExt):
                 self.subtitle_files += [f]
@@ -103,10 +122,11 @@ class _Subtitles(_BaseEncoder):
 
         # Fixing a handful of very common OCR errors I encountered myself and other minor adjustments...
         for ocrd_file in ocrd_files:
-            self._process_ocr_file(SPath(ocrd_file))
+            if not self._can_be_ocrd(ocrd_file):
+                self._process_ocr_file(SPath(ocrd_file))
 
         self._trackify(proc_set, ocrd_files, wclip, frame_to_ms(sub_delay or 0, wclip.fps))
-        self._clean_ocr(sub_files, self.script_info.src_file[0])
+        self._clean_ocr(ocrd_files)
 
         if save:
             for f in self._save(self.script_info.src_file[0]):
@@ -118,35 +138,50 @@ class _Subtitles(_BaseEncoder):
         show_name = get_setup_attr("show_name", "Example")
         episode = get_setup_attr("episode", "01")
 
-        (SPath.cwd() / "_subs").mkdir(exist_ok=True)
-
         new_files: list[SPath] = []
 
         for sub in list(get_workdir().glob(f"{SPath(og_name).stem}*_vof.[as][sr][st]")):
-            new_files += [SPath(shutil.copy(sub, uniquify_path(SPath.cwd() / "_subs" / f"{show_name} {episode}.ass")))]
+            if not self._check_filesize(sub, caller=self._save):
+                (SPath.cwd() / "_subs").mkdir(exist_ok=True)
+
+                new_files += [
+                    SPath(shutil.copy(sub, uniquify_path(
+                        SPath.cwd() / "_subs" / f"{show_name} - {episode}.ass"))
+                    )
+                ]
 
         return new_files
 
     def _can_be_ocrd(self, file: SPath) -> bool:
-        return SPath(file).to_str().endswith((".pgs", ".sup", ".sub", ".idx"))
+        return SPath(file).to_str().endswith(BitmapSubExt)
 
     def _process_ocr_file(self, file: SPath) -> None:
         clean = file.with_stem(file.stem + "_clean")
 
-        with open(file, "rt") as fin:
-            with open(clean, "wt") as fout:
-                for line in fin:
-                    line = line.replace("|", "I")
-                    line = line.replace("{\i}", "{\i0}")
+        if clean.exists():
+            clean.unlink()
 
-                    fout.write(line)
+        try:
+            with open(file, "rt") as fin:
+                with open(clean, "wt") as fout:
+                    for line in fin:
+                        line = line.replace("|", "I")
+                        line = line.replace("{\i}", "{\i0}")
+
+                        fout.write(line)
+        except Exception as e:
+            Log.debug(f"An error occurred while trying to clean \"{file}\"!\n{e}", self._process_ocr_file)
+
+        if self._check_filesize(clean, warn=False, caller=self._process_ocr_file):
+            clean.unlink()
+            return
 
         file.unlink()
         clean.rename(file)
 
-    def _check_filesize(self, file: SPath) -> bool:
-        if (x := file.stat().st_size == 0):
-            Log.warn(f"\"{SPath(file).name}\" is an empty file! Ignoring...", self.process_subs)
+    def _check_filesize(self, file: SPath, warn: bool = True, caller: Any | None = None) -> bool:
+        if (x := file.stat().st_size == 0) and warn:
+            Log.warn(f"\"{SPath(file).name}\" is an empty file! Ignoring...", caller)
 
         return x
 
@@ -154,6 +189,7 @@ class _Subtitles(_BaseEncoder):
         if file.to_str().endswith(".srt"):
             sub_file = SubFile.from_srt(file)
             sub_file.container_delay = int(sub_delay)
+            sub_file = sub_file.restyle(GJM_GANDHI_PRESET)
         else:
             sub_file = SubFile(file, container_delay=int(sub_delay))
 
@@ -164,17 +200,15 @@ class _Subtitles(_BaseEncoder):
 
         return sub_file
 
-    def _clean_ocr(self, files: list[SPath], og_name: SPathLike) -> None:
+    def _clean_ocr(self, files: list[SPath]) -> None:
         if not isinstance(files, list):
             files = [files]
 
         for f in files:
-            if not self._can_be_ocrd(f):
-                continue
-
-            for s in f.parent.glob(f"{SPath(og_name).stem}.[as][sr][st]"):
-                Log.debug(f"Cleaning up \"{s}\"...", self.process_subs)
-                s.unlink()
+            for s in f.parent.glob(f.stem):
+                if s.to_str().endswith(BitmapSubExt):
+                    Log.debug(f"Cleaning up \"{s}\"...", self.process_subs)
+                    s.unlink()
 
     def _trackify(
         self, processed_files: list[SPath], ocrd_files: list[SPath],
@@ -185,20 +219,23 @@ class _Subtitles(_BaseEncoder):
         for i, sub in enumerate(processed_files):
             sub = SPath(sub)
 
-            if self._check_filesize(sub):
+            if self._check_filesize(sub, caller=self._trackify):
                 first_track_removed = True
                 continue
 
             name = "OCR'd" if sub in ocrd_files else ""
+            default = default=first_track_removed or not bool(i)
 
-            sub_file = self._prepare_subfile(sub, ref, sub_delay)
-
-            self.subtitle_tracks += [sub_file.to_track(name, default=first_track_removed or not bool(i))]
-            self.font_files = sub_file.collect_fonts(search_current_dir=False)
+            if sub.to_str().endswith(".sup"):
+                self.subtitle_tracks += [SubTrack(sub, name, default, delay=sub_delay)]
+            else:
+                sub_file = self._prepare_subfile(sub, ref, sub_delay)
+                self.subtitle_tracks += [sub_file.to_track(name, default=first_track_removed or not bool(i))]
+                self.font_files = sub_file.collect_fonts(search_current_dir=False)
 
     def _process_files(
         self, sub_files: list[SPath],
-        ocr_program: OcrProgram | None,
+        ocr_program: OcrProgram | None = OcrProgram.SUBTITLEEDIT,
         ref: vs.VideoNode | None = None
     ) -> tuple[list[SPath], list[SPath]]:
         if ocr_program is None:
@@ -214,11 +251,19 @@ class _Subtitles(_BaseEncoder):
 
             # Existing processed subs already exist
             if x := list(get_workdir().glob(f"{sub_spath.stem}*_vof.[as][sr][st]")):
+                found: list[SPath] = []
+
                 for y in x:
+                    if self._check_filesize(y, caller=self._process_files):
+                        y.unlink()
+                        continue
+
                     Log.info(f"{num} \"{SPath(y).name}\" found! Skipping processing...", self.process_subs)
                     proc_files = [y]
+                    found += [y]
 
-                continue
+                if found:
+                    continue
 
             # Softsubs found, do not do anything special.
             if sub_spath.to_str().endswith(TextSubExt):

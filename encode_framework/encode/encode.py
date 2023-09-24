@@ -46,21 +46,23 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         """Mux the different tracks together."""
         from vsmuxtools import mux  # type:ignore[import]
 
-        if SPath(self.script_info.tc_path).exists():  # type:ignore[arg-type]
+        if self.script_info.tc_path.exists():  # type:ignore[arg-type]
             Log.info(f"Timecode file found at \"{self.script_info.tc_path}\"!", self.mux)
+
+        tc_file = self.script_info.tc_path if self.script_info.tc_path.exists() else None
 
         if self.video_container_args:
             mkvmerge_args = " ".join(self.video_container_args)
             lang += f" {mkvmerge_args}"
 
         video_track = self.video_file.to_track(
-            default=True, timecode_file=self.script_info.tc_path, lang=lang.strip()
+            default=True, timecode_file=tc_file, lang=lang.strip()
         )
 
         Log.info("Merging the following files:", self.mux)
         Log.info(f"   - [VIDEO] \"{video_track.file}\"", self.mux)
 
-        if SPath(self.script_info.tc_path).exists():
+        if self.script_info.tc_path.exists():
             Log.info(f"       - [+] Timecodes: \"{self.script_info.tc_path}\"", self.mux)
 
         if self.video_container_args:

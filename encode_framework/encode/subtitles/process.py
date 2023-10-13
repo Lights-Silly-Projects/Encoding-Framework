@@ -20,6 +20,8 @@ class _ProcessSubtitles(_BaseSubtitles):
         ref: vs.VideoNode | None = None,
         ocr_program: OcrProgram | None = OcrProgram.SUBTITLEEDIT,
         sub_delay: int | None = None,
+        trim: bool | None = None,
+        restyle: bool = False,
         save: bool = True,
     ) -> list[SubTrack]:
         """
@@ -29,6 +31,10 @@ class _ProcessSubtitles(_BaseSubtitles):
         :param ref:                 A reference video node to use for processing.
         :param ocr_program:         The OCR program to use. See `OcrProgram` for more information.
         :param sub_delay:           Delay in frames. Will use the ref clip as a reference.
+        :param trim:                Whether to truncate lines that extend past the video.
+                                    If None, tries to automatically determine whether it should
+                                    based on the existence of `ref` and the difference in frames.
+        :param restyle:             Whether to restyle the subs to GJM Gandhi Sans.
         :param save:                Whether to save the subtitles in a different directory.
         """
         if ocr_program is None:
@@ -58,21 +64,26 @@ class _ProcessSubtitles(_BaseSubtitles):
             if not self._can_be_ocrd(ocrd_file):
                 self._process_ocr_file(SPath(ocrd_file))
 
-        self._trackify(proc_set, ocrd_files, wclip, frame_to_ms(sub_delay or 0, wclip.fps))
+        if trim is None and ref:
+            trim = (ref.num_frames * 1.333) > self.out_clip.num_frames
+
+        self._trackify(proc_set, ocrd_files, wclip, frame_to_ms(sub_delay or 0, wclip.fps), trim, restyle)
         self._clean_ocr(ocrd_files)
 
         if save:
-            self._save(self.script_info.src_file[0])
+            self._save()
 
         return self.subtitle_tracks
 
-    def _save(self, name: SPathLike) -> list[SPath]:
+    def _save(self) -> list[SPath]:
         show_name = get_setup_attr("show_name", "Example")
         episode = get_setup_attr("episode", "01")
 
         new_files: list[SPath] = []
 
-        for sub in list(get_workdir().glob(f"{SPath(name).stem}*_vof.[as][sr][st]")):
+        for file in self.subtitle_tracks:
+            sub = file.file
+
             if self.check_is_empty(sub):
                 Log.debug(f"\"{SPath(sub).name}\" is an empty file! Ignoring...", self._save)
                 continue
@@ -103,6 +114,8 @@ class _ProcessSubtitles(_BaseSubtitles):
                 with open(clean, "wt") as fout:
                     for line in fin:
                         line = line.replace("|", "I")
+                        line = line.replace(" L ", " I ")
+                        line = line.replace(" ll ", " I ")
                         line = line.replace("{\i}", "{\i0}")
 
                         fout.write(line)
@@ -116,17 +129,22 @@ class _ProcessSubtitles(_BaseSubtitles):
         file.unlink()
         clean.rename(file)
 
-    def _prepare_subfile(self, file: SPath, ref: vs.VideoNode | None = None, sub_delay: int = 0) -> SubFile:
+    def _prepare_subfile(
+        self, file: SPath, ref: vs.VideoNode | None = None,
+        sub_delay: int = 0, trim: bool = True, restyle: bool = False
+    ) -> SubFile:
         if file.to_str().endswith(".srt"):
             sub_file = SubFile.from_srt(file)
             sub_file.container_delay = int(sub_delay)
-            sub_file = sub_file.restyle(GJM_GANDHI_PRESET)
+
+            if restyle:
+                sub_file = sub_file.restyle(GJM_GANDHI_PRESET)
         else:
             sub_file = SubFile(file, container_delay=int(sub_delay))
 
         sub_file = sub_file.shift(-self.script_info.trim[0], self.script_info.clip_cut.fps)
 
-        if ref:
+        if ref and trim:
             sub_file = sub_file.truncate_by_video(ref)
 
         return sub_file
@@ -143,7 +161,8 @@ class _ProcessSubtitles(_BaseSubtitles):
 
     def _trackify(
         self, processed_files: list[SPath], ocrd_files: list[SPath],
-        ref: vs.VideoNode | None = None, sub_delay: int = 0
+        ref: vs.VideoNode | None = None, sub_delay: int = 0,
+        trim: bool = True, restyle: bool = False
     ) -> None:
         first_track_removed = False
 
@@ -161,7 +180,7 @@ class _ProcessSubtitles(_BaseSubtitles):
             if sub.to_str().endswith(".sup"):
                 self.subtitle_tracks += [SubTrack(sub, name, default, delay=sub_delay)]
             else:
-                sub_file = self._prepare_subfile(sub, ref, sub_delay)
+                sub_file = self._prepare_subfile(sub, ref, sub_delay, trim, restyle)
                 self.subtitle_tracks += [sub_file.to_track(name, default=first_track_removed or not bool(i))]
                 self.font_files = sub_file.collect_fonts(search_current_dir=False)
 

@@ -148,7 +148,7 @@ class _AudioEncoder(_BaseEncoder):
         Encode the audio tracks.
 
         :param audio_file:      Path to an audio file or an AudioNode. If none, checks object's audio files.
-        :param trims:           Audio trims. If None or empty list, do not trim.
+        :param trims:           Audio trims. If False or empty list, do not trim.
                                 If True, use trims passed in ScriptInfo.
         :param reorder:         Reorder tracks. For example, if you know you have 3 audio tracks
                                 ordered like [JP, EN, "Commentary"], you can pass [1, 0, 2]

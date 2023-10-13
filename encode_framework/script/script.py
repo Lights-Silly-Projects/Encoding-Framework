@@ -7,7 +7,7 @@ from typing import Any, cast
 
 from vskernels import Hermite
 from vsmuxtools import src_file  # type:ignore[import]
-from vstools import CustomValueError, Keyframes, SceneChangeMode, SPath, SPathLike, set_output, vs
+from vstools import CustomValueError, Keyframes, SceneChangeMode, SPath, SPathLike, set_output, vs, normalize_ranges
 
 from ..types import TrimAuto, is_iterable
 from ..util import Log, assert_truthy
@@ -95,7 +95,7 @@ class ScriptInfo:
         """Index the given file. Returns a tuple containing the `src_file` object and the `init_cut` node."""
         from .trim import get_post_trim, get_pre_trim
 
-        if isinstance(trim, list) and all(isinstance(x, tuple) for x in trim):
+        if trim and isinstance(trim, list) and all(isinstance(x, tuple) for x in trim):
             if len(trim) > 1:
                 Log.warn(f"Multiple trims found! Only grabbing the first ({trim[0][0]} => {trim[0][1]})...")
 
@@ -118,7 +118,7 @@ class ScriptInfo:
             except (Exception, vs.Error) as e:
                 raise Log.error(e, self.index)
 
-        if trim is None:
+        if not trim:
             trim = (None, None)
         elif isinstance(trim, int):
             trim = (trim, -trim)
@@ -176,6 +176,8 @@ class ScriptInfo:
 
         if inspect.stack()[1][3] in ("trim"):
             return trim
+
+        trim = normalize_ranges(self.src.init(), trim)
 
         self._trim = trim
         self.src.trim = trim

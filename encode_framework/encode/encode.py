@@ -1,7 +1,7 @@
 import re
 from typing import Any, cast
 
-from vstools import CustomRuntimeError, SPath, SPathLike, vs
+from vstools import CustomRuntimeError, SPath, SPathLike, vs, get_prop
 
 from ..script import ScriptInfo
 from ..util import Log
@@ -42,8 +42,23 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
 
         ...
 
-    def mux(self, out_path: SPathLike | None = None, move_once_done: bool = False, lang: str = "ja") -> SPath:
-        """Mux the different tracks together."""
+    def mux(
+        self, out_path: SPathLike | None = None,
+        move_once_done: bool = False, lang: str = "ja",
+        crop: int | tuple[int, int] | tuple[int, int, int, int] | None = None,
+        *args: Any
+    ) -> SPath:
+        """
+        Mux the different tracks together.
+
+        :param out_path:            Path to output the muxed file to.
+        :param move_once_done:      Move the python script once muxing is done.
+        :param lang:                Language of the video track.
+        :param crop:                Container cropping. Useful for anamorphic resolutions
+                                    and consistency in the event you may want to regularly crop a video.
+                                    If None, checks the output clip for "_SARLeft", "_SARRight", etc. props.
+        :param args:                Additional arguments to pass on to mkvmerge.
+        """
         from vsmuxtools import mux  # type:ignore[import]
 
         if self.script_info.tc_path.exists():  # type:ignore[arg-type]
@@ -55,8 +70,17 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
             mkvmerge_args = " ".join(self.video_container_args)
             lang += f" {mkvmerge_args}"
 
+        if crop is None:
+            _l = get_prop(self.out_clip, "_SARLeft", int, None, 0, self.mux)
+            _r = get_prop(self.out_clip, "_SARRight", int, None, 0, self.mux)
+            _t = get_prop(self.out_clip, "_SARTop", int, None, 0, self.mux)
+            _b = get_prop(self.out_clip, "_SARBottom", int, None, 0, self.mux)
+
+            if any([_l, _r, _t, _b]):
+                crop = (_l, _t, _r, _b)
+
         video_track = self.video_file.to_track(
-            default=True, timecode_file=tc_file, lang=lang.strip()
+            default=True, timecode_file=tc_file, lang=lang.strip(), crop=crop, *args
         )
 
         Log.info("Merging the following files:", self.mux)
@@ -64,6 +88,9 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
 
         if self.script_info.tc_path.exists():
             Log.info(f"       - [+] Timecodes: \"{self.script_info.tc_path}\"", self.mux)
+
+        if crop is not None:
+            Log.info(f"       - [+] Container cropping: \"{crop}\"", self.mux)
 
         if self.video_container_args:
             Log.info(f"       - [+] Additional args: \"{mkvmerge_args}\"", self.mux)

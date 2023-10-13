@@ -7,7 +7,7 @@
 
 from typing import Any
 
-from vskernels import Bicubic, BicubicSharp, Bilinear, Catrom, Lanczos, Mitchell, Scaler
+from vskernels import Bicubic, BicubicSharp, Bilinear, Catrom, Lanczos, Mitchell, Scaler, Kernel
 from vstools import Transfer, inject_self, vs
 
 __all__: list[str] = [
@@ -18,6 +18,7 @@ __all__: list[str] = [
     "FixBilinear",
 
     "LinearBicubic",
+    "LinearLanczos",
 ]
 
 
@@ -103,6 +104,24 @@ class LinearBicubic(Scaler):
         wclip = Bicubic(self.b, self.c).scale(
             wclip, **Bicubic(self.b, self.c).get_scale_args(wclip, shift, width, height, **kwargs)
         )
+
+        return Transfer.from_video(clip).apply(wclip)
+
+
+class LinearLanczos(Lanczos):
+    """Perform linear conversion prior to scaling."""
+
+    def __init__(self, taps: int = 3, **kwargs: Any) -> None:
+        self.taps = taps
+        super().__init__(**kwargs)
+
+    @inject_self.cached
+    def scale(  # type: ignore[override]
+        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
+    ) -> vs.VideoNode:
+        wclip = Transfer.LINEAR.apply(clip)
+
+        wclip = Lanczos.scale(wclip, width, height, shift, **kwargs)
 
         return Transfer.from_video(clip).apply(wclip)
 

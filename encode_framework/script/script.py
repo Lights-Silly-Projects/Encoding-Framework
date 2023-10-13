@@ -177,7 +177,7 @@ class ScriptInfo:
         if inspect.stack()[1][3] in ("trim"):
             return trim
 
-        trim = normalize_ranges(self.src.init(), trim)
+        trim = normalize_ranges(self.src.src, trim)[0]
 
         self._trim = trim
         self.src.trim = trim

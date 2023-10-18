@@ -107,6 +107,8 @@ class ScriptInfo:
             raise CustomValueError("You may only pass a list of files if you set \"force_dgi=True\"!", self.index)
         elif force_dgi:
             path = list(path) if path_is_iterable else [path]
+        elif not path_is_iterable:
+            path = [path]
 
         self.src_file = [SPath(p).resolve() for p in path]
 

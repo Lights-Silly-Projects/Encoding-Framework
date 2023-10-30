@@ -127,16 +127,22 @@ class ScriptInfo:
         elif any(isinstance(x, str) for x in trim):
             trim_pre, trim_post = trim
 
-            if trim_pre == "auto":
+            if str(trim_pre).lower() == "auto":
                 trim_pre = get_pre_trim(self.src_file, self.sc_path, self.sc_lock_file)
 
                 self.sc_lock_file.touch(exist_ok=True)
-            if trim_post == "auto":
+            if str(trim_post).lower() == "auto":
                 trim_post = get_post_trim(self.src_file, self.sc_path, self.sc_lock_file)
 
-            self.sc_lock_file
+                self.sc_lock_file.touch(exist_ok=True)
 
             trim = (trim_pre, trim_post)
+
+            Log.debug(f"New trim: {trim}", self.index)
+
+        if all(isinstance(x, type(None)) for x in trim):
+            trim = None
+
 
         assert_truthy(is_iterable(self.src_file))
 

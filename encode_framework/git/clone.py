@@ -1,14 +1,15 @@
-
 from __future__ import annotations
+
+from typing import no_type_check
 
 from git import GitCommandError, RemoteProgress, Repo
 from rich import console, progress
 from vstools import SPath, SPathLike
 
-from .logging import Log
+from ..util import Log
 
 __all__: list[str] = [
-    "clone_git_repo"
+    "clone_git_repo",
 ]
 
 
@@ -86,6 +87,7 @@ class _CloneProgress(RemoteProgress):
         op_code_masked = op_code & cls.OP_MASK
         return cls.OP_CODE_MAP.get(op_code_masked, "?").title()
 
+    @no_type_check
     def update(
         self,
         op_code: int,

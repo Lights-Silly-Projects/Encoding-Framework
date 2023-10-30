@@ -13,7 +13,7 @@ from vsrgtools import BlurMatrix, RemoveGrainMode, limit_filter
 from vsscale import DescaleResult
 from vstools import ConvMode, CustomValueError, FrameRangesN, SPath, VSFunction, core, get_y, join, replace_ranges, vs
 
-from .logging import Log
+from ..util.logging import Log
 
 __all__: list[str] = [
     "fixedges",
@@ -55,7 +55,8 @@ def _rektlvls(
         for _ in range(len(rownum)):
             if rownum[_] < 0:
                 rownum[_] = clip.height + rownum[_]
-            clip = _rektlvl(clip, rownum[_], rowval[_], alignment='row', prot_val=prot_val, min_val=min_val, max_val=max_val)
+            clip = _rektlvl(clip, rownum[_], rowval[_], alignment='row',
+                            prot_val=prot_val, min_val=min_val, max_val=max_val)
     if colnum:
         if isinstance(colnum, int):
             colnum = [colnum]
@@ -64,13 +65,14 @@ def _rektlvls(
         for _ in range(len(colnum)):
             if colnum[_] < 0:
                 colnum[_] = clip.width + colnum[_]
-            clip = _rektlvl(clip, colnum[_], colval[_], alignment='column', prot_val=prot_val, min_val=min_val, max_val=max_val)
+            clip = _rektlvl(clip, colnum[_], colval[_], alignment='column',
+                            prot_val=prot_val, min_val=min_val, max_val=max_val)
 
     return clip
 
 
 def _rektlvl(c, num, adj_val, alignment='row', prot_val=[16, 235], min_val=16, max_val=235):
-    from rekt.rekt_fast import rekt_fast
+    from rekt.rekt_fast import rekt_fast  # type:ignore[import]
 
     if adj_val == 0:
         return c
@@ -108,14 +110,14 @@ def _rektlvl(c, num, adj_val, alignment='row', prot_val=[16, 235], min_val=16, m
             prot_val = [scale_value(prot_val[0], 8, bits), scale_value(prot_val[1], 8, bits)]
             expr += f' x {prot_val[1]} - -{ten} / 0 max 1 min * x x {prot_val[1]} {ten} - - {ten} / 0 max 1 min * + {prot_val[0]} x - -{ten} / 0 max 1 min * x {prot_val[0]} {ten} + x - {ten} / 0 max 1 min * +'
 
-        last = lambda x: core.std.Expr(x, expr=expr)
+        def last(x): return core.std.Expr(x, expr=expr)
     else:
         adj_val = adj_val * (max_val - min_val) / 100
         if adj_val < 0:
-            last = lambda x: core.std.Levels(
+            def last(x): return core.std.Levels(
                 x, min_in=min_val, max_in=max_val, min_out=min_val, max_out=max_val + adj_val)
         elif adj_val > 0:
-            last = lambda x: core.std.Levels(
+            def last(x): return core.std.Levels(
                 x, min_in=min_val, max_in=max_val - adj_val, min_out=min_val, max_out=max_val)
 
     if alignment == 'row':
@@ -130,7 +132,8 @@ def _rektlvl(c, num, adj_val, alignment='row', prot_val=[16, 235], min_val=16, m
 
     return last
 
-def setsu_dering(clip: vs.VideoNode, mode: int = "w") -> vs.VideoNode:
+
+def setsu_dering(clip: vs.VideoNode, mode: str = "w") -> vs.VideoNode:
     """
     Setsu's WIP deringing function. Lightly modified.
 
@@ -295,10 +298,10 @@ class Squaremask:
 
     sigma: float = 4.0
 
-    mask_clip: vs.VideoNode = None
+    mask_clip: vs.VideoNode
 
     def __init__(
-        self, ranges: FrameRangesN = None,
+        self, ranges: FrameRangesN | None = None,
         offset_x: int = 1, offset_y: int = 1,
         width: int | bool = 0, height: int | bool = 0,
         invert: bool = False,
@@ -309,16 +312,16 @@ class Squaremask:
             ranges = [(None, None)]
 
         if (isinstance(width, bool) or width == "auto") and width:
-            width = "auto"
+            width = "auto"  # type:ignore[assignment]
         elif width < 0:
             width = abs(width) - offset_x
 
         if (isinstance(height, bool) or height == "auto") and height:
-            height = "auto"
+            height = "auto"  # type:ignore[assignment]
         elif height < 0:
             height = abs(height) - offset_y
 
-        self.ranges = ranges
+        self.ranges = ranges or []  # type:ignore[assignment]
         self.width = width
         self.height = height
         self.offset_x = offset_x
@@ -327,23 +330,29 @@ class Squaremask:
         self.sigma = sigma
 
     def __str__(self) -> str:
-        return f"Squaremask {self.width}x{self.height} @ f{self.ranges[0]}-f{self.ranges[1]} " \
-            + f"(offset_x: {self.offset_x}, offset_y: {self.offset_y}, " \
-            + f"width: {self.width}, height: {self.height}) "
+        out = f"Squaremask {self.width}x{self.height}"
 
-    def apply(self, clip_a: vs.VideoNode, clip_b: vs.VideoNode, ranges: FrameRangesN = None) -> vs.VideoNode:
+        if self.ranges:
+            out += f" @ {self.ranges[0]}-f{self.ranges[1]}"
+
+        out += f" (offset_x: {self.offset_x}, offset_y: {self.offset_y},"
+        out += f" width: {self.width}, height: {self.height}) "
+
+        return out
+
+    def apply(self, clip_a: vs.VideoNode, clip_b: vs.VideoNode, ranges: FrameRangesN | None = None) -> vs.VideoNode:
         """Apply the squaremasks."""
         self.generate_mask(clip_a, ranges)
 
         return core.std.MaskedMerge(clip_a, clip_b, self.mask_clip)
 
-    def generate_mask(self, ref: vs.VideoNode, ranges: FrameRangesN = None) -> vs.VideoNode:
+    def generate_mask(self, ref: vs.VideoNode, ranges: FrameRangesN | None = None) -> vs.VideoNode:
         """Generate a mask and add it to a mask clip."""
         from vsmasktools import squaremask
         from vsrgtools import gauss_blur
         from vstools import plane
 
-        self.ranges = ranges or self.ranges
+        self.ranges = ranges or self.ranges  # type:ignore[assignment]
 
         if not self.mask_clip:
             self.mask_clip = plane(ref, 0).std.BlankClip(keep=True)
@@ -379,7 +388,7 @@ class Squaremask:
             sq = gauss_blur(sq, self.sigma)
 
         if self.ranges:
-            sq = replace_ranges(self.mask_clip, sq, self.ranges)
+            sq = replace_ranges(self.mask_clip, sq, self.ranges or [])  # type:ignore[arg-type]
 
         self.mask_clip = sq
 
@@ -409,10 +418,9 @@ def apply_squaremasks(
         if print_sq:
             print(i, "-", sqmask)
 
-        mask = replace_ranges(mask, sqmask_clip, sqmask.ranges)
+        mask = replace_ranges(mask, sqmask_clip, sqmask.ranges or [])  # type:ignore[arg-type]
 
     if show_mask:
         return mask
 
     return clip_a.std.MaskedMerge(clip_b, mask)
-

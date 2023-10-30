@@ -5,12 +5,13 @@ from vstools import SPath, SPathLike, CustomNotImplementedError
 from configparser import ConfigParser
 from ftplib import FTP
 
-from .logging import Log
-from .util import create_gitignore
+from ..util.logging import Log
+from ..git.ignore import append_gitignore
 
 __all__: list[str] = [
     "Ftp"
 ]
+
 
 class Ftp:
     """Class representing an FTP worker."""
@@ -43,7 +44,7 @@ class Ftp:
     """The directory to upload the files to."""
 
     def __init__(self, config_file: SPathLike = "ftp.ini") -> None:
-        raise CustomNotImplementedError(None, self)
+        raise CustomNotImplementedError(None, self)  # type:ignore[arg-type]
         self.config_file = SPath(config_file).with_suffix(".ini")
 
         self.config_parsed = ConfigParser()
@@ -82,7 +83,7 @@ class Ftp:
 
         # We really don't want users accidentally pushing these files to a public repo...
         if not SPath(".gitignore").exists():
-            create_gitignore(options=[self.config_file])
+            append_gitignore(options=[self.config_file])
 
     def get_welcome(self) -> None:
         ...

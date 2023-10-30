@@ -1,17 +1,13 @@
-"""
-    Largely stolen and rewritten from muxtools.
-"""
-import logging
+import logging  # type:ignore[import]
 import sys
 import time
+from configparser import ConfigParser
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Literal
 
 from rich.logging import RichHandler
 from vstools import CustomError
-
-from .config import Config
 
 __all__: list[str] = [
     "Logger",
@@ -20,7 +16,7 @@ __all__: list[str] = [
 
 
 class Logger:
-    """Logger class."""
+    """Logger class. Largely stolen and rewritten from muxtools."""
 
     logger: logging.Logger
     """The logger object."""
@@ -29,17 +25,22 @@ class Logger:
     """Path to the log file."""
 
     def __init__(
-        self, logger_name: str | None = None,
-        log_file: Path | None | Literal[False] = None,
+        self,
+        logger_name: str | None = None,
+        log_file: Path | None | Literal[False] = False,
         format: str = "%(name)s | %(message)s",
         datefmt: str = "[%X]",
         **kwargs: Any
     ) -> None:
-        log_name = logger_name or "Project"
+        log_name = logger_name or "Encode_Framework"
 
-        if Config.config_path.exists():
-            if not logger_name:
-                log_name = Config.config_parsed.get("SETUP", "show_name") or log_name
+        self._config_file = Path() / "config.ini"
+
+        config = ConfigParser()
+        config.read(str(self._config_file))
+
+        if not logger_name and self._config_file.exists():
+            log_name = config.get("SETUP", "show_name") or log_name
 
         log_name = log_name.replace(" ", "_")
 
@@ -58,8 +59,8 @@ class Logger:
 
         self.logger.setLevel(logging.INFO)
 
-        if Config.config_path.exists():
-            if Config.is_debug:
+        if self._config_file.exists():
+            if config.get("SETUP", "show_name"):
                 self.logger.setLevel(logging.DEBUG)
 
             if logger_name is None:
@@ -114,7 +115,7 @@ class Logger:
         return Exception(message)
 
     def debug(self, msg: str | bytes, caller: str | Callable[[Any], Any] | None = None, force: bool = False) -> None:
-        if not Config.config_path.exists():
+        if not self._config_file.exists():
             return
 
         if not self.is_debug and not force:

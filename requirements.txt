@@ -10,6 +10,6 @@ Requests>=2.31.0
 rich>=13.5.2
 setuptools>=65.5.0
 vs_rekt>=1.0.0
-vsiew>=2.0.1
+vsstg>=3.0.1
 vsmuxtools>=0.0.7
 pyupload>=0.1.4

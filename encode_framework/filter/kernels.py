@@ -7,22 +7,22 @@
 
 from typing import Any
 
-from vskernels import Bicubic, BicubicSharp, Bilinear, Catrom, Lanczos, Mitchell, Scaler, Kernel
-from vstools import Transfer, inject_self, vs
+from vskernels import Bicubic, Bilinear, Lanczos
+from vstools import vs
 
 __all__: list[str] = [
-    "FixCatrom",
-    "FixMitchell",
-    "FixBicubicSharp", "FixSharp",
-    "FixLanczos",
-    "FixBilinear",
-
-    "LinearBicubic",
-    "LinearLanczos",
+    "BhBicubic",
+    "BhCatrom",
+    "BhMitchell",
+    "BhBicubicSharp",
+    "BhLanczos",
+    "BhBilinear",
 ]
 
 
-class FixCatrom(Catrom):
+class BhBicubic(Bicubic):
+    """Bicubic with Border Handling for descaling."""
+
     def get_params_args(
         self, is_descale: bool, clip: vs.VideoNode,
         width: int | None = None, height: int | None = None, **kwargs: Any
@@ -35,7 +35,30 @@ class FixCatrom(Catrom):
         return args
 
 
-class FixMitchell(Mitchell):
+class BhCatrom(BhBicubic):
+    """Bicubic b=0, c=0.5 with Border Handling for descaling."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(b=0, c=1 / 2, **kwargs)
+
+
+class BhMitchell(BhBicubic):
+    """Bicubic b=0.33, c=0.33  with Border Handling for descaling."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(b=1 / 3, c=1 / 3, **kwargs)
+
+
+class BhMitchell(BhBicubic):
+    """Bicubic b=0, c=1  with Border Handling for descaling."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(b=0, c=1, **kwargs)
+
+
+class BhLanczos(Lanczos):
+    """Lanczos with Border Handling for descaling."""
+
     def get_params_args(
         self, is_descale: bool, clip: vs.VideoNode,
         width: int | None = None, height: int | None = None, **kwargs: Any
@@ -48,7 +71,9 @@ class FixMitchell(Mitchell):
         return args
 
 
-class FixBicubicSharp(BicubicSharp):
+class BhBilinear(Bilinear):
+    """Bilinear with Border Handling for descaling."""
+
     def get_params_args(
         self, is_descale: bool, clip: vs.VideoNode,
         width: int | None = None, height: int | None = None, **kwargs: Any
@@ -59,72 +84,3 @@ class FixBicubicSharp(BicubicSharp):
             return args | dict(border_handling=1)
 
         return args
-
-
-class FixLanczos(Lanczos):
-    def get_params_args(
-        self, is_descale: bool, clip: vs.VideoNode,
-        width: int | None = None, height: int | None = None, **kwargs: Any
-    ) -> dict[str, Any]:
-        args = super().get_params_args(is_descale, clip, width, height, **kwargs)
-
-        if is_descale:
-            return args | dict(border_handling=1)
-
-        return args
-
-
-class FixBilinear(Bilinear):
-    def get_params_args(
-        self, is_descale: bool, clip: vs.VideoNode,
-        width: int | None = None, height: int | None = None, **kwargs: Any
-    ) -> dict[str, Any]:
-        args = super().get_params_args(is_descale, clip, width, height, **kwargs)
-
-        if is_descale:
-            return args | dict(border_handling=1)
-
-        return args
-
-
-class LinearBicubic(Scaler):
-    """Perform linear conversion prior to scaling."""
-
-    def __init__(self, b: float = 0, c: float = 1 / 2, **kwargs: Any) -> None:
-        self.b = b
-        self.c = c
-        super().__init__(**kwargs)
-
-    @inject_self.cached
-    def scale(  # type: ignore[override]
-        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
-    ) -> vs.VideoNode:
-        wclip = Transfer.LINEAR.apply(clip)
-
-        wclip = Bicubic(self.b, self.c).scale(
-            wclip, **Bicubic(self.b, self.c).get_scale_args(wclip, shift, width, height, **kwargs)
-        )
-
-        return Transfer.from_video(clip).apply(wclip)
-
-
-class LinearLanczos(Lanczos):
-    """Perform linear conversion prior to scaling."""
-
-    def __init__(self, taps: int = 3, **kwargs: Any) -> None:
-        self.taps = taps
-        super().__init__(**kwargs)
-
-    @inject_self.cached
-    def scale(  # type: ignore[override]
-        self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
-    ) -> vs.VideoNode:
-        wclip = Transfer.LINEAR.apply(clip)
-
-        wclip = Lanczos.scale(wclip, width, height, shift, **kwargs)
-
-        return Transfer.from_video(clip).apply(wclip)
-
-
-# Aliases
-FixSharp = FixBicubicSharp

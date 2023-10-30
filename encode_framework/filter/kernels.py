@@ -43,14 +43,14 @@ class BhCatrom(BhBicubic):
 
 
 class BhMitchell(BhBicubic):
-    """Bicubic b=0.33, c=0.33  with Border Handling for descaling."""
+    """Bicubic b=0.33, c=0.33 with Border Handling for descaling."""
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(b=1 / 3, c=1 / 3, **kwargs)
 
 
-class BhMitchell(BhBicubic):
-    """Bicubic b=0, c=1  with Border Handling for descaling."""
+class BhBicubicSharp(BhBicubic):
+    """Bicubic b=0, c=1 with Border Handling for descaling."""
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(b=0, c=1, **kwargs)

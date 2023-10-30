@@ -346,6 +346,7 @@ class _AudioEncoder(_BaseEncoder):
         encoder_map = {
             "qaac": "qaac",
             "flac": "libflac",
+            "opus": "libopus"
         }
 
         codec = encoder_map.get(str(encoder.__name__).lower())

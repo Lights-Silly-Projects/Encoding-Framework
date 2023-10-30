@@ -5,6 +5,7 @@ import linecache
 import os
 from typing import cast
 
+from vsrgtools import gauss_blur
 from vssource import source
 from vstools import SPath, SPathLike, core, get_prop, scale_value, vs
 
@@ -32,7 +33,7 @@ def get_pre_trim(clip: vs.VideoNode | SPathLike, kf_file: SPathLike, lock_file: 
     if not kf_file.exists():
         return None
 
-    clip = clip.std.PlaneStats()
+    clip = gauss_blur(clip, 1.5).std.PlaneStats()
 
     if get_prop(clip[0], "PlaneStatsAverage", float) > scale_value(16.2, 8, 32):
         return None
@@ -45,7 +46,7 @@ def get_pre_trim(clip: vs.VideoNode | SPathLike, kf_file: SPathLike, lock_file: 
         Log.warn("Auto-guessed 24 frame trim at the start. Please verify this!", "get_pre_trim")
 
         first_sc = 24
-    elif get_prop(clip[first_sc - 1], "PlaneStatsAverage", float) > scale_value(16.2, 8, 32):
+    elif get_prop(clip[first_sc - 1], "PlaneStatsAverage", float) < scale_value(16.2, 8, 32):
         return None
 
     Log.debug(
@@ -72,11 +73,13 @@ def get_post_trim(clip: vs.VideoNode | SPathLike, kf_file: SPathLike, lock_file:
     kf_file = SPath(kf_file)
 
     if not kf_file.exists():
+        Log.debug("Could not find keyframe file", "get_post_trim")
         return None
 
-    clip = clip.std.PlaneStats()
+    clip = gauss_blur(clip, 1.5).std.PlaneStats()
 
-    if get_prop(clip[-1], "PlaneStatsAverage", float) > scale_value(16.2, 8, 32):
+    if get_prop(clip[-1], "PlaneStatsAverage", float) > scale_value(32, 8, 32):
+        Log.debug(f"{get_prop(clip[-1], 'PlaneStatsAverage', float)} > {scale_value(21, 8, 32)}", "get_post_trim")
         return None
 
     with open(kf_file, "rb") as f:
@@ -92,7 +95,8 @@ def get_post_trim(clip: vs.VideoNode | SPathLike, kf_file: SPathLike, lock_file:
 
     last_sc = int(last_line.replace(' I -1', ''))
 
-    if get_prop(clip[last_sc], "PlaneStatsAverage", float) > scale_value(16.2, 8, 32):
+    if get_prop(clip[last_sc], "PlaneStatsAverage", float) < scale_value(32, 8, 32):
+        Log.debug(f"{get_prop(clip[last_sc], 'PlaneStatsAverage', float)} > {scale_value(21, 8, 32)}", "get_post_trim")
         return None
 
     Log.debug(

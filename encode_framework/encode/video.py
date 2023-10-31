@@ -187,7 +187,7 @@ class _VideoEncoder(_BaseEncoder):
                         self.encode_video, CustomValueError
                     )
                 elif bitrate == 0:
-                    break
+                    continue
 
                 zone = (start, end, bitrate)
 

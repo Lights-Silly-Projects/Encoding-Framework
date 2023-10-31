@@ -284,8 +284,11 @@ class _AudioEncoder(_BaseEncoder):
 
                 setattr(trimmer_obj, "trim", trim)
 
-                if str(afile.file).endswith(".w64") or (force and afile.is_lossy()):
-                    Log.debug("Audio file has w64 extension, creating an intermediary encode...", self.encode_audio)
+                if force and afile.is_lossy():
+                    Log.debug(
+                        "\"force\" is set to True and the file is lossy! Creating an intermediary file...",
+                        self.encode_audio
+                    )
 
                     afile = FLAC(compression_level=0, dither=False).encode_audio(afile)
 

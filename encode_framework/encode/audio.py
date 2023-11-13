@@ -308,7 +308,7 @@ class _AudioEncoder(_BaseEncoder):
 
             if encoder:
                 setattr(encoder, "output", None)
-                encoded = encoder.encode_audio(afile, verbose)
+                encoded = encoder.encode_audio(afile, not verbose)
                 ensure_path(afile.file, self.encode_audio).unlink(missing_ok=True)
                 afile = encoded
 

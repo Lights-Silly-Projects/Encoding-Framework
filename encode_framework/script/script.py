@@ -7,7 +7,9 @@ from typing import Any, cast
 
 from vskernels import Hermite
 from vsmuxtools import src_file  # type:ignore[import]
-from vstools import CustomValueError, Keyframes, SceneChangeMode, SPath, SPathLike, set_output, vs, normalize_ranges
+from vstools import (CustomValueError, Keyframes, SceneChangeMode, SPath,
+                     SPathLike, get_prop, normalize_ranges, set_output, to_arr,
+                     vs)
 
 from ..types import TrimAuto, is_iterable
 from ..util import Log, assert_truthy
@@ -214,7 +216,9 @@ class ScriptInfo:
         tc_loc = SPath(tc_path)
 
         if not tc_loc.exists():
-            raise Log.error(f"The file \"{tc_loc}\" could not be found!", self.update_tc, FileNotFoundError)
+            Log.warn(f"The file \"{tc_loc}\" could not be found!", self.update_tc)
+
+            return self.tc_path
 
         self.tc_path = tc_loc
 
@@ -282,7 +286,8 @@ class ScriptInfo:
 
     def replace_prefilter(
         self, prefilter: vs.VideoNode | tuple[vs.VideoNode],
-        sc: bool = True, force: bool = False
+        sc: bool = True, sc_ref: vs.VideoNode | None = None,
+        force: bool = False
     ) -> vs.VideoNode:
         """Replace the clip_cut attribute with a prefiltered clip. Useful for telecined clips."""
         if isinstance(prefilter, (tuple, list)):
@@ -293,6 +298,8 @@ class ScriptInfo:
         if force:
             self.sc_force = force
 
+        sc_ref = sc_ref or prefilter
+
         # Check whether sc_path exists, and remove if the last keyframe exceeds the prefiltered clip's total frames.
         if sc and self.sc_path.exists() and isinstance(self.clip_cut, vs.VideoNode) and not self.sc_lock_file.exists():
             assert isinstance(self.clip_cut, vs.VideoNode)  # typing
@@ -301,10 +308,10 @@ class ScriptInfo:
                 Log.warn("Prefilter passed but keyframes don't match! Regenerating...", self.replace_prefilter)
                 self.sc_path.unlink(missing_ok=True)
 
-            self.generate_keyframes(prefilter)
+            self.generate_keyframes(sc_ref)
             self._make_sf_lock()
         elif sc and not self.sc_path.exists():
-            self.generate_keyframes(prefilter)
+            self.generate_keyframes(sc_ref)
             self._make_sf_lock()
 
         return prefilter  # type:ignore[return-value]
@@ -357,12 +364,10 @@ class Preview:
 
     def set_video_outputs(self, clips: vs.VideoNode | tuple[vs.VideoNode, ...]) -> None:
         """Set VideoNode outputs."""
-        from vstools import get_prop
-
         if isinstance(clips, vs.VideoNode):
-            clips = [clips]  # type:ignore[assignment]
+            clips = [clips]
 
-        for i, clip in enumerate(list(clips), self.num_outputs):  # type:ignore[arg-type]
+        for i, clip in enumerate(to_arr(clips), self.num_outputs):
             try:
                 assert isinstance(clip, vs.VideoNode)
             except AssertionError:
@@ -370,19 +375,19 @@ class Preview:
 
                 continue
 
-            name = get_prop(clip, "Name", bytes, default=False, func=self.set_video_outputs)  # type:ignore[arg-type, assignment]
+            name = get_prop(clip, "Name", bytes, default=False, func=self.set_video_outputs)
 
             if isinstance(name, bytes):
-                name = name.decode('utf-8')  # type:ignore[assignment]
+                name = name.decode('utf-8')
 
             assert isinstance(name, (str, bool))
 
             Log.debug(
                 f"Clip {i} - Name: " + (f'\"{name}\"' if name else "no name set"),
                 self.set_video_outputs
-            )  # type:ignore[arg-type]
+            )
 
-            set_output(clip.std.PlaneStats(), name=name)  # type:ignore[arg-type]
+            set_output(clip.std.PlaneStats(), name=name)
 
             self.num_outputs += 1
 

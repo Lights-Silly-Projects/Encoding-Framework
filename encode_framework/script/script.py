@@ -371,7 +371,7 @@ class Preview:
             try:
                 assert isinstance(clip, vs.VideoNode)
             except AssertionError:
-                Log.warn(f"Clip {i} was not a VideoNode! Skipping...", self.set_video_outputs)
+                Log.warn(f"Clip {i} was not a VideoNode ({type(i)})! Skipping...", self.set_video_outputs)
 
                 continue
 

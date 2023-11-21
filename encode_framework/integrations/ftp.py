@@ -44,9 +44,9 @@ class Ftp:
     """The directory to upload the files to."""
 
     def __init__(self, config_file: SPathLike = "ftp.ini") -> None:
-        from ..config import Config
+        from ..config.auth import setup_auth
         
-        auth = Config.auth_config
+        auth = setup_auth()
         if auth.has_section("FTP") and auth.has_option("FTP", "sftp") and auth.getboolean("FTP", "sftp"):
             # valid(?) sftp config found
             self.config_parsed = auth

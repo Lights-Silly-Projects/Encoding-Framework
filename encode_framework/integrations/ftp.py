@@ -102,7 +102,7 @@ class Ftp:
         return self.config_parsed.get("FTP", key, fallback=fallback, raw=raw)
 
     def _create_sftp_config(self) -> None:
-        if not self._hasopt("host") and self._hasopt("username") and self._hasopt("password"):
+        if not (self._hasopt("host") and self._hasopt("username") and self._hasopt("password")):
             missing = ', '.join(k for k in ('host', 'username', 'password') if not self._hasopt(k))
             Log.warn(f"Please configure FTP settings! Missing key(s): {missing}", self.__class__.__name__)
             raise CustomValueError(f"FTP settings missing one or more required values: {missing}")

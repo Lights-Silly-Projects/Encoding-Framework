@@ -65,6 +65,9 @@ class _AudioEncoder(_BaseEncoder):
             for f in dgi_file.parent.glob(f"{dgi_file.stem}*.*"):
                 Log.debug(f"Checking the following file: \"{f.name}\"...", self.find_audio_files)
 
+                # explicitly ignore log file; audio.parse seems to count those for some reason?
+                if f.suffix == ".log": continue
+
                 try:
                     FileType.AUDIO.parse(f, func=self.find_audio_files)
                 except (AssertionError, ValueError):

@@ -1,11 +1,10 @@
 """
     An FTP module, created to automatically upload or download files to or from an FTP.
 """
-from stgpytools import SPath, SPathLike, CustomNotImplementedError, CustomError
+from stgpytools import SPath, CustomNotImplementedError, CustomError
 from configparser import ConfigParser, NoSectionError, NoOptionError
 from ftplib import FTP
 
-from encode_framework.config.base import add_option, get_option
 from ..util.logging import Log
 from ..git.ignore import append_gitignore
 
@@ -41,7 +40,7 @@ class Ftp:
     password: str
     """The accompanying password for the username."""
 
-    upload_directory: SPath
+    upload_directory: str
     """The directory to upload the files to."""
 
     def __init__(self) -> None:
@@ -106,7 +105,7 @@ class Ftp:
         self.port = int(self._getopt("port", 22))
         self.username = self._getopt("username")
         self.password = self._getopt("password", raw=True)
-        self.upload_directory = SPath(self._getopt("upload_dir", "/"))
+        self.upload_directory = SPath(self._getopt("upload_dir", "/")).as_posix()
 
         Log.debug(f"SFTP setup complete. Uploading to \"{self.address}\"", self.__class__.__name__)
 

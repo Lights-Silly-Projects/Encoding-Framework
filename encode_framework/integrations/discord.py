@@ -210,7 +210,7 @@ class DiscordEmbedder(DiscordWebhook):
         for transfer in ftp._history:
             msg += f"\n - {transfer.human_readable(DiscordEmbedOpts.TIME_ELAPSED in self._encode_embed_opts)}"
 
-        embed = DiscordEmbed(title=self._get_base_title("was succesfully uploaded!"), description=msg, color=32768)
+        embed = DiscordEmbed(title="FTP Uploads", description=msg, color=32768)
 
         self._safe_add_embed(embed)
         self._safe_execute(self.ftp_upload)

@@ -3,10 +3,11 @@
 """
 from __future__ import annotations
 
+import datetime
 import time
 from configparser import ConfigParser, NoOptionError, NoSectionError
-from ftplib import FTP
 from dataclasses import dataclass
+from ftplib import FTP
 
 from stgpytools import (CustomError, CustomNotImplementedError,
                         FileNotExistsError, SPath, SPathLike)
@@ -37,8 +38,12 @@ class FtpTransfer:
     """The total elapsed time of the upload."""
 
     def human_readable(self, show_elapsed_time: bool = True) -> str:
-        return f"\"{self.target_file}\" @ {self.address.split('@')[1]}" + \
-            f" (elapsed time: {self.elapsed_time})" if show_elapsed_time else ""
+        return f"\"`{self.target_file}`\" @ `{self.address.split('@')[1]}`" + \
+            f" (elapsed time: {self.elapsed_in_iso})" if show_elapsed_time else ""
+
+    @property
+    def elapsed_in_iso(self) -> str:
+        return str(datetime.timedelta(seconds=self.elapsed_time))
 
 
 class Ftp:

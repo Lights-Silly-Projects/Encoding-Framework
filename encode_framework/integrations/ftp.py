@@ -163,7 +163,7 @@ class Ftp:
 
         stime = time.time()
 
-        with pysftp.Connection(self.host, self.username, None, self.password) as sftp:
+        with pysftp.Connection(self.host, self.username, None, self.password, self.port) as sftp:
             with sftp.cd(self.upload_directory):
                 Log.info(f"Uploading \"{target_file}\" to \"{self.address}\"", self.upload)
 

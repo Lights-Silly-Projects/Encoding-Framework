@@ -38,7 +38,7 @@ class FtpTransfer:
     """The total elapsed time of the upload."""
 
     def human_readable(self, show_elapsed_time: bool = True) -> str:
-        return f"\"`{self.target_file}`\" @ `{self.address.split('@')[1]}`" + \
+        return f"\"`{self.target_file.name}`\" @ `{self.address.split('@')[1]}`" + \
             f" (elapsed time: {self.elapsed_in_iso})" if show_elapsed_time else ""
 
     @property

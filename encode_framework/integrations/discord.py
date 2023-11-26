@@ -3,20 +3,22 @@ import time
 from datetime import datetime, timedelta, timezone
 from enum import Enum, auto
 from typing import Any, cast
-from shlex import split
 
 from discord_webhook import DiscordEmbed, DiscordWebhook
 from pymediainfo import MediaInfo, Track  # type:ignore[import]
 from pyupload.uploader import CatboxUploader  # type:ignore
 from requests import Response  # type:ignore[import]
-from vsmuxtools.video.settings import fill_props, file_or_default, settings_builder_x265, settings_builder_x264
-from vstools import SPath, SPathLike, vs
+from stgpytools import CustomValueError, SPath, SPathLike
+from vsmuxtools.video.settings import (file_or_default, fill_props,
+                                       settings_builder_x265)
+from vstools import vs
 
 from ..config import get_items, get_option
 from ..encode import Encoder
 from ..script import ScriptInfo
 from ..util import Log, markdownify
 from .anilist import AniList, AniListAnime
+from .ftp import Ftp
 
 __all__: list[str] = [
     "DiscordEmbedder",
@@ -121,7 +123,7 @@ class DiscordEmbedder(DiscordWebhook):
             self._set_anilist()
 
     def start(self, msg: str = "") -> None:
-        """Encode start embed This must ALWAYS be run first!."""
+        """Encode start embed This must ALWAYS be run first!"""
         if not self.webhook_url:
             return
 
@@ -191,6 +193,27 @@ class DiscordEmbedder(DiscordWebhook):
         self._safe_execute(self.fail)
 
         return Exception(exception)
+
+    def ftp_upload(self, ftp: Ftp) -> None:
+        """FTP upload success."""
+        if not self.webhook_url:
+            return
+
+        if not self._start:
+            return Log.error(f"You must run \"{self.__class__.__name__}.start\" first!", self.ftp_upload)
+
+        if not ftp._history:
+            raise CustomValueError("You cannot call this embedded if you haven't uploaded anything!", self.ftp_upload)
+
+        msg = f"The following files were uploaded to the FTP:"
+
+        for transfer in ftp._history:
+            msg += f"\n - {transfer.human_readable(DiscordEmbedOpts.TIME_ELAPSED in self._encode_embed_opts)}"
+
+        embed = DiscordEmbed(title=self._get_base_title("was succesfully uploaded!"), description=msg, color=32768)
+
+        self._safe_add_embed(embed)
+        self._safe_execute(self.ftp_upload)
 
     def ping(self) -> None:
         """Ping the webhook to see if it's alive."""

@@ -1,16 +1,44 @@
 """
     An FTP module, created to automatically upload or download files to or from an FTP.
 """
-from stgpytools import SPath, CustomNotImplementedError, CustomError
-from configparser import ConfigParser, NoSectionError, NoOptionError
-from ftplib import FTP
+from __future__ import annotations
 
-from ..util.logging import Log
+import time
+from configparser import ConfigParser, NoOptionError, NoSectionError
+from ftplib import FTP
+from dataclasses import dataclass
+
+from stgpytools import (CustomError, CustomNotImplementedError,
+                        FileNotExistsError, SPath, SPathLike)
+
 from ..git.ignore import append_gitignore
+from ..util.logging import Log
 
 __all__: list[str] = [
-    "Ftp"
+    "Ftp",
+    "FtpTransfer",
 ]
+
+
+@dataclass
+class FtpTransfer:
+    """A dataclass containing information about an FTP upload."""
+
+    address: str
+    """The address of the upload."""
+
+    target_file: SPath
+    """The file that was uploaded."""
+
+    start_time: float
+    """The start time of the upload."""
+
+    elapsed_time: float
+    """The total elapsed time of the upload."""
+
+    def human_readable(self, show_elapsed_time: bool = True) -> str:
+        return f"\"{self.target_file}\" @ {self.address.split('@')[1]}" + \
+            f" (elapsed time: {self.elapsed_time})" if show_elapsed_time else ""
 
 
 class Ftp:
@@ -42,6 +70,9 @@ class Ftp:
 
     upload_directory: str
     """The directory to upload the files to."""
+
+    _history: list[FtpTransfer] = []
+    """A history of files transferred using this object."""
 
     def __init__(self) -> None:
         from ..config.auth import setup_auth
@@ -112,7 +143,7 @@ class Ftp:
     def get_welcome(self) -> None:
         ...
 
-    def upload(self, target_file: SPath) -> None:
+    def upload(self, target_file: SPathLike) -> FTP:
         """Upload the given file to the FTP following the details given in \"auth.ini\"."""
         import pysftp  # type:ignore[import]
 
@@ -122,12 +153,31 @@ class Ftp:
                 self.upload, CustomNotImplementedError  # type:ignore[arg-type]
             )
 
+        if not (target_file := SPath(target_file)).exists():
+            raise FileNotExistsError(f"Could not find the file, \"{target_file}\"!", self.upload)
+
+        stime = time.time()
+
         with pysftp.Connection(self.host, self.username, None, self.password) as sftp:
             with sftp.cd(self.upload_directory):
                 Log.info(f"Uploading \"{target_file}\" to \"{self.address}\"", self.upload)
 
-                sftp.put(target_file)
+                sftp.put(target_file.to_str())
+
+        self._history += [FtpTransfer(self.address, target_file, stime, time.time() - stime)]
+
+        return self
+
+    @property
+    def host_with_port(self) -> str:
+        return f"{self.host}:{self.port}"
+
+    @property
+    def host_with_target(self) -> str:
+        return f"{self.host_with_port}:{self.upload_directory}"
 
     @property
     def address(self) -> str:
-        return f"{self.username}@{self.host}:{self.port}:{self.upload_directory}"
+        return f"{self.username}@{self.host_with_target}"
+
+

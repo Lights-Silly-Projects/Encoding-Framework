@@ -149,12 +149,12 @@ class ScriptInfo:
         assert_truthy(is_iterable(self.src_file))
 
         self.src = src_file(self.src_file[0].to_str(), trim=trim)
-        self.clip_cut = cast(vs.VideoNode, self.src.init_cut()).std.SetFrameProps(Name="src")
+        self.clip_cut = cast(vs.VideoNode, self.src.init_cut()).std.SetFrameProps(OutNode="src")
 
         self.update_trims(trim)
 
         if name is not None:
-            self.clip_cut = self.clip_cut.std.SetFrameProps(Name=name)
+            self.clip_cut = self.clip_cut.std.SetFrameProps(OutNode=name)
 
         return self.clip_cut
 
@@ -344,8 +344,10 @@ class ScriptInfo:
 
         Log.error(
             "You are trying to run this script in a way that is currently not supported! Aborting...",
-            SPath(__name__).name, CustomRuntimeError  # type:ignore[arg-type]
+            caller or self.unsupported_call, CustomRuntimeError  # type:ignore[arg-type]
         )
+
+        Log.debug(f"{caller=}", caller or self.unsupported_call)
 
         exit()
 
@@ -375,7 +377,7 @@ class Preview:
 
                 continue
 
-            name = get_prop(clip, "Name", bytes, default=False, func=self.set_video_outputs)
+            name = get_prop(clip, "OutNode", str, default=False, func=self.set_video_outputs)
 
             if isinstance(name, bytes):
                 name = name.decode('utf-8')
@@ -383,11 +385,12 @@ class Preview:
             assert isinstance(name, (str, bool))
 
             Log.debug(
-                f"Clip {i} - Name: " + (f'\"{name}\"' if name else "no name set"),
+                f"Clip {i} - OutNode: " + (f'\"{name}\"' if name else "no name set"),
                 self.set_video_outputs
             )
 
-            set_output(clip.std.PlaneStats(), name=name)
+            clip = clip.std.PlaneStats()
+            set_output(clip, name=name)
 
             self.num_outputs += 1
 

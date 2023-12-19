@@ -1,14 +1,16 @@
 from typing import Any
 
-from vsmuxtools import Chapters, src_file  # type:ignore[import]
-from vstools import SPath, SPathLike, CustomNotImplementedError
+from vsmuxtools import Chapters, src_file, timedelta_to_frame  # type:ignore[import]
+from vstools import SPath, SPathLike, CustomNotImplementedError, FileNotExistsError, vs
+from fractions import Fraction
 
 from ..script import ScriptInfo
 from ..util.logging import Log
 from .base import _BaseEncoder
 
 __all__: list[str] = [
-    "_Chapters"
+    "_Chapters",
+    "get_chapter_frames",
 ]
 
 
@@ -54,9 +56,6 @@ class _Chapters(_BaseEncoder):
 
         chapters = Chapters(ref or self.script_info.src, **kwargs)
 
-        if chapters.chapters:
-            self.chapters = chapters
-
         if shift:
             for i, _ in enumerate(self.chapters.chapters):
                 self.chapters = self.chapters.shift_chapter(i, shift)
@@ -64,4 +63,38 @@ class _Chapters(_BaseEncoder):
             Log.info(f"After shift:", self.get_chapters)
             self.chapters.print()
 
+        if chapters.chapters:
+            self.chapters = chapters
+
         return self.chapters
+
+
+def get_chapter_frames(
+    script_info: ScriptInfo, index: int = 0,
+    ref: vs.VideoNode | None = None, log: bool = False
+) -> tuple[int, int]:
+    """Get the start and end frame of a chapter obtained from a file."""
+    if not (ch_src := SPath(script_info.file)).exists():
+        raise FileNotExistsError(f"Could not find file, \"{ch_src}\"", get_chapter_frames)
+
+    fps = ref.fps if ref is not None else Fraction(24000, 1001)
+
+    chs = _Chapters(script_info).get_chapters(force=True)
+
+    ch_s = timedelta_to_frame(chs.chapters[index][0], fps)
+
+    try:
+        ch_e = chs.chapters[index + 1]
+        ch_e = timedelta_to_frame(ch_e[0], fps) - 1
+    except IndexError:
+        if ref is not None:
+            ch_e = ref.num_frames
+        else:
+            ch_e = None
+
+    ch_range = (ch_s, ch_e)
+
+    if log:
+        Log.info(f"Chapter range selected:\n{ch_range}", get_chapter_frames)
+
+    return ch_range

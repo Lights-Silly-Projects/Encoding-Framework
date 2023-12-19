@@ -125,12 +125,12 @@ def splice_ncs(
     diff_mask = iterate(diff_mask, core.std.Inflate, inflate)
     diff_mask = iterate(diff_mask, core.std.Inflate, maximum)
     diff_mask = Morpho.closing(diff_mask, size=close).std.BinarizeMask()
-    diff_mask = gauss_blur(diff_mask, radius=1.5)
+    diff_brz = gauss_blur(diff_mask, 0.5)
 
     if show_mask:
-        return diff_mask
+        return diff_brz
 
-    diff = core.std.MaskedMerge(diff_lim, diff, diff_mask)
+    # diff = core.std.MaskedMerge(diff_lim, diff, diff_brz)
     diff = replace_ranges(diff_lim, diff, diff_rfs)  # type:ignore
 
     return_scomp += [diff]

@@ -8,6 +8,7 @@ from typing import Any, Literal
 from vsscale import DescaleResult
 from vstools import (CustomValueError, FrameRangesN, SPath, VSFunction, core,
                      replace_ranges, vs)
+from vsexprtools import norm_expr
 
 from ..util.logging import Log
 
@@ -29,12 +30,23 @@ def fixedges(clip: vs.VideoNode, **kwargs: Any) -> vs.VideoNode:
 
     :return:        Clip with edges fixed.
     """
-    fix = _rektlvls(clip, prot_val=None, **kwargs)
-    prot = _rektlvls(clip, **kwargs)
+    if isinstance((rownum := kwargs.pop("rownum", None)), int):
+        rownum = [rownum]
+
+    if isinstance((rowval := kwargs.pop("rowval", None)), int):
+        rowval = [rowval]
+
+    if isinstance((colnum := kwargs.pop("colnum", None)), int):
+        colnum = [colnum]
+
+    if isinstance((colval := kwargs.pop("colval", None)), int):
+        colval = [colval]
+
+    fix = _rektlvls(clip, rownum, rowval, colnum, colval, prot_val=None)
+    prot = _rektlvls(clip, rownum, rowval, colnum, colval)
     pp = prot.cf.ContinuityFixer(3, 3, 3, 3, 30)
 
-    expr = "x z < y z - xor z x y - abs x a - abs < y z a y max min ? ?"
-    return core.std.Expr([clip, fix, prot, pp], expr)
+    return norm_expr([clip, fix, prot, pp], "x z < y z - xor z x y - abs x a - abs < y z a y max min ? ?")
 
 
 def _rektlvls(

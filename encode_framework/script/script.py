@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import re
 import sys
 from time import time
 from typing import Any, cast
@@ -8,8 +9,8 @@ from typing import Any, cast
 from vskernels import Hermite
 from vsmuxtools import src_file  # type:ignore[import]
 from vstools import (CustomValueError, Keyframes, SceneChangeMode, SPath,
-                     SPathLike, get_prop, normalize_ranges, set_output, to_arr,
-                     vs)
+                     SPathLike, core, get_prop, normalize_ranges, set_output,
+                     to_arr, vs)
 
 from ..types import TrimAuto, is_iterable
 from ..util import Log, assert_truthy
@@ -377,7 +378,12 @@ class Preview:
 
                 continue
 
-            name = get_prop(clip, "OutNode", str, default=False, func=self.set_video_outputs)
+            t = str if vs.__version__.release_major >= 65 else bytes
+
+            name = get_prop(
+                clip, "Name", t, func=self.set_video_outputs,
+                default=get_prop(clip, "OutNode", t, None, False, self.set_video_outputs)
+            )
 
             if isinstance(name, bytes):
                 name = name.decode('utf-8')
@@ -385,11 +391,12 @@ class Preview:
             assert isinstance(name, (str, bool))
 
             Log.debug(
-                f"Clip {i} - OutNode: " + (f'\"{name}\"' if name else "no name set"),
+                f"Clip {i} - Name: " + (f'\"{name}\"' if name else "no name set"),
                 self.set_video_outputs
             )
 
             clip = clip.std.PlaneStats()
+
             set_output(clip, name=name)
 
             self.num_outputs += 1

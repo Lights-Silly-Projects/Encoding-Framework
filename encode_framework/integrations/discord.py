@@ -76,7 +76,7 @@ class DiscordEmbedder(DiscordWebhook):
     def __init__(
         self,
         script_info: ScriptInfo,
-        encoder: Encoder,
+        encoder: Encoder | tuple[Encoder, Encoder],
         options: set[DiscordEmbedOpts] = {
             DiscordEmbedOpts.ANIME_INFO,
             DiscordEmbedOpts.EXCEPTION,
@@ -88,6 +88,14 @@ class DiscordEmbedder(DiscordWebhook):
         },
         **webhook_kwargs: Any
     ) -> None:
+        """
+        :param script_info:         The ScriptInfo object containing information about the script.
+        :param encoder:             The encoder(s) used to encode the video and/or audio.
+                                    Can accept a tuple of (VideoEncoder, AudioEncoder).
+        :param options:             Options for what to include in the embeds.
+                                    See the DiscordEmbedOpts class for more information.
+        :param webhook_kwargs:      Keyword arguments to pass on to the webhook API.
+        """
         self._set_webhook_url()
 
         if not self.webhook_url:
@@ -339,6 +347,11 @@ class DiscordEmbedder(DiscordWebhook):
     def _video_enc_settings(self, embed: DiscordEmbed) -> DiscordEmbed:
         from vsmuxtools import x265
 
+        audio_encoder = None
+
+        if isinstance(self.encoder, tuple):
+            self.encoder, audio_encoder = self.encoder
+
         if not (sfile := SPath(f"_settings/{self.encoder.encoder.__name__}_settings")):
             return embed
 
@@ -350,7 +363,11 @@ class DiscordEmbedder(DiscordWebhook):
         settings = fill_props(settings[0], out_clip, enc_is_x265)
 
         desc = f"\nTotal number of frames: {out_clip.num_frames}\n"
-        desc += f"Encoder: {self.encoder.encoder.__name__}\n\n"
+        desc += f"Video Encoder: {self.encoder.encoder.__name__}\n"
+
+        if audio_encoder:
+            desc += f"Audio Encoder: {audio_encoder.__name__}\n"
+
         desc += "```bash\nEncoder settings:\n\n"
 
         settings = [x.replace("--", "").strip() for x in settings.split(" --")]

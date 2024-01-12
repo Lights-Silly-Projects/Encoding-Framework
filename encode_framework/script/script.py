@@ -146,7 +146,6 @@ class ScriptInfo:
         if all(isinstance(x, type(None)) for x in trim):
             trim = None
 
-
         assert_truthy(is_iterable(self.src_file))
 
         self.src = src_file(self.src_file[0].to_str(), trim=trim)

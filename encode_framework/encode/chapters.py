@@ -81,7 +81,11 @@ def get_chapter_frames(
 
     chs = _Chapters(script_info).get_chapters(force=True)
 
-    ch_s = timedelta_to_frame(chs.chapters[index][0], fps)
+    try:
+        ch_s = timedelta_to_frame(chs.chapters[index][0], fps)
+    except AttributeError:
+        Log.warn("Could not find chapters.", get_chapter_frames)
+        return
 
     try:
         ch_e = chs.chapters[index + 1]

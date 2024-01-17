@@ -120,7 +120,7 @@ class _VideoEncoder(_BaseEncoder):
         clip = depth(clip, out_bit_depth, dither_type=dither_type)
 
         self.out_clip = finalize_clip(
-            clip, out_bit_depth,ColorRange.from_video(clip).is_limited, func=func
+            clip, out_bit_depth, ColorRange.from_video(clip).is_limited, func=func
         )
 
         return self.out_clip

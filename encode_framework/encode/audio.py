@@ -2,9 +2,11 @@ import re
 import shutil
 from typing import Any, Literal
 
-from vsmuxtools import AudioFile, AudioTrack, Encoder, FFMpeg, HasTrimmer, ensure_path, qAAC  # type:ignore[import]
-from vstools import (CustomNotImplementedError, CustomRuntimeError, CustomValueError, FileNotExistsError, FileType,
-                     SPath, SPathLike, vs)
+from vsmuxtools import (AudioFile, AudioTrack, Encoder,  # type:ignore[import]
+                        FFMpeg, HasTrimmer, Opus, ensure_path)
+from vstools import (CustomNotImplementedError, CustomRuntimeError,
+                     CustomValueError, FileNotExistsError, FileType, SPath,
+                     SPathLike, vs)
 
 from ..util.logging import Log
 from .base import _BaseEncoder
@@ -141,7 +143,7 @@ class _AudioEncoder(_BaseEncoder):
         trims: list[tuple[int, int]] | tuple[int, int] | None = None,
         reorder: list[int] | Literal[False] = False,
         ref: vs.VideoNode | None = None,
-        encoder: Encoder = qAAC,
+        encoder: Encoder = Opus,
         trimmer: HasTrimmer | None | Literal[False] = None,
         force: bool = False,
         verbose: bool = False,
@@ -160,6 +162,7 @@ class _AudioEncoder(_BaseEncoder):
         :param ref:             Reference VideoNode for framerate and max frame number information.
                                 if None, gets them from the source clip pre-trimming.
         :param encoder:         Audio encoder to use. If the audio file is lossy, it will NEVER re-encode it!
+                                Default: Opus (default arguments).
         :param trimmer:         Trimmer to use for trimming. If False, don't trim at all.
                                 If None, automatically determine the trimmer based on input file.
         :param verbose:         Enable more verbose output.
@@ -169,7 +172,8 @@ class _AudioEncoder(_BaseEncoder):
         """
         from itertools import zip_longest
 
-        from vsmuxtools import FLAC, Sox, do_audio, frames_to_samples, is_fancy_codec, make_output
+        from vsmuxtools import (FLAC, Sox, do_audio, frames_to_samples,
+                                is_fancy_codec, make_output)
 
         if all(not afile for afile in (audio_file, self.audio_files)):
             Log.warn("No audio tracks found to encode...", self.encode_audio)

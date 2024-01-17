@@ -1,12 +1,15 @@
 from typing import Literal, Sequence, overload
 
-from vstools import FrameRangesN, core, depth, expect_bits, get_depth, get_y, insert_clip, iterate, replace_ranges, vs
+from vstools import (FrameRangesN, FunctionUtil, core, depth, expect_bits,
+                     get_depth, get_y, insert_clip, iterate, replace_ranges,
+                     vs)
 
 from ..util import Log
 
 __all__: Sequence[str] = [
     "splice_ncs",
-    "merge_credits"
+    "merge_credits",
+    "merge_credits_mask",
 ]
 
 
@@ -154,4 +157,23 @@ def merge_credits(flt: vs.VideoNode, diff: vs.VideoNode) -> vs.VideoNode:
     out = core.std.MergeDiff(flt, diff)
 
     return depth(out, bits)
+
+
+def merge_credits_mask(
+    flt: vs.VideoNode, diff: vs.VideoNode, src: vs.VideoNode, show_mask: bool = False
+) -> vs.VideoNode:
+    """A simple helper function to merge the credits back onto a clip by creating a mask."""
+    from vstools import get_neutral_value
+    from vsexprtools import norm_expr
+
+    flt = depth(flt, diff)
+    src = depth(src, flt)
+
+    credit_mask = norm_expr(diff, f"x {get_neutral_value(diff)} = 0 1 ?")
+
+    if show_mask:
+        return credit_mask
+
+    return flt.std.MaskedMerge(src, credit_mask)
+
 

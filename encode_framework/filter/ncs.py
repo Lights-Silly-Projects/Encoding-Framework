@@ -139,7 +139,7 @@ def splice_ncs(
     return_scomp += [diff]
 
     if return_scomps:
-        for i, f in enumerate(return_scomp):
+        for i, f in enumerate(return_scomp, 1):
             Log.info(f"[{i}/{len(return_scomp)}] - {f}", splice_ncs)
 
         return return_scomp

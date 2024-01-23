@@ -4,9 +4,9 @@ from typing import Any, Literal
 
 from vsmuxtools import (AudioFile, AudioTrack, Encoder,  # type:ignore[import]
                         FFMpeg, HasTrimmer, Opus, ensure_path)
-from vstools import (CustomNotImplementedError, CustomRuntimeError,
-                     CustomValueError, FileNotExistsError, FileType, SPath,
-                     SPathLike, vs)
+from vstools import (CustomIndexError, CustomNotImplementedError,
+                     CustomRuntimeError, CustomValueError, FileNotExistsError,
+                     FileType, SPath, SPathLike, vs)
 
 from ..util.logging import Log
 from .base import _BaseEncoder
@@ -67,8 +67,8 @@ class _AudioEncoder(_BaseEncoder):
             for f in dgi_file.parent.glob(f"{dgi_file.stem}*.*"):
                 Log.debug(f"Checking the following file: \"{f.name}\"...", self.find_audio_files)
 
-                # explicitly ignore log file; audio.parse seems to count those for some reason?
-                if f.suffix == ".log": continue
+                # explicitly ignore certain files; audio.parse seems to count these for some reason?
+                if f.suffix.lower() in (".log", ".sup"): continue
 
                 try:
                     FileType.AUDIO.parse(f, func=self.find_audio_files)
@@ -282,7 +282,10 @@ class _AudioEncoder(_BaseEncoder):
 
                 afile_copy = shutil.copy(afile.file, afile_copy)
 
-            is_lossy = False if force else afile.is_lossy()
+            try:
+                is_lossy = force or afile.is_lossy()
+            except IndexError as e:
+                raise Log.error(f"could not get the mediainfo for \"{afile.file}\"!", CustomIndexError)
 
             # Trim the audio file if applicable.
             if trims and trimmer is not False:
@@ -291,7 +294,7 @@ class _AudioEncoder(_BaseEncoder):
 
                 setattr(trimmer_obj, "trim", trim)
 
-                if force and afile.is_lossy():
+                if force and is_lossy:
                     Log.debug(
                         "\"force\" is set to True and the file is lossy! Creating an intermediary file...",
                         self.encode_audio

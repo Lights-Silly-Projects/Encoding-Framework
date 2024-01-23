@@ -82,7 +82,7 @@ class _AudioEncoder(_BaseEncoder):
 
         Log.info(f"The following audio sources were found ({len(audio_files)}):")
 
-        audio_files = sorted(audio_files, key=self._extract_pid)
+        audio_files = sorted(audio_files, key=self.extract_pid)
 
         for f in audio_files:
             try:
@@ -92,13 +92,6 @@ class _AudioEncoder(_BaseEncoder):
         self.audio_files += audio_files
 
         return audio_files
-
-    @staticmethod
-    def _extract_pid(filename: SPath) -> str:
-        if not (match := re.search(r"PID (\d+)", filename.to_str())):
-            return ""
-
-        return bin(int(match.group(1)))[2:].zfill(16)
 
     def _find_m2ts_audio(self, dgi_file: SPath) -> list[SPath]:
         from vsmuxtools import parse_m2ts_path

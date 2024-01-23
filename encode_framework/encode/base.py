@@ -1,7 +1,8 @@
 import filecmp
+import re
 from typing import Any, Callable
 
-from vstools import CustomRuntimeError, SPath, finalize_clip, vs
+from vstools import CustomRuntimeError, SPath, SPathLike, finalize_clip, vs
 
 from ..script import ScriptInfo
 from ..util import Log
@@ -54,3 +55,10 @@ class _BaseEncoder:
 
         # TODO: Add support for multiple files
         return False
+
+    @staticmethod
+    def extract_pid(filename: SPathLike) -> str:
+        if not (match := re.search(r"PID (\d+)", filename.to_str())):
+            return ""
+
+        return bin(int(match.group(1)))[2:].zfill(16)

@@ -77,19 +77,28 @@ class _AudioEncoder(_BaseEncoder):
 
                 audio_files += [f]
 
-        if audio_files:
-            Log.info(f"The following audio sources were found ({len(audio_files)}):")
+        if not audio_files:
+            return []
 
-            for f in audio_files:
-                try:
-                    Log.info(f"    - \"{f.name if isinstance(f, SPath) else f.file}\"")  # type:ignore[attr-defined]
-                except (AttributeError, ValueError) as e:
-                    Log.warn(f"    - Unknown track!\n{e}")
-            self.audio_files += audio_files
+        Log.info(f"The following audio sources were found ({len(audio_files)}):")
 
-            return audio_files
+        audio_files = sorted(audio_files, key=self._extract_pid)
 
-        return []
+        for f in audio_files:
+            try:
+                Log.info(f"    - \"{f.name if isinstance(f, SPath) else f.file}\"")  # type:ignore[attr-defined]
+            except (AttributeError, ValueError) as e:
+                Log.warn(f"    - Unknown track!\n{e}")
+        self.audio_files += audio_files
+
+        return audio_files
+
+    @staticmethod
+    def _extract_pid(filename: SPath) -> str:
+        if not (match := re.search(r"PID (\d+)", filename.to_str())):
+            return ""
+
+        return bin(int(match.group(1)))[2:].zfill(16)
 
     def _find_m2ts_audio(self, dgi_file: SPath) -> list[SPath]:
         from vsmuxtools import parse_m2ts_path

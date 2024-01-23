@@ -8,9 +8,9 @@ from typing import Any, cast
 
 from vskernels import Hermite
 from vsmuxtools import src_file  # type:ignore[import]
-from vstools import (CustomValueError, Keyframes, SceneChangeMode, SPath,
-                     SPathLike, core, get_prop, normalize_ranges, set_output,
-                     to_arr, vs)
+from vstools import (CustomIndexError, CustomValueError, Keyframes,
+                     SceneChangeMode, SPath, SPathLike, core, get_prop,
+                     normalize_ranges, set_output, to_arr, vs)
 
 from ..types import TrimAuto, is_iterable
 from ..util import Log, assert_truthy
@@ -93,7 +93,8 @@ class ScriptInfo:
 
     def index(
         self, path: SPathLike | list[SPathLike], trim: TrimAuto | int | None = None,
-        name: str | None = None, force_dgi: bool = True
+        name: str | None = None, force_dgi: bool = True, force_reindex: bool = False,
+        idx_dir: SPathLike | None = None, cmd_args: tuple[str] = ("-a",)
     ) -> vs.VideoNode:
         """Index the given file. Returns a tuple containing the `src_file` object and the `init_cut` node."""
         from .trim import get_post_trim, get_pre_trim
@@ -113,15 +114,18 @@ class ScriptInfo:
         elif not path_is_iterable:
             path = [path]
 
+        if idx_dir is not None:
+            idx_dir = SPath(idx_dir)
+
         self.src_file = [SPath(p).resolve() for p in path]
 
         if force_dgi and not self.src_file[0].to_str().endswith(".dgi"):
             from vssource import DGIndexNV
 
             try:
-                self.src_file = DGIndexNV().index(self.src_file, False, False, None, "-a")
+                self.src_file = DGIndexNV().index(self.src_file, force_reindex, False, idx_dir, *cmd_args)
             except (Exception, vs.Error) as e:
-                raise Log.error(e, self.index)
+                raise Log.error(e, self.index, CustomIndexError)
 
         if not trim:
             trim = (None, None)

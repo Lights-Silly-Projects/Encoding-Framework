@@ -32,9 +32,11 @@ class _FindSubtitles(_BaseSubtitles):
         self._find(dgi_file.parent.glob(f"{dgi_file.stem}*.*"), self.find_sub_files)
 
         if not self.subtitle_files:
-            Log.debug("No subtitle files found!", self.find_sub_files)
-        else:
-            self._announce(self.find_sub_files)
+            return []
+
+        self.subtitle_files = sorted(self.subtitle_files, key=self.extract_pid)
+
+        self._announce(self.find_sub_files)
 
         return self.subtitle_files
 

@@ -129,7 +129,7 @@ class ScriptInfo:
             try:
                 self.src_file = DGIndexNV().index(self.src_file, force_reindex, False, idx_dir, *cmd_args)
             except (Exception, vs.Error) as e:
-                if any(any(ch in p.to_str() for ch in "[]") for p in self.src_file)
+                if any(any(ch in p.to_str() for ch in "[]") for p in self.src_file):
                     raise Log.error(
                         "DGIndexNV sometimes has issues with square brackets in the path! "
                         "Remove all brackets inside directories or filenames and try again.",

@@ -27,7 +27,7 @@ class ScriptInfo:
     file: SPath
     """Path to the current working script file."""
 
-    src_file: list[SPath]
+    src_file: list[SPath] = []
     """A list of paths to the source video file to work from."""
 
     src: src_file
@@ -114,10 +114,14 @@ class ScriptInfo:
         elif not path_is_iterable:
             path = [path]
 
+        for p in path:
+            if not (p := SPath(p)).exists():
+                raise FileNotFoundError(f"Could not find the file, \"{p}\"!", self.index)
+
+            self.src_file += [p.resolve()]
+
         if idx_dir is not None:
             idx_dir = SPath(idx_dir)
-
-        self.src_file = [SPath(p).resolve() for p in path]
 
         if force_dgi and not self.src_file[0].to_str().endswith(".dgi"):
             from vssource import DGIndexNV
@@ -125,6 +129,13 @@ class ScriptInfo:
             try:
                 self.src_file = DGIndexNV().index(self.src_file, force_reindex, False, idx_dir, *cmd_args)
             except (Exception, vs.Error) as e:
+                if any(any(ch in p.to_str() for ch in "[]") for p in self.src_file)
+                    raise Log.error(
+                        "DGIndexNV sometimes has issues with square brackets in the path! "
+                        "Remove all brackets inside directories or filenames and try again.",
+                        self.index, CustomIndexError
+                    )
+
                 raise Log.error(e, self.index, CustomIndexError)
 
         if not trim:

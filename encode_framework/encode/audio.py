@@ -218,7 +218,7 @@ class _AudioEncoder(_BaseEncoder):
 
             process_files = [process_files[i] for i in reorder]  # type:ignore[index, misc]
 
-        codec = self._get_audio_codec(encoder)
+        # codec = self._get_audio_codec(encoder)
         encoder = encoder() if callable(encoder) else encoder
 
         trimmer_kwargs = dict(
@@ -247,7 +247,8 @@ class _AudioEncoder(_BaseEncoder):
 
                 continue
 
-            trimmed_file = make_output(str(audio_file), codec, f"trimmed_{codec}")
+            # trimmed_file = make_output(str(audio_file), codec, f"trimmed_{codec}")
+            trimmed_file = make_output(str(audio_file), ".mka", f"trimmed")
             trimmed_file = SPath("_workdir") / re.sub(r"\s\(\d+\)", "", trimmed_file.name)
 
             # Delete temp dir to minimise random errors.

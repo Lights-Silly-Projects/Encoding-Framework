@@ -145,11 +145,11 @@ class _AudioEncoder(_BaseEncoder):
         trims: list[tuple[int, int]] | tuple[int, int] | None = None,
         reorder: list[int] | Literal[False] = False,
         ref: vs.VideoNode | None = None,
+        track_args: list[dict[str, Any]] = [{"lang": "en"}],
         encoder: Encoder = Opus,
         trimmer: HasTrimmer | None | Literal[False] = None,
         force: bool = False,
         verbose: bool = False,
-        **track_args: Any
     ) -> list[AudioTrack]:
         """
         Encode the audio tracks.
@@ -163,6 +163,8 @@ class _AudioEncoder(_BaseEncoder):
                                 This can also be used to remove specific tracks.
         :param ref:             Reference VideoNode for framerate and max frame number information.
                                 if None, gets them from the source clip pre-trimming.
+        :param track_args:      Keyword arguments for the track. Accepts a list,
+                                where one set of kwargs goes to every track.
         :param encoder:         Audio encoder to use. If the audio file is lossy, it will NEVER re-encode it!
                                 Default: Opus (default arguments).
         :param trimmer:         Trimmer to use for trimming. If False, don't trim at all.
@@ -170,7 +172,6 @@ class _AudioEncoder(_BaseEncoder):
         :param verbose:         Enable more verbose output.
         :param force:           Force the audio files to be re-encoded, even if they're lossy.
                                 I'm aware I said it would never re-encode it.
-        :param track_args:      Keyword arguments for the track.
         """
         from itertools import zip_longest
 
@@ -227,8 +228,8 @@ class _AudioEncoder(_BaseEncoder):
         )
 
         # TODO: Figure out how much I can move out of this for loop.
-        for i, (audio_file, trim) in enumerate(  # type:ignore[arg-type, assignment]
-            zip_longest(process_files, trims, fillvalue=trims[-1])  # type:ignore[arg-type]
+        for i, (audio_file, trim, track_arg) in enumerate(  # type:ignore[arg-type, assignment]
+            zip_longest(process_files, trims, track_args, fillvalue=trims[-1])  # type:ignore[arg-type]
         ):
             Log.debug(
                 f"Processing audio track {i + 1}/{len(process_files)}...",  self.encode_audio  # type:ignore[arg-type]
@@ -241,8 +242,7 @@ class _AudioEncoder(_BaseEncoder):
                          CustomNotImplementedError)  # type:ignore[arg-type]
 
                 self.audio_tracks += [
-                    do_audio(audio_file, encoder=encoder)
-                    .to_track(default=not bool(i), **track_args)
+                    do_audio(audio_file, encoder=encoder).to_track(**track_arg)
                 ]
 
                 continue
@@ -261,7 +261,7 @@ class _AudioEncoder(_BaseEncoder):
 
                 self.audio_tracks += [
                     AudioFile.from_file(trimmed_file, self.encode_audio)
-                    .to_track(default=not bool(i), **track_args)
+                    .to_track(default=not bool(i), **track_arg)
                 ]
 
                 continue
@@ -287,7 +287,7 @@ class _AudioEncoder(_BaseEncoder):
 
             try:
                 is_lossy = force or afile.is_lossy()
-            except IndexError as e:
+            except IndexError:
                 raise Log.error(f"could not get the mediainfo for \"{afile.file}\"!", CustomIndexError)
 
             # Trim the audio file if applicable.
@@ -330,7 +330,9 @@ class _AudioEncoder(_BaseEncoder):
                 afile_copy.replace(afile_old)
                 afile_copy.unlink(missing_ok=True)
 
-            self.audio_tracks += [afile.to_track(default=not bool(i), **track_args)]
+            Log.info(f"[{i + 1}/{len(process_files)}] {track_arg=}", self.encode_audio)
+
+            self.audio_tracks += [afile.to_track(**track_arg)]
 
         # Remove acopy files again so they don't mess up future encodes.
         self.__clean_acopy(afile.file)

@@ -145,7 +145,7 @@ class _AudioEncoder(_BaseEncoder):
         trims: list[tuple[int, int]] | tuple[int, int] | None = None,
         reorder: list[int] | Literal[False] = False,
         ref: vs.VideoNode | None = None,
-        track_args: list[dict[str, Any]] = [{"lang": "en"}],
+        track_args: list[dict[str, Any]] = [dict(lang="ja", default=True)],
         encoder: Encoder = Opus,
         trimmer: HasTrimmer | None | Literal[False] = None,
         force: bool = False,

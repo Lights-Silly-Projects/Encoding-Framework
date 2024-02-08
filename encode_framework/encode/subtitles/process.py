@@ -92,7 +92,7 @@ class _ProcessSubtitles(_BaseSubtitles):
 
     def passthrough(
         self, subtitle_files: SPathLike | list[SPath] | None = None,
-        track_args: dict[str, Any] = {"lang": "en"},
+        track_args: dict[str, Any] = [dict(lang="en", default=True)],
         reorder: list[int] | Literal[False] = False,
         sub_delay: int | None = None,
     ) -> list[SubTrack]:
@@ -100,6 +100,8 @@ class _ProcessSubtitles(_BaseSubtitles):
         Passthrough the subs as found.
 
         :param subtitle_files:      A list of subtitle files. If None, gets it from previous subs found.
+        :param track_args:          Keyword arguments for the track. Accepts a list,
+                                    where one set of kwargs goes to every track.
         :param reorder:             Reorder tracks. For example, if you know you have 3 subtitle tracks
                                     ordered like [JP, EN, "Commentary"], you can pass [1, 0, 2]
                                     to reorder them to [EN, JP, Commentary].

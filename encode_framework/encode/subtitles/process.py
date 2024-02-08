@@ -90,6 +90,54 @@ class _ProcessSubtitles(_BaseSubtitles):
 
         return self.subtitle_tracks
 
+    def passthrough(
+        self, subtitle_files: SPathLike | list[SPath] | None = None,
+        track_args: dict[str, Any] = {"lang": "en"},
+        reorder: list[int] | Literal[False] = False,
+        sub_delay: int | None = None,
+    ) -> list[SubTrack]:
+        """
+        Passthrough the subs as found.
+
+        :param subtitle_files:      A list of subtitle files. If None, gets it from previous subs found.
+        :param reorder:             Reorder tracks. For example, if you know you have 3 subtitle tracks
+                                    ordered like [JP, EN, "Commentary"], you can pass [1, 0, 2]
+                                    to reorder them to [EN, JP, Commentary].
+                                    This can also be used to remove specific tracks.
+        :param sub_delay:           Delay in frames. Will use the ref clip as a reference.
+        :param save:                Whether to save the subtitles in a different directory.
+        """
+
+        if subtitle_files is not None and not isinstance(subtitle_files, list):
+            subtitle_files = [SPath(subtitle_files)]
+        elif isinstance(subtitle_files, list):
+            subtitle_files = [SPath(x) for x in subtitle_files]
+
+        sub_files = subtitle_files or self.subtitle_files
+
+        # Normalising reordering of tracks.
+        if reorder:
+            if len(reorder) > len(sub_files):  # type:ignore[arg-type]
+                reorder = reorder[:len(sub_files)]  # type:ignore[arg-type]
+
+            sub_files = [sub_files[i] for i in reorder]  # type:ignore[index, misc]
+
+        if not sub_files:
+            return sub_files
+
+        for i, (sub, track_arg) in enumerate(zip_longest(sub_files, track_args)):
+            sub = SPath(sub)
+
+            if self.check_is_empty(sub):
+                Log.debug(f"\"{sub.name}\" is an empty file! Ignoring...", self.passthrough)
+                continue
+
+            Log.info(f"[{i + 1}/{len(sub_files)}] {track_arg=}", self.passthrough)
+
+            self.subtitle_tracks += [SubTrack(sub, **track_arg, delay=sub_delay)]
+
+        return self.subtitle_tracks
+
     def _save(self) -> list[SPath]:
         show_name = get_setup_attr("show_name", "Example")
         episode = get_setup_attr("episode", "01")

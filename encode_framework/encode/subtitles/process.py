@@ -1,6 +1,9 @@
 import shutil
+from itertools import zip_longest
+from typing import Any, Literal
 
-from vsmuxtools import GJM_GANDHI_PRESET, SubFile, SubTrack, frame_to_ms, get_setup_attr, get_workdir, uniquify_path
+from vsmuxtools import (GJM_GANDHI_PRESET, SubFile, SubTrack, frame_to_ms,
+                        get_setup_attr, get_workdir, uniquify_path)
 from vstools import SPath, SPathLike, vs
 
 from ...types import BitmapSubExt, TextSubExt
@@ -19,6 +22,7 @@ class _ProcessSubtitles(_BaseSubtitles):
         self, subtitle_files: SPathLike | list[SPath] | None = None,
         ref: vs.VideoNode | None = None,
         ocr_program: OcrProgram | None = OcrProgram.SUBTITLEEDIT,
+        reorder: list[int] | Literal[False] = False,
         sub_delay: int | None = None,
         trim: bool | None = None,
         restyle: bool = False,
@@ -30,6 +34,10 @@ class _ProcessSubtitles(_BaseSubtitles):
         :param subtitle_files:      A list of subtitle files. If None, gets it from previous subs found.
         :param ref:                 A reference video node to use for processing.
         :param ocr_program:         The OCR program to use. See `OcrProgram` for more information.
+        :param reorder:             Reorder tracks. For example, if you know you have 3 subtitle tracks
+                                    ordered like [JP, EN, "Commentary"], you can pass [1, 0, 2]
+                                    to reorder them to [EN, JP, Commentary].
+                                    This can also be used to remove specific tracks.
         :param sub_delay:           Delay in frames. Will use the ref clip as a reference.
         :param trim:                Whether to truncate lines that extend past the video.
                                     If None, tries to automatically determine whether it should
@@ -46,6 +54,13 @@ class _ProcessSubtitles(_BaseSubtitles):
             subtitle_files = [SPath(x) for x in subtitle_files]
 
         sub_files = subtitle_files or self.subtitle_files
+
+        # Normalising reordering of tracks.
+        if reorder:
+            if len(reorder) > len(sub_files):  # type:ignore[arg-type]
+                reorder = reorder[:len(sub_files)]  # type:ignore[arg-type]
+
+            sub_files = [sub_files[i] for i in reorder]  # type:ignore[index, misc]
 
         if not sub_files:
             return sub_files

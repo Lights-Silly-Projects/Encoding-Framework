@@ -97,11 +97,13 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
 
         if self.audio_tracks:
             for track in self.audio_tracks:
-                Log.info(f"   - [AUDIO] \"{track.file}\"", self.mux)
+                track_args = f"{track.default=}, {track.forced=}, {track.name=}, {track.lang=}, {track.delay=}"
+                Log.info(f"   - [AUDIO] \"{track.file}\" ({track_args})", self.mux)
 
         if self.subtitle_tracks:
             for track in self.subtitle_tracks:
-                Log.info(f"   - [SUBTITLES] \"{track.file}\"", self.mux)
+                track_args = f"{track.default=}, {track.forced=}, {track.name=}, {track.lang=}, {track.delay=}"
+                Log.info(f"   - [SUBTITLES] \"{track.file}\" ({track_args})", self.mux)
 
         if self.chapters:
             Log.info(f"   - [CHAPTERS] {[f'{ch[1]} ({ch[0]})' for ch in self.chapters.chapters]}", self.mux)

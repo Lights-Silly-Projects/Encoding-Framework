@@ -202,7 +202,14 @@ class ScriptInfo:
         if inspect.stack()[1][3] in ("trim"):
             return trim
 
-        trim = normalize_ranges(self.src.src, trim)[0]
+        if not any(x < 0 for x in trim):
+            trim = normalize_ranges(self.src.src, trim)[0]
+        else:
+            if trim[0] is None:
+                trim[0] = 0
+
+            if trim[1] is None:
+                trim[1] = self.src.src.num_frames
 
         self._trim = trim
         self.src.trim = trim

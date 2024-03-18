@@ -373,6 +373,15 @@ class ScriptInfo:
 
         exit()
 
+    @staticmethod
+    def _get_SxxExx_epnum(epnum: str) -> str:
+        pattern = r"S\d+E(\d+)"
+
+        if (match := re.search(pattern, epnum)):
+            return str(match.group(1))
+
+        return str(epnum)
+
 
 class Preview:
     """Class containing core previewing methods."""
@@ -438,12 +447,3 @@ class Preview:
             audios = [core.bs.AudioSource(self.script_info.file)]
 
         set_output(audios)
-
-    @staticmethod
-    def _get_SxxExx_epnum(epnum: str) -> str:
-        pattern = r"S\d+E(\d+)"
-
-        if (match := re.search(pattern, epnum)):
-            return str(match.group(1))
-
-        return str(epnum)

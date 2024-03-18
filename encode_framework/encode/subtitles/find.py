@@ -19,10 +19,13 @@ class _FindSubtitles(_BaseSubtitles):
 
         If input file is not a dgi file, it will throw an error.
         """
-        dgi_file = SPath(dgi_path) if dgi_path is not None else self.script_info.src_file
+        if isinstance(dgi_path, list):
+            dgi_path = dgi_path[0]
 
-        if isinstance(dgi_file, list):
-            dgi_file = dgi_file[0]
+        if dgi_path is not None:
+            dgi_file = SPath(dgi_path)
+        else:
+            dgi_file = self.script_info.src_file[0]
 
         if not dgi_file.to_str().endswith(".dgi"):
             Log.error("Input file is not a dgi file, not returning any subs.", self.find_sub_files)

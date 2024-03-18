@@ -219,6 +219,16 @@ class _AudioEncoder(_BaseEncoder):
 
             process_files = [process_files[i] for i in reorder]  # type:ignore[index, misc]
 
+            # Commented out because it'd be way too confusing otherwise.
+            # track_args = [track_args[i] for i in reorder]  # type:ignore[index, misc]
+
+        if not process_files:
+            return process_files
+
+        # Normalising track args
+        if track_args and not isinstance(track_args, list):
+            track_args = [track_args]
+
         # codec = self._get_audio_codec(encoder)
         encoder = encoder() if callable(encoder) else encoder
 
@@ -231,10 +241,14 @@ class _AudioEncoder(_BaseEncoder):
         for i, (audio_file, trim, track_arg) in enumerate(  # type:ignore[arg-type, assignment]
             zip_longest(process_files, trims, track_args, fillvalue=trims[-1])  # type:ignore[arg-type]
         ):
+            if track_arg:
+                track_arg = dict(track_arg)
+
             Log.debug(
                 f"Processing audio track {i + 1}/{len(process_files)}...",  self.encode_audio  # type:ignore[arg-type]
             )
             Log.debug(f"Processing audio file \"{audio_file}\"...", self.encode_audio)
+            Log.info(f"{track_arg=}", self.encode_audio)
 
             # This is mainly meant to support weird trims we don't typically support and should not be used otherwise!
             if isinstance(audio_file, vs.AudioNode):
@@ -259,14 +273,20 @@ class _AudioEncoder(_BaseEncoder):
             if trims and trimmed_file.exists():
                 Log.debug(f"Trimmed file found at \"{trimmed_file}\"! Skipping encoding...", self.encode_audio)
 
-                self.audio_tracks += [
-                    AudioFile.from_file(trimmed_file, self.encode_audio)
-                    .to_track(default=not bool(i), **track_arg)
-                ]
+                afile = AudioFile.from_file(trimmed_file, self.encode_audio)
+
+                if delay := track_arg.pop("delay", 0):
+                    afile.container_delay = delay
+
+                self.audio_tracks += [afile.to_track(default=not bool(i), **track_arg)]
 
                 continue
 
             afile = AudioFile.from_file(audio_file, self.encode_audio)
+
+            if delay := track_arg.pop("delay", 0):
+                afile.container_delay = delay
+
             afile_copy = afile.file.with_suffix(".acopy")
             afile_old = afile.file
 
@@ -329,8 +349,6 @@ class _AudioEncoder(_BaseEncoder):
             if not SPath(afile_old).exists():
                 afile_copy.replace(afile_old)
                 afile_copy.unlink(missing_ok=True)
-
-            Log.info(f"[{i + 1}/{len(process_files)}] {track_arg=}", self.encode_audio)
 
             self.audio_tracks += [afile.to_track(**track_arg)]
 

@@ -111,7 +111,8 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         self.premux_path = SPath(mux(
             video_track, *self.audio_tracks,
             *self.subtitle_tracks, *self.font_files,
-            self.chapters, outfile=out_path
+            self.chapters, outfile=out_path,
+            print_cli=True
         ))
 
         Log.info(

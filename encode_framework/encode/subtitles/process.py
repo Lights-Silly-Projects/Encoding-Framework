@@ -1,10 +1,11 @@
 import shutil
 from itertools import zip_longest
+import subprocess as sp
 from typing import Any, Literal
 
 from vsmuxtools import (GJM_GANDHI_PRESET, SubFile, SubTrack, frame_to_ms,
                         get_setup_attr, get_workdir, uniquify_path)
-from vstools import SPath, SPathLike, vs
+from vstools import SPath, SPathLike, vs, DependencyNotFoundError
 
 from ...types import BitmapSubExt, TextSubExt
 from ...util import Log
@@ -95,6 +96,7 @@ class _ProcessSubtitles(_BaseSubtitles):
         track_args: dict[str, Any] = [dict(lang="en", default=True)],
         reorder: list[int] | Literal[False] = False,
         sub_delay: int | None = None,
+        supmover_cmd: list[str] = [],
     ) -> list[SubTrack]:
         """
         Passthrough the subs as found.
@@ -106,8 +108,14 @@ class _ProcessSubtitles(_BaseSubtitles):
                                     ordered like [JP, EN, "Commentary"], you can pass [1, 0, 2]
                                     to reorder them to [EN, JP, Commentary].
                                     This can also be used to remove specific tracks.
+        :param trim:                Whether to truncate lines that extend past the video.
+                                    If None, tries to automatically determine whether it should
         :param sub_delay:           Delay in frames. Will use the ref clip as a reference.
-        :param save:                Whether to save the subtitles in a different directory.
+        :supmover_cmd:              Additional commandline arguments to pass to SupMover.
+                                    See the SupMover documentation for more information:
+                                    `<https://github.com/MonoS/SupMover?tab=readme-ov-file#usage>`_
+
+        :return:                    A list of all the SubTracks created.
         """
 
         if subtitle_files is not None and not isinstance(subtitle_files, list):
@@ -124,21 +132,64 @@ class _ProcessSubtitles(_BaseSubtitles):
 
             sub_files = [sub_files[i] for i in reorder]  # type:ignore[index, misc]
 
+            # Commented out because it'd be way too confusing otherwise.
+            # track_args = [track_args[i] for i in reorder]  # type:ignore[index, misc]
+
         if not sub_files:
             return sub_files
 
+        # Normalising track args
+        if track_args and not isinstance(track_args, list):
+            track_args = [track_args]
+
         for i, (sub, track_arg) in enumerate(zip_longest(sub_files, track_args)):
             sub = SPath(sub)
+
+            if track_arg:
+                track_arg = dict(track_arg)
+
+            Log.info(f"[{i + 1}/{len(sub_files)}] {track_arg=}", self.passthrough)
 
             if self.check_is_empty(sub):
                 Log.debug(f"\"{sub.name}\" is an empty file! Ignoring...", self.passthrough)
                 continue
 
-            Log.info(f"[{i + 1}/{len(sub_files)}] {track_arg=}", self.passthrough)
+            sub_delay = track_arg.pop("delay", sub_delay)
 
-            self.subtitle_tracks += [SubTrack(sub, **track_arg, delay=sub_delay)]
+            if sub.suffix.lower() in (".pgs", ".sup") and (sub_delay or supmover_cmd):
+                sub = self._shift_pgs(sub, sub_delay, supmover_cmd)
+                sub_delay = 0
+
+            self.subtitle_tracks += [SubTrack(sub, delay=sub_delay, **track_arg)]
 
         return self.subtitle_tracks
+
+    def _shift_pgs(self, subfile: SPath, delay: int = 0, cmd_args: list[str] = []) -> SPath:
+        """Muxtools does not touch PGS files, so we have to delay it ourselves."""
+        Log.info(f"Delay set or SupMover args passed, trying to modify PGS...", self.passthrough)
+
+        if not shutil.which("SupMover-win.exe"):
+            raise Log.error(DependencyNotFoundError(self.passthrough, "SupMover-win.exe"), self.passthrough)
+
+        out_subfile = SPath(get_workdir() / subfile.name)
+        Log.debug(f"SUP output location: \"{out_subfile.absolute()}\"", self.passthrough)
+
+        if out_subfile.exists():
+            out_subfile.unlink(True)
+
+        cmd = [
+            "SupMover-win.exe", subfile.to_str(), out_subfile.to_str(), "--delay", str(delay),
+        ] + [str(arg) for arg in cmd_args]
+
+        try:
+            Log.info(sp.run(cmd, check=True, stdout=sp.PIPE, stderr=sp.PIPE, text=True), self.passthrough)
+        except sp.CalledProcessError as e:
+            Log.error(f"Error executing command: {e}", self.passthrough)
+            Log.error(f"Output: {e.output}", self.passthrough)
+            raise Log.error(f"Error: {e.stderr}", self.passthrough)
+
+        return out_subfile
+
 
     def _save(self) -> list[SPath]:
         show_name = get_setup_attr("show_name", "Example")

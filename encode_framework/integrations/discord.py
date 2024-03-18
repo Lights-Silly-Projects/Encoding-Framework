@@ -413,7 +413,14 @@ class DiscordEmbedder(DiscordWebhook):
         return embed
 
     def _get_track_info(self, premux_path: SPathLike | None = None) -> list[tuple[str, list[str]]]:
-        premux_path = premux_path or self.encoder.premux_path
+
+        if not premux_path:
+            if isinstance(self.encoder, tuple):
+                encoder = self.encoder[0]
+            else:
+                encoder = self.encoder
+
+            premux_path = encoder.premux_path
 
         premux_path = SPath(premux_path)
 

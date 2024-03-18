@@ -74,12 +74,14 @@ def get_chapter_frames(
     ref: vs.VideoNode | None = None, log: bool = False
 ) -> tuple[int, int]:
     """Get the start and end frame of a chapter obtained from a file."""
-    if not (ch_src := SPath(script_info.file)).exists():
+    if not (ch_src := SPath(script_info.src.file)).exists():
         raise FileNotExistsError(f"Could not find file, \"{ch_src}\"", get_chapter_frames)
 
-    fps = ref.fps if ref is not None else Fraction(24000, 1001)
+    Log.info(f"Checking chapters for file, \"{ch_src}\"", get_chapter_frames)
 
     chs = _Chapters(script_info).get_chapters(force=True)
+
+    fps = ref.fps if ref is not None else Fraction(24000, 1001)
 
     try:
         ch_s = timedelta_to_frame(chs.chapters[index][0], fps)

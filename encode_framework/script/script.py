@@ -84,7 +84,7 @@ class ScriptInfo:
         split = SPath(self.file).stem.split('_') if '_' in caller else (SPath(caller).stem, '')
 
         self.show_title = show_title or split[0]
-        self.ep_num = ep_num or split[1]
+        self.ep_num = ep_num or self._get_SxxExx_epnum(split[1])
 
         self.sc_path = SPath(f"_scenechanges/{self.file.stem}_scening.txt")
         self.sc_lock_file = SPath(f"_scenechanges/{self.file.stem}_scening.lock")
@@ -431,3 +431,12 @@ class Preview:
             audios = [core.bs.AudioSource(self.script_info.file)]
 
         set_output(audios)
+
+    @staticmethod
+    def _get_SxxExx_epnum(epnum: str) -> str:
+        pattern = r"S\d+E(\d+)"
+
+        if (match := re.search(pattern, epnum)):
+            return str(match.group(1))
+
+        return str(epnum)

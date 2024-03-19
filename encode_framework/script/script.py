@@ -84,7 +84,8 @@ class ScriptInfo:
         split = SPath(self.file).stem.split('_') if '_' in caller else (SPath(caller).stem, '')
 
         self.show_title = show_title or split[0]
-        self.ep_num = ep_num or self._get_SxxExx_epnum(split[1])
+        # self.ep_num = ep_num or self._get_SxxExx_epnum(split[1])
+        self.ep_num = ep_num or split[1]
 
         self.sc_path = SPath(f"_scenechanges/{self.file.stem}_scening.txt")
         self.sc_lock_file = SPath(f"_scenechanges/{self.file.stem}_scening.lock")

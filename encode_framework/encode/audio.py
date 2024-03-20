@@ -256,7 +256,9 @@ class _AudioEncoder(_BaseEncoder):
                          CustomNotImplementedError)  # type:ignore[arg-type]
 
                 self.audio_tracks += [
-                    do_audio(audio_file, encoder=encoder).to_track(**track_arg)
+                    do_audio(
+                        audio_file, encoder=encoder, fps=wclip.fps, num_frames=wclip.num_frames
+                    ).to_track(**track_arg)
                 ]
 
                 continue
@@ -341,7 +343,7 @@ class _AudioEncoder(_BaseEncoder):
 
             if encoder:
                 setattr(encoder, "output", None)
-                encoded = encoder.encode_audio(afile, not verbose)
+                encoded = do_audio(afile, i, trim, wclip.fps, wclip.num_frames, None, None, encoder, not verbose)
                 ensure_path(afile.file, self.encode_audio).unlink(missing_ok=True)
                 afile = encoded
 

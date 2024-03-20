@@ -200,6 +200,22 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
 
         set_output(final_clip)
 
+    def move_nc_to_extras_dir(self, dir_out: str = "Extras") -> SPath:
+        """For moving NCs to an extras directory."""
+        if "NC" not in str(self.script_info.ep_num):
+            return self.premux_path
+
+        if not (nc_dir := self.premux_path.parent / dir_out).exists():
+            nc_dir.mkdir(exist_ok=True)
+
+        nc_out = nc_dir / self.premux_path.name
+
+        Log.info(f"Moving NC file: \"{self.premux_path}\" --> \"{nc_out}", self.mux)
+
+        self.premux_path = self.premux_path.rename(nc_out)
+
+        return self.premux_path
+
     @property
     def __name__(self) -> str:
         """Hopefully this will shut up Log..."""

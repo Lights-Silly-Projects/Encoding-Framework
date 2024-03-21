@@ -100,7 +100,7 @@ class ScriptInfo:
         sys.path.append(self.file.parent.to_str())
 
     def index(
-        self, path: SPathLike | list[SPathLike], trim: TrimAuto | int | None = None,
+        self, path: SPathLike | list[SPathLike], trim: TrimAuto | list[TrimAuto] | int | None = None,
         name: str | None = None, force_dgi: bool = True, force_reindex: bool = False,
         idx_dir: SPathLike | None = None, cmd_args: tuple[str] = ("-a",)
     ) -> vs.VideoNode:

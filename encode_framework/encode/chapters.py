@@ -1,7 +1,7 @@
 from typing import Any
 
 from vsmuxtools import Chapters, src_file, timedelta_to_frame  # type:ignore[import]
-from vstools import SPath, SPathLike, CustomNotImplementedError, FileNotExistsError, vs
+from vstools import SPath, SPathLike, CustomNotImplementedError, FileNotExistsError, vs, FuncExceptT
 from fractions import Fraction
 
 from ..script import ScriptInfo
@@ -22,7 +22,7 @@ class _Chapters(_BaseEncoder):
 
     def get_chapters(
         self, ref: src_file | ScriptInfo | list[int | tuple[int, str]] | SPathLike | None = None,
-        shift: int = 0, force: bool = False, **kwargs: Any
+        shift: int = 0, force: bool = False, func: FuncExceptT | None = None, **kwargs: Any
     ) -> Chapters | None:
         """
         Create chapter objects if chapter files exist.
@@ -35,32 +35,47 @@ class _Chapters(_BaseEncoder):
         """
         from vsmuxtools import frame_to_timedelta
 
+        func = func or self.get_chapters
+
         if isinstance(ref, ScriptInfo):
             ref = ref.src
         elif isinstance(ref, SPathLike):
             if not (ref := SPath(ref)).exists():
-                raise Log.error(f"Could not find the file \"{ref}\"!", self.get_chapters)
-
-            raise Log.error("Paths are not supported yet!", self.get_chapters, CustomNotImplementedError)
+                raise Log.error(f"Could not find the file \"{ref}\"!", func)
 
         if any(str(self.script_info.ep_num).startswith(x) for x in ["NC", "OP", "ED", "EP", "MV"]):
             if not force:
                 Log.debug(
                     "Not grabbing chapters as this is not an episode! Set \"force=True\" to force chapters.",
-                    self.get_chapters
+                    func
                 )
 
                 return Chapters((frame_to_timedelta(0), None))
             else:
-                Log.warn("Not an episode, but \"force=True\" was set!", self.get_chapters)
+                Log.warn("Not an episode, but \"force=True\" was set!", func)
 
-        chapters = Chapters(ref or self.script_info.src, **kwargs)
+        wclip = ref or self.script_info.src
+
+        if isinstance(wclip, src_file) and not SPath(wclip.file).suffix in (".m2ts", ".vob", ".iso"):
+            Log.debug(f"work clip is not a BD/DVD file, checking for \"*.chapters.txt\"...", func)
+
+            file = SPath(wclip.file)
+            files = SPath.glob(file / f"*{file.stem}*.chapters.txt")
+
+            if files:
+                Log.debug("The following files were found:" + '\n    - '.join(files), func)
+
+                wclip = files[0]
+            else:
+                Log.warn("No chapter files could be found.", func)
+
+        chapters = Chapters(wclip, **kwargs)
 
         if shift:
             for i, _ in enumerate(self.chapters.chapters):
                 self.chapters = self.chapters.shift_chapter(i, shift)
 
-            Log.info(f"After shift:", self.get_chapters)
+            Log.info(f"After shift:", func)
             self.chapters.print()
 
         if chapters.chapters:

@@ -81,6 +81,8 @@ class ScriptInfo:
 
         self.file = SPath(caller)
 
+        self._append_cwd()
+
         split = SPath(self.file).stem.split('_') if '_' in caller else (SPath(caller).stem, '')
 
         self.show_title = show_title or split[0]
@@ -91,6 +93,11 @@ class ScriptInfo:
         self.sc_lock_file = SPath(f"_scenechanges/{self.file.stem}_scening.lock")
 
         self.tc_path = SPath(f"_assets/{self.file.stem}_timecodes.txt")
+
+
+    def _append_cwd(self) -> None:
+        """Appends the current working directory to PATH, allowing for project-specific modules to be loaded."""
+        sys.path.append(self.file.parent.to_str())
 
     def index(
         self, path: SPathLike | list[SPathLike], trim: TrimAuto | int | None = None,

@@ -65,10 +65,10 @@ class _AudioEncoder(_BaseEncoder):
             audio_files: list[SPath] = []  # type:ignore[no-redef]
 
             for f in dgi_file.parent.glob(f"{dgi_file.stem}*.*"):
-                Log.debug(f"Checking the following file: \"{f.name}\"...", self.find_audio_files)
-
                 # explicitly ignore certain files; audio.parse seems to count these for some reason?
-                if f.suffix.lower() in (".log", ".sup"): continue
+                if f.suffix.lower() in (".log", ".sup", ".ttf", ".otf", ".ttc"): continue
+
+                Log.debug(f"Checking the following file: \"{f.name}\"...", self.find_audio_files)
 
                 try:
                     FileType.AUDIO.parse(f, func=self.find_audio_files)

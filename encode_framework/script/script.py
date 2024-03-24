@@ -107,6 +107,9 @@ class ScriptInfo:
         """Index the given file. Returns a tuple containing the `src_file` object and the `init_cut` node."""
         from .trim import get_post_trim, get_pre_trim
 
+        if not path:
+            raise Log.error("No file given!", self.index)
+
         if trim and isinstance(trim, list) and all(isinstance(x, tuple) for x in trim):
             if len(trim) > 1:
                 Log.warn(f"Multiple trims found! Only grabbing the first ({trim[0][0]} => {trim[0][1]})...")
@@ -323,6 +326,9 @@ class ScriptInfo:
         if isinstance(prefilter, (tuple, list)):
             prefilter = tuple([self.clip_cut] + list(prefilter))  # type:ignore[assignment]
 
+        if sc:
+            make_lf = self.clip_cut.num_frames != prefilter.num_frames
+
         self.clip_cut = prefilter
 
         if force:
@@ -339,10 +345,14 @@ class ScriptInfo:
                 self.sc_path.unlink(missing_ok=True)
 
             self.generate_keyframes(sc_ref)
-            self._make_sf_lock()
+
+            if make_lf:
+                self._make_sf_lock()
         elif sc and not self.sc_path.exists():
             self.generate_keyframes(sc_ref)
-            self._make_sf_lock()
+
+            if make_lf:
+                self._make_sf_lock()
 
         return prefilter  # type:ignore[return-value]
 

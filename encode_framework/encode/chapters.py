@@ -60,10 +60,10 @@ class _Chapters(_BaseEncoder):
             Log.debug(f"work clip is not a BD/DVD file, checking for \"*.chapters.txt\"...", func)
 
             file = SPath(wclip.file)
-            files = SPath.glob(file / f"*{file.stem}*.chapters.txt")
+            files = list(SPath(file.parent).glob(f"*{file.stem}*.chapters.txt"))
 
             if files:
-                Log.debug("The following files were found:" + '\n    - '.join(files), func)
+                Log.debug("The following files were found:" + '\n    - '.join([f.to_str() for f in files]), func)
 
                 wclip = files[0]
             else:
@@ -85,37 +85,60 @@ class _Chapters(_BaseEncoder):
 
 
 def get_chapter_frames(
-    script_info: ScriptInfo, index: int = 0,
-    ref: vs.VideoNode | None = None, log: bool = False
+    script_info: ScriptInfo,
+    ref: vs.VideoNode | None = None, log: bool = False,
+    func: FuncExceptT | None = None,
 ) -> tuple[int, int]:
     """Get the start and end frame of a chapter obtained from a file."""
+    func = func or get_chapter_frames
+
     if not (ch_src := SPath(script_info.src.file)).exists():
-        raise FileNotExistsError(f"Could not find file, \"{ch_src}\"", get_chapter_frames)
+        raise FileNotExistsError(f"Could not find file, \"{ch_src}\"", func)
 
-    Log.info(f"Checking chapters for file, \"{ch_src}\"", get_chapter_frames)
+    Log.info(f"Checking chapters for file, \"{ch_src}\"", func)
 
-    chs = _Chapters(script_info).get_chapters(force=True)
+    if isinstance(ref, ScriptInfo):
+        ref = ref.src
+    elif isinstance(ref, SPathLike):
+        if not (ref := SPath(ref)).exists():
+            raise Log.error(f"Could not find the file \"{ref}\"!", func)
+
+    wclip = ref or script_info.src
+
+    if isinstance(wclip, src_file) and not SPath(wclip.file).suffix in (".m2ts", ".vob", ".iso"):
+        Log.debug(f"work clip is not a BD/DVD file, checking for \"*.chapters.txt\"...", func)
+
+        file = SPath(wclip.file)
+        files = list(SPath(file.parent).glob(f"*{file.stem}*.chapters.txt"))
+
+        if files:
+            Log.debug("The following files were found: " + '\n    - '.join([f.to_str() for f in files]), func)
+
+            wclip = files[0]
+        else:
+            Log.warn("No chapter files could be found.", func)
+
+    chs = Chapters(wclip)
+
+    if trim_start := script_info.trim[0]:
+        for i, _ in enumerate(chs.chapters):
+            chs = chs.shift_chapter(i, -trim_start)
+
+        Log.info(f"After shift:", func)
+        chs.print()
 
     fps = ref.fps if ref is not None else Fraction(24000, 1001)
 
     try:
-        ch_s = timedelta_to_frame(chs.chapters[index][0], fps)
+        timedelta_to_frame(chs.chapters[0][0], fps)
     except AttributeError:
-        Log.warn("Could not find chapters.", get_chapter_frames)
+        Log.warn("Could not find chapters.", func)
         return
 
-    try:
-        ch_e = chs.chapters[index + 1]
-        ch_e = timedelta_to_frame(ch_e[0], fps) - 1
-    except IndexError:
-        if ref is not None:
-            ch_e = ref.num_frames
-        else:
-            ch_e = None
+    ch_ranges = []
 
-    ch_range = (ch_s, ch_e)
+    for i, (start_time, _) in enumerate(chs.chapters):
+        end_time = chs.chapters[i + 1][0] if i + 1 < len(chs.chapters) else None
+        ch_ranges += [(timedelta_to_frame(start_time), end_time if end_time is None else timedelta_to_frame(end_time))]
 
-    if log:
-        Log.info(f"Chapter range selected:\n{ch_range}", get_chapter_frames)
-
-    return ch_range
+    return ch_ranges

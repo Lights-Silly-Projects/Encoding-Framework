@@ -1,7 +1,7 @@
 import re
 from typing import Any, cast
 
-from vstools import CustomRuntimeError, SPath, SPathLike, vs, get_prop
+from vstools import CustomRuntimeError, SPath, SPathLike, get_prop, vs
 
 from ..script import ScriptInfo
 from ..util import Log
@@ -213,6 +213,23 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         Log.info(f"Moving NC file: \"{self.premux_path}\" --> \"{nc_out}", self.mux)
 
         self.premux_path = self.premux_path.rename(nc_out)
+
+        return self.premux_path
+
+
+    def move_specials_to_specials_dir(self, dir_out: str = "Specials") -> SPath:
+        """For moving NCs to an extras directory."""
+        if not any(x in str(self.script_info.ep_num) for x in ("Movie", "MV", "ONA", "OVA", "S00", "SP")):
+            return self.premux_path
+
+        if not (sp_dir := self.premux_path.parent / dir_out).exists():
+            sp_dir.mkdir(exist_ok=True)
+
+        sp_out = sp_dir / self.premux_path.name
+
+        Log.info(f"Moving Special: \"{self.premux_path}\" --> \"{sp_out}", self.mux)
+
+        self.premux_path = self.premux_path.rename(sp_out)
 
         return self.premux_path
 

@@ -310,7 +310,7 @@ class _AudioEncoder(_BaseEncoder):
             try:
                 is_lossy = force or afile.is_lossy()
             except IndexError:
-                raise Log.error(f"could not get the mediainfo for \"{afile.file}\"!", CustomIndexError)
+                raise Log.error(f"Could not get the mediainfo for \"{afile.file}\"!", CustomIndexError)
 
             # Trim the audio file if applicable.
             if trims and trimmer is not False:

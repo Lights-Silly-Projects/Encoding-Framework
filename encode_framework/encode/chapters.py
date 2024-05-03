@@ -131,7 +131,7 @@ def get_chapter_frames(
 
     try:
         timedelta_to_frame(chs.chapters[0][0], fps)
-    except AttributeError:
+    except (AttributeError, TypeError):
         Log.warn("Could not find chapters.", func)
         return
 

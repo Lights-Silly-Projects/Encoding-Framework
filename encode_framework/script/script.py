@@ -60,6 +60,9 @@ class ScriptInfo:
     dryrun: bool = False
     """Whether this is a dryrun, only meant for testing."""
 
+    _was_trimmed: bool | None = None
+    """Whether the clip was trimmed or not."""
+
     def __init__(
         self, caller: str | None = None,
         show_title: str | None = None,
@@ -171,6 +174,8 @@ class ScriptInfo:
 
         if all(isinstance(x, type(None)) for x in trim):
             trim = None
+
+        self._was_trimmed = bool(trim)
 
         assert_truthy(is_iterable(self.src_file))
 

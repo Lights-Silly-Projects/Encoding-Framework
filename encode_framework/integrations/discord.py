@@ -2,6 +2,7 @@ import subprocess as sp
 import time
 from datetime import datetime, timedelta, timezone
 from enum import Enum, auto
+from shutil import which
 from typing import Any, cast
 
 from discord_webhook import DiscordEmbed, DiscordWebhook
@@ -532,7 +533,16 @@ class DiscordEmbedder(DiscordWebhook):
 
         return embed
 
-    def _make_plotbitrate(self, premux_path: SPathLike | None = None) -> str:
+    def _make_plotbitrate(self, premux_path: SPathLike | None = None) -> str | Literal[False]:
+        if not which("plotbitrate"):
+            from vstools import DependencyNotFoundError
+
+            Log.error(
+                "The executable for \"plotbitrate\" could not be found! Install it with `pip install plotbitrate`!",
+                self._make_plotbitrate, DependencyNotFoundError
+            )
+            return False
+
         if premux_path is None:
             premux_path = self.encoder.premux_path
 

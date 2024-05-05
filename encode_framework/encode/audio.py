@@ -241,6 +241,10 @@ class _AudioEncoder(_BaseEncoder):
         for i, (audio_file, trim, track_arg) in enumerate(  # type:ignore[arg-type, assignment]
             zip_longest(process_files, trims, track_args, fillvalue=trims[-1])  # type:ignore[arg-type]
         ):
+            # I guess this is something to worry about now?
+            if trim == track_arg:
+                track_arg = track_args[-1]
+
             if track_arg:
                 track_arg = dict(track_arg)
 

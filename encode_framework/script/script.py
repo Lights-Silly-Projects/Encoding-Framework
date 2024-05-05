@@ -113,6 +113,8 @@ class ScriptInfo:
         if not path:
             raise Log.error("No file given!", self.index)
 
+        self._original_src = path
+
         if trim and isinstance(trim, list) and all(isinstance(x, tuple) for x in trim):
             if len(trim) > 1:
                 Log.warn(f"Multiple trims found! Only grabbing the first ({trim[0][0]} => {trim[0][1]})...")
@@ -180,7 +182,9 @@ class ScriptInfo:
         assert_truthy(is_iterable(self.src_file))
 
         self.src = src_file(self.src_file[0].to_str(), trim=trim)
-        self.clip_cut = cast(vs.VideoNode, self.src.init_cut()).std.SetFrameProps(OutNode="src")
+        self.clip_cut = cast(vs.VideoNode, self.src.init_cut()).std.SetFrameProps(
+            OutNode="src", idx_filepath=path[0].absolute().to_str()
+        )
 
         self.update_trims(trim)
 

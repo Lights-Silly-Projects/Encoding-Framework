@@ -183,7 +183,7 @@ class ScriptInfo:
 
         self.src = src_file(self.src_file[0].to_str(), trim=trim)
         self.clip_cut = cast(vs.VideoNode, self.src.init_cut()).std.SetFrameProps(
-            OutNode="src", idx_filepath=path[0].absolute().to_str()
+            OutNode="src", idx_filepath=SPath(path[0]).absolute().to_str()
         )
 
         self.update_trims(trim)
@@ -334,8 +334,7 @@ class ScriptInfo:
         """Replace the clip_cut attribute with a prefiltered clip. Useful for telecined clips."""
         if isinstance(prefilter, (tuple, list)):
             prefilter = tuple([self.clip_cut] + list(prefilter))  # type:ignore[assignment]
-
-        if sc:
+        elif sc:
             make_lf = self.clip_cut.num_frames != prefilter.num_frames
 
         self.clip_cut = prefilter

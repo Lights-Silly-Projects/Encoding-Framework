@@ -1,6 +1,7 @@
 from typing import Any
 
-from vsmuxtools import Chapters, src_file, timedelta_to_frame  # type:ignore[import]
+# type:ignore[import]
+from vsmuxtools import Chapters, src_file, timedelta_to_frame
 from vstools import SPath, SPathLike, CustomNotImplementedError, FileNotExistsError, vs, FuncExceptT
 from fractions import Fraction
 
@@ -57,13 +58,16 @@ class _Chapters(_BaseEncoder):
         wclip = ref or self.script_info.src
 
         if isinstance(wclip, src_file) and not SPath(wclip.file).suffix in (".m2ts", ".vob", ".iso"):
-            Log.debug(f"work clip is not a BD/DVD file, checking for \"*.chapters.txt\"...", func)
+            Log.debug(
+                f"work clip is not a BD/DVD file, checking for \"*.chapters.txt\"...", func)
 
             file = SPath(wclip.file)
-            files = list(SPath(file.parent).glob(f"*{file.stem}*.chapters.txt"))
+            files = list(SPath(file.parent).glob(
+                f"*{file.stem}*.chapters.txt"))
 
             if files:
-                Log.debug("The following files were found:" + '\n    - '.join([f.to_str() for f in files]), func)
+                Log.debug("The following files were found:" +
+                          '\n    - '.join([f.to_str() for f in files]), func)
 
                 wclip = files[0]
             else:
@@ -88,7 +92,7 @@ def get_chapter_frames(
     script_info: ScriptInfo,
     ref: vs.VideoNode | None = None, log: bool = False,
     func: FuncExceptT | None = None,
-) -> tuple[int, int]:
+) -> tuple[int, int] | None:
     """Get the start and end frame of a chapter obtained from a file."""
     func = func or get_chapter_frames
 
@@ -106,19 +110,25 @@ def get_chapter_frames(
     wclip = ref or script_info.src
 
     if isinstance(wclip, src_file) and not SPath(wclip.file).suffix in (".m2ts", ".vob", ".iso"):
-        Log.debug(f"work clip is not a BD/DVD file, checking for \"*.chapters.txt\"...", func)
+        Log.debug(
+            f"work clip is not a BD/DVD file, checking for \"*.chapters.txt\"...", func)
 
         file = SPath(wclip.file)
         files = list(SPath(file.parent).glob(f"*{file.stem}*.chapters.txt"))
 
         if files:
-            Log.debug("The following files were found: " + '\n    - '.join([f.to_str() for f in files]), func)
+            Log.debug("The following files were found: " +
+                      '\n    - '.join([f.to_str() for f in files]), func)
 
             wclip = files[0]
         else:
             Log.warn("No chapter files could be found.", func)
 
     chs = Chapters(wclip)
+
+    if chs.chapters is None:
+        Log.warn("No chapters could be found.", func)
+        return
 
     if trim_start := script_info.trim[0]:
         for i, _ in enumerate(chs.chapters):
@@ -138,7 +148,9 @@ def get_chapter_frames(
     ch_ranges = []
 
     for i, (start_time, _) in enumerate(chs.chapters):
-        end_time = chs.chapters[i + 1][0] if i + 1 < len(chs.chapters) else None
-        ch_ranges += [(timedelta_to_frame(start_time), end_time if end_time is None else timedelta_to_frame(end_time))]
+        end_time = chs.chapters[i + 1][0] if i + \
+            1 < len(chs.chapters) else None
+        ch_ranges += [(timedelta_to_frame(start_time),
+                       end_time if end_time is None else timedelta_to_frame(end_time))]
 
     return ch_ranges

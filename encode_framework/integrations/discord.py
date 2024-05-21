@@ -3,7 +3,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from enum import Enum, auto
 from shutil import which
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from discord_webhook import DiscordEmbed, DiscordWebhook
 from pymediainfo import MediaInfo, Track  # type:ignore[import]

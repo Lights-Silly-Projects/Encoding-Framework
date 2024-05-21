@@ -2,6 +2,7 @@ import re
 from typing import Any, cast
 
 from vstools import CustomRuntimeError, SPath, SPathLike, get_prop, vs
+from muxtools import get_setup_attr
 
 from ..script import ScriptInfo
 from ..util import Log
@@ -115,6 +116,8 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
             print_cli=True
         ))
 
+        self.fix_filename()
+
         Log.info(
             f"Final file \"{self.premux_path.name}\" output to "
             f"\"{self.premux_path.parent / self.premux_path.name}\"!", self.mux
@@ -216,7 +219,6 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
 
         return self.premux_path
 
-
     def move_specials_to_specials_dir(self, dir_out: str = "Specials") -> SPath:
         """For moving NCs to an extras directory."""
         if not any(x in str(self.script_info.ep_num) for x in ("Movie", "MV", "ONA", "OVA", "S00", "SP")):
@@ -230,6 +232,20 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         Log.info(f"Moving Special: \"{self.premux_path}\" --> \"{sp_out}", self.mux)
 
         self.premux_path = self.premux_path.rename(sp_out)
+
+        return self.premux_path
+
+    def fix_filename(self, fallback: Any = None) -> SPath:
+        """For some reason my output filenames are fucked, but only for $show_name$. idk why. This fixes that."""
+
+        if "$show_name$" not in self.premux_path.to_str():
+            return self.premux_path
+
+        show_name = get_setup_attr("show_name", fallback)
+        new_name = SPath(self.premux_path.name.replace("$show_name$", show_name))
+
+        Log.info(f"Renaming \"{self.premux_path.name}\" --> \"{new_name}\"", self.fix_filename)
+        self.premux_path = SPath(self.premux_path).replace(new_name)
 
         return self.premux_path
 

@@ -273,7 +273,7 @@ class ScriptInfo:
         # TODO: Fix all this
         adjustable_kwargs = dict(
             mkv_title_naming="",  # The mkv title metadata property.
-            out_name=f"$show$ - $ep$ (Premux) [$crc32$]"  # Output filename
+            out_name="$show$ - $ep$ (Premux) [$crc32$]"  # Output filename
         )
         adjustable_kwargs |= setup_kwargs
 

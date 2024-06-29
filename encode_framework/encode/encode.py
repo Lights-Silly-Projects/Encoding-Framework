@@ -84,8 +84,11 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
             default=True, timecode_file=tc_file, lang=lang.strip(), crop=crop, *args
         )
 
+        track_args = f"{video_track.default=}, {video_track.forced=}, {video_track.name=}, "
+        track_args += f"{video_track.lang=}, {video_track.delay=}"
+
         Log.info("Merging the following files:", self.mux)
-        Log.info(f"   - [VIDEO] \"{video_track.file}\"", self.mux)
+        Log.info(f"   - [VIDEO] \"{video_track.file}\" ({track_args})", self.mux)
 
         if self.script_info.tc_path.exists():
             Log.info(f"       - [+] Timecodes: \"{self.script_info.tc_path}\"", self.mux)
@@ -116,7 +119,7 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
             print_cli=True
         ))
 
-        self.fix_filename()
+        # self.fix_filename()
 
         Log.info(
             f"Final file \"{self.premux_path.name}\" output to "
@@ -213,7 +216,7 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
 
         nc_out = nc_dir / self.premux_path.name
 
-        Log.info(f"Moving NC file: \"{self.premux_path}\" --> \"{nc_out}", self.mux)
+        Log.info(f"Moving NC file: \"{self.premux_path}\" --> \"{nc_out}\"", self.mux)
 
         self.premux_path = self.premux_path.rename(nc_out)
 

@@ -178,8 +178,10 @@ class _AudioEncoder(_BaseEncoder):
         from vsmuxtools import (FLAC, Sox, do_audio, frames_to_samples,
                                 is_fancy_codec, make_output)
 
+        func = self.encode_audio
+
         if all(not afile for afile in (audio_file, self.audio_files)):
-            Log.warn("No audio tracks found to encode...", self.encode_audio)
+            Log.warn("No audio tracks found to encode...", func)
 
             return []
 
@@ -193,7 +195,7 @@ class _AudioEncoder(_BaseEncoder):
 
         if any([isinstance(audio_file, vs.AudioNode)]):
             is_file = False
-            Log.warn("AudioNode passed! This may be a buggy experience...", self.encode_audio)
+            Log.warn("AudioNode passed! This may be a buggy experience...", func)
 
         process_files = audio_file or self.audio_files
 
@@ -201,16 +203,21 @@ class _AudioEncoder(_BaseEncoder):
         if is_file:
             self.__clean_acopy(process_files[0])  # type:ignore[index]
 
+        if ref is not None:
+            Log.debug(f"`ref` VideoNode passed: {ref}", func)
+
         wclip = ref or self.script_info.src.init()
 
+        trims = True if trims is None else trims
+
         # Normalising trims.
-        if trims is None:
+        if isinstance(trims, tuple):
+            trims = [trims]
+        elif trims:
             if is_file:
                 trims = [self.script_info.trim]
             else:
                 trims = [tuple(frames_to_samples(x) for x in self.script_info.trim[0])]
-        elif isinstance(trims, tuple):
-            trims = [trims]
 
         # Normalising reordering of tracks.
         if reorder and is_file:
@@ -248,27 +255,34 @@ class _AudioEncoder(_BaseEncoder):
             if track_arg:
                 track_arg = dict(track_arg)
 
+            delay = track_arg.pop("delay", 0)
+
             Log.debug(
                 f"Processing audio track {i + 1}/{len(process_files)}...",  self.encode_audio  # type:ignore[arg-type]
             )
-            Log.debug(f"Processing audio file \"{audio_file}\"...", self.encode_audio)
-            Log.info(f"{track_arg=}", self.encode_audio)
+            Log.debug(f"Processing audio file \"{audio_file}\"...", func)
+            Log.info(f"{track_arg=}", func)
+
+            if delay:
+                Log.info(f"Delay passed ({delay}ms), applying to source audio file...", func)
 
             # This is mainly meant to support weird trims we don't typically support and should not be used otherwise!
             if isinstance(audio_file, vs.AudioNode):
                 Log.warn("Not properly supported yet! This may fail!", self.encode_audio,
                          CustomNotImplementedError)  # type:ignore[arg-type]
 
-                self.audio_tracks += [
-                    do_audio(
-                        audio_file, encoder=encoder, fps=wclip.fps, num_frames=wclip.num_frames
-                    ).to_track(**track_arg)
-                ]
+                atrack = do_audio(
+                    audio_file, encoder=encoder, fps=wclip.fps, num_frames=wclip.num_frames
+                )
+
+                atrack.container_delay = delay
+
+                self.audio_tracks += [atrack.to_track(**track_arg)]
 
                 continue
 
             # trimmed_file = make_output(str(audio_file), codec, f"trimmed_{codec}")
-            trimmed_file = make_output(str(audio_file), ".mka", f"trimmed")
+            trimmed_file = make_output(str(audio_file), ".mka", "trimmed")
             trimmed_file = SPath("_workdir") / re.sub(r"\s\(\d+\)", "", trimmed_file.name)
 
             # Delete temp dir to minimise random errors.
@@ -277,21 +291,17 @@ class _AudioEncoder(_BaseEncoder):
 
             # If a trimmed audio file already exists, this means it was likely already encoded.
             if trims and trimmed_file.exists():
-                Log.debug(f"Trimmed file found at \"{trimmed_file}\"! Skipping encoding...", self.encode_audio)
+                Log.debug(f"Trimmed file found at \"{trimmed_file}\"! Skipping encoding...", func)
 
-                afile = AudioFile.from_file(trimmed_file, self.encode_audio)
-
-                if delay := track_arg.pop("delay", 0):
-                    afile.container_delay = delay
+                afile = AudioFile.from_file(trimmed_file, func)
+                afile.container_delay = delay
 
                 self.audio_tracks += [afile.to_track(default=not bool(i), **track_arg)]
 
                 continue
 
-            afile = AudioFile.from_file(audio_file, self.encode_audio)
-
-            if delay := track_arg.pop("delay", 0):
-                afile.container_delay = delay
+            afile = AudioFile.from_file(audio_file, func)
+            afile.container_delay = delay
 
             afile_copy = afile.file.with_suffix(".acopy")
             afile_old = afile.file
@@ -348,7 +358,7 @@ class _AudioEncoder(_BaseEncoder):
             if encoder:
                 setattr(encoder, "output", None)
                 encoded = do_audio(afile, i, trim, wclip.fps, wclip.num_frames, None, None, encoder, not verbose)
-                ensure_path(afile.file, self.encode_audio).unlink(missing_ok=True)
+                ensure_path(afile.file, func).unlink(missing_ok=True)
                 afile = encoded
 
             # Move the acopy to the original position if muxtools Thanos snapped it.
@@ -356,7 +366,19 @@ class _AudioEncoder(_BaseEncoder):
                 afile_copy.replace(afile_old)
                 afile_copy.unlink(missing_ok=True)
 
-            self.audio_tracks += [afile.to_track(**track_arg)]
+            atrack = do_audio(
+                audio_file, encoder=encoder, fps=wclip.fps, num_frames=wclip.num_frames
+            )
+
+            atrack.container_delay = delay
+
+            atrack = atrack.to_track(**track_arg)
+
+            # atrack.delay = delay
+
+            Log.debug(atrack.__dict__, func)
+
+            self.audio_tracks += [atrack]
 
         # Remove acopy files again so they don't mess up future encodes.
         self.__clean_acopy(afile.file)

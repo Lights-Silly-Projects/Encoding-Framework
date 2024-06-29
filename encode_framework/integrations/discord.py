@@ -394,7 +394,7 @@ class DiscordEmbedder(DiscordWebhook):
         tracks = self._get_track_info()
 
         desc = f"```markdown\n{self.encoder.premux_path.name}\n * Total Filesize: {tracks[0][1]}```\n"
-        desc += f"```markdown\n"
+        desc += "```markdown\n"
 
         for track_title, track_info in tracks[1:]:
             desc += f"**{track_title}**"
@@ -498,7 +498,9 @@ class DiscordEmbedder(DiscordWebhook):
         if track.commercial_name == "FLAC":
             info += [
                 # Bit depth
-                str(track.other_bit_depth[0])
+                str(track.other_bit_depth[0]),
+                # Delay
+                f"Delay relative to video: {str(track.delay_relative_to_video)}ms"
             ]
 
         return (self._get_basic_track_title(track), info)

@@ -3,7 +3,7 @@ import shutil
 from typing import Any, Literal
 
 from vsmuxtools import (AudioFile, AudioTrack, Encoder,  # type:ignore[import]
-                        FFMpeg, HasTrimmer, AutoEncoder, ensure_path)
+                        FFMpeg, HasTrimmer, AutoEncoder, ensure_path, get_workdir)
 from vstools import (CustomIndexError, CustomNotImplementedError,
                      CustomRuntimeError, CustomValueError, FileNotExistsError,
                      FileType, SPath, SPathLike, vs)
@@ -56,7 +56,7 @@ class _AudioEncoder(_BaseEncoder):
             try:
                 FileType.VIDEO.parse(dgi_file, func=self.find_audio_files)
 
-                audio_files = [FFMpeg().Extractor().extract_audio(dgi_file)]
+                audio_files = [SPath(FFMpeg().Extractor().extract_audio(dgi_file).file)]  # type;ignore
             except (AssertionError, ValueError):
                 pass
         else:
@@ -66,7 +66,8 @@ class _AudioEncoder(_BaseEncoder):
 
             for f in dgi_file.parent.glob(f"{dgi_file.stem}*.*"):
                 # explicitly ignore certain files; audio.parse seems to count these for some reason?
-                if f.suffix.lower() in (".log", ".sup", ".ttf", ".otf", ".ttc"): continue
+                if f.suffix.lower() in (".log", ".sup", ".ttf", ".otf", ".ttc"):
+                    continue
 
                 Log.debug(f"Checking the following file: \"{f.name}\"...", self.find_audio_files)
 
@@ -117,7 +118,7 @@ class _AudioEncoder(_BaseEncoder):
 
         if not video_file.exists():
             Log.error(
-                f"The given file could not be found!", self._extract_tracks,
+                "The given file could not be found!", self._extract_tracks,
                 FileNotExistsError, reason=video_file.to_str()  # type:ignore[arg-type]
             )
 
@@ -268,8 +269,10 @@ class _AudioEncoder(_BaseEncoder):
 
             # This is mainly meant to support weird trims we don't typically support and should not be used otherwise!
             if isinstance(audio_file, vs.AudioNode):
-                Log.warn("Not properly supported yet! This may fail!", self.encode_audio,
-                         CustomNotImplementedError)  # type:ignore[arg-type]
+                Log.warn(
+                    "Not properly supported yet! This may fail!", self.encode_audio,
+                    CustomNotImplementedError
+                )  # type:ignore[arg-type]
 
                 atrack = do_audio(
                     audio_file, encoder=encoder, fps=wclip.fps, num_frames=wclip.num_frames
@@ -281,24 +284,23 @@ class _AudioEncoder(_BaseEncoder):
 
                 continue
 
-            # trimmed_file = make_output(str(audio_file), codec, f"trimmed_{codec}")
-            trimmed_file = make_output(str(audio_file), ".mka", "trimmed")
-            trimmed_file = SPath("_workdir") / re.sub(r"\s\(\d+\)", "", trimmed_file.name)
+            trimmed_files = list(SPath(get_workdir()).glob(f"{audio_file.stem}_*_trimmed_*.*"))
 
-            # Delete temp dir to minimise random errors.
-            if SPath(trimmed_file.parent / ".temp").exists():
-                shutil.rmtree(trimmed_file.parent / ".temp")
+            if trimmed_files:
+                # Delete temp dir to minimise random errors.
+                if trimmed_files[0].exists():
+                    shutil.rmtree(trimmed_files[0].parent / ".temp", True)
 
-            # If a trimmed audio file already exists, this means it was likely already encoded.
-            if trims and trimmed_file.exists():
-                Log.debug(f"Trimmed file found at \"{trimmed_file}\"! Skipping encoding...", func)
+                # If a trimmed audio file already exists, this means it was likely already encoded.
+                if trims:
+                    Log.debug(f"Trimmed file found at \"{trimmed_files[0]}\"! Skipping encoding...", func)
 
-                afile = AudioFile.from_file(trimmed_file, func)
-                afile.container_delay = delay
+                    afile = AudioFile.from_file(trimmed_files[0], func)
+                    afile.container_delay = delay
 
-                self.audio_tracks += [afile.to_track(default=not bool(i), **track_arg)]
+                    self.audio_tracks += [afile.to_track(**(track_arg | dict(default=not bool(i))))]
 
-                continue
+                    continue
 
             afile = AudioFile.from_file(audio_file, func)
             afile.container_delay = delay

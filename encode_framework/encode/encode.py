@@ -1,8 +1,8 @@
 import re
 from typing import Any, cast
 
-from vstools import FuncExceptT, FuncExceptT, CustomRuntimeError, SPath, SPathLike, get_prop, vs
-from muxtools import VideoTrack, get_setup_attr
+from vstools import FuncExceptT, CustomRuntimeError, SPath, SPathLike, vs
+from muxtools import get_setup_attr
 
 from ..script import ScriptInfo
 from ..util import Log
@@ -47,7 +47,6 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         self, out_path: SPathLike | None = None,
         move_once_done: bool = False, lang: str = "ja",
         crop: int | tuple[int, int] | tuple[int, int, int, int] | None = None,
-        *args: Any
     ) -> SPath:
         """
         Mux the different tracks together.
@@ -60,27 +59,23 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
                                     If None, checks the output clip for "_SARLeft", "_SARRight", etc. props.
         :param args:                Additional arguments to pass on to mkvmerge.
         """
-        from vsmuxtools import mux  # type:ignore[import]
+        from muxtools.muxing.mux import mux as vsmux  # type:ignore[import]
 
-        if self.script_info.tc_path.exists():  # type:ignore[arg-type]
+        if self.script_info.tc_path and self.script_info.tc_path.exists():
             Log.info(f"Timecode file found at \"{self.script_info.tc_path}\"!", self.mux)
-
-        tc_file = self.script_info.tc_path if self.script_info.tc_path.exists() else None
 
         crop = self._get_crop_args(crop)
 
-        self.video_track = self.video_file.to_track(
-            default=True, timecode_file=tc_file, lang=lang.strip(), crop=crop, *args
+        self._mux_logs()
+
+        muxed = vsmux(
+            self.video_track, *self.audio_tracks, *self.subtitle_tracks, *self.font_files, self.chapters,
+            outfile=out_path, print_cli=True
         )
 
-        self._mux_logs(crop)
+        assert muxed is not None
 
-        self.premux_path = SPath(mux(
-            self.video_track, *self.audio_tracks,
-            *self.subtitle_tracks, *self.font_files,
-            self.chapters, outfile=out_path,
-            print_cli=True
-        ))
+        self.premux_path = SPath(muxed)
 
         # self.fix_filename()
 
@@ -96,25 +91,8 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
 
         return self.premux_path
 
-    def _get_crop_args(
-        self, crop: tuple[int, int] | tuple[int, int, int, int] | None = None
-    ) -> tuple[int, int] | tuple[int, int, int, int] | None:
-        if crop is not None:
-            return crop
-
-        _l = get_prop(self.out_clip, "_SARLeft", int, None, 0, self.mux)
-        _r = get_prop(self.out_clip, "_SARRight", int, None, 0, self.mux)
-        _t = get_prop(self.out_clip, "_SARTop", int, None, 0, self.mux)
-        _b = get_prop(self.out_clip, "_SARBottom", int, None, 0, self.mux)
-
-        if any([_l, _r, _t, _b]):
-            crop = (_l, _t, _r, _b)
-
-        return crop
-
     def _mux_logs(
         self,
-        crop: tuple[int, int] | tuple[int, int, int, int] | None,
     ) -> None:
         track_args = f"{self.video_track.default=}, {self.video_track.forced=}, {self.video_track.name=}, "
         track_args += f"{self.video_track.lang=}, {self.video_track.delay=}"
@@ -122,24 +100,24 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         Log.info("Merging the following files:", self.mux)
         Log.info(f"   - [VIDEO] \"{self.video_track.file}\" ({track_args})", self.mux)
 
-        if self.script_info.tc_path.exists():
+        if self.script_info.tc_path is not None and self.script_info.tc_path.exists():
             Log.info(f"       - [+] Timecodes: \"{self.script_info.tc_path}\"", self.mux)
 
-        if crop is not None:
-            Log.info(f"       - [+] Container cropping: \"{crop}\"", self.mux)
+        if self.crop is not None:
+            Log.info(f"       - [+] Container cropping: \"{self.crop}\"", self.mux)
 
         if self.video_container_args:
             Log.info(f"       - [+] Additional args: \"{" ".join(self.video_container_args)}\"", self.mux)
 
         if self.audio_tracks:
-            for track in self.audio_tracks:
-                track_args = f"{track.default=}, {track.forced=}, {track.name=}, {track.lang=}, {track.delay=}"
-                Log.info(f"   - [AUDIO] \"{track.file}\" ({track_args})", self.mux)
+            for atrack in self.audio_tracks:
+                track_args = f"{atrack.default=}, {atrack.forced=}, {atrack.name=}, {atrack.lang=}, {atrack.delay=}"
+                Log.info(f"   - [AUDIO] \"{atrack.file}\" ({track_args})", self.mux)
 
         if self.subtitle_tracks:
-            for track in self.subtitle_tracks:
-                track_args = f"{track.default=}, {track.forced=}, {track.name=}, {track.lang=}, {track.delay=}"
-                Log.info(f"   - [SUBTITLES] \"{track.file}\" ({track_args})", self.mux)
+            for strack in self.subtitle_tracks:
+                track_args = f"{strack.default=}, {strack.forced=}, {strack.name=}, {strack.lang=}, {strack.delay=}"
+                Log.info(f"   - [SUBTITLES] \"{strack.file}\" ({track_args})", self.mux)
 
         if self.chapters:
             Log.info(f"   - [CHAPTERS] {[f'{ch[1]} ({ch[0]})' for ch in self.chapters.chapters]}", self.mux)
@@ -276,24 +254,6 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         self._warn_if_path_too_long(self.fix_filename)
 
         return self.premux_path
-
-    def _warn_if_path_too_long(self, func_except: FuncExceptT | None = None) -> bool:
-        """Logs a warning if the premux path is too long, but only once."""
-
-        func = func_except or self._warn_if_path_too_long
-
-        if not getattr(self, "_path_too_long"):
-            self._path_too_long = False
-
-        if self._path_too_long:
-            return self._path_too_long
-
-        if len(str(self.premux_path)) > 255:
-            Log.warn("Output path is too long! Please move this file...", func)
-
-            self._path_too_long = True
-
-        return self._path_too_long
 
     @property
     def __name__(self) -> str:

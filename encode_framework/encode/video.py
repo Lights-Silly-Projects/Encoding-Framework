@@ -1,9 +1,11 @@
 from typing import Any, cast
 
-from vsmuxtools import VideoFile, x265  # type:ignore[import]
-from vsmuxtools.video.encoders import SupportsQP  # type:ignore[import]
+from muxtools import get_workdir
+from stgpytools import FuncExceptT
+from vsmuxtools import VideoTrack, VideoFile, x265  # type:ignore[import]
+from vsmuxtools.video.encoders import VideoEncoder  # type:ignore[import]
 from vstools import (ColorRange, CustomRuntimeError, CustomValueError, DitherType, FileNotExistsError, SPath, SPathLike,
-                     depth, finalize_clip, get_depth, vs)
+                     depth, finalize_clip, get_depth, get_prop, vs)
 
 from ..types import Zones
 from ..util.logging import Log
@@ -14,11 +16,17 @@ __all__: list[str] = [
 ]
 
 
+VideoEncoders = type[VideoEncoder]  # type:ignore[misc,valid-type]
+
+
 class _VideoEncoder(_BaseEncoder):
     """Class containing methods pertaining to handling video encoding."""
 
-    video_file: VideoFile
+    video_file: VideoFile  # type:ignore[assignment]
     """The encoded video file."""
+
+    video_track: VideoTrack
+    """The video track of the encoded video file."""
 
     premux_path: SPath
     """The path to the premux."""
@@ -26,7 +34,7 @@ class _VideoEncoder(_BaseEncoder):
     lossless_path: SPath
     """Path to a lossless intermediary encode."""
 
-    encoder: SupportsQP = x265
+    encoder: VideoEncoders = x265
     """The encoder used for the encode."""
 
     video_container_args: list[str] = []
@@ -40,9 +48,10 @@ class _VideoEncoder(_BaseEncoder):
         out_bit_depth: int = 10,
         dither_type: DitherType = DitherType.AUTO,
         qpfile: SPathLike | bool = True,
+        lang: str = "ja",
         settings: SPathLike = "_settings/{encoder}_settings",
         lossless: bool = False,
-        encoder: SupportsQP = x265,
+        encoder: VideoEncoders = x265,
         **encoder_kwargs: Any
     ) -> VideoFile:
         """
@@ -55,16 +64,38 @@ class _VideoEncoder(_BaseEncoder):
         :param dither_type:         Dither type when dithering down to `out_bit_depth`.
         :param qpfile:              qpfile for the encoder. A path must be passed.
                                     If False, do not use a qpfile at all.
+        :param lang:                Language of the track.
         :param settings:            Settings file. By default, tries to find a settings file using the encoder's name.
         :param lossless:            Whether to run a lossless encode prior to the regular encode.
         :param encoder:             The lossy encoder to use. Default: x265.
 
         :return:                    VideoFile object.
         """
+
         in_clip = input_clip or self.script_info.clip_cut
+
+        self._remove_empty_parts()
+        self._get_crop_args()
+
+        if finished_encode := list(SPath(get_workdir()).glob("encoded.*")):
+            Log.debug(f"Found finished encode at \"{finished_encode[0]}\"", self.encode_video)
+
+            self.video_file = VideoFile(finished_encode[0])
+
+            self.video_track = self.video_file.to_track(
+                default=True, timecode_file=self.script_info.tc_path,
+                lang=lang.strip(), crop=self.crop
+            )
+
+            return self.video_file
+
+        if isinstance(in_clip, tuple):
+            in_clip = in_clip[0]
+
         out_clip = output_clip or self.out_clip or in_clip
 
         self.encoder = encoder
+
         settings_file = SPath(str(settings).format(encoder=self.encoder.__name__))
 
         if not isinstance(out_clip, vs.VideoNode):
@@ -104,10 +135,16 @@ class _VideoEncoder(_BaseEncoder):
         if get_depth(out_clip) != out_bit_depth:
             out_clip = self._finalize_clip(out_clip, out_bit_depth, dither_type, self.encode_video)
 
-        video_file = self.encoder(settings_file, zones, qpfile, in_clip, **encoder_kwargs) \
-            .encode(out_clip)  # type:ignore[arg-type]
+        video_file = self.encoder(
+            settings_file, zones, qpfile, in_clip, **encoder_kwargs
+        ).encode(out_clip)  # type:ignore[arg-type, call-arg]
 
         self.video_file = cast(VideoFile, video_file)
+
+        self.video_track = self.video_file.to_track(
+            default=True, timecode_file=self.script_info.tc_path,
+            lang=lang.strip(), crop=self.crop
+        )
 
         return self.video_file
 
@@ -125,9 +162,9 @@ class _VideoEncoder(_BaseEncoder):
 
         return self.out_clip
 
-    def _set_container_args(self, encoder: SupportsQP, settings_file: SPath) -> list[str]:
+    def _set_container_args(self, encoder: VideoEncoders, settings_file: SPath) -> list[str]:
         """Set additional container arguments if relevant."""
-        psets = str(encoder(settings_file).settings).split(" ")
+        psets = str(encoder(settings_file).settings).split(" ")  # type:ignore[arg-type, attr-defined, call-arg]
 
         if all(x in psets for x in ("--overscan", "--display-window")):
             overscan_idx = psets.index("--overscan")
@@ -138,12 +175,38 @@ class _VideoEncoder(_BaseEncoder):
 
         return self.video_container_args
 
+    def _remove_empty_parts(self) -> None:
+        """Remove empty parts from the workdir."""
+
+        for part in SPath(get_workdir()).glob("encoded_part_*"):
+            if part.stat().st_size == 0:
+                part.unlink()
+
+    def _get_crop_args(
+        self, crop: int | tuple[int, int] | tuple[int, int, int, int] | None = None
+    ) -> int | tuple[int, int] | tuple[int, int, int, int] | None:
+        if crop is not None:
+            return crop
+
+        _l = get_prop(self.out_clip, "_SARLeft", int, None, 0, self.encode_video)
+        _r = get_prop(self.out_clip, "_SARRight", int, None, 0, self.encode_video)
+        _t = get_prop(self.out_clip, "_SARTop", int, None, 0, self.encode_video)
+        _b = get_prop(self.out_clip, "_SARBottom", int, None, 0, self.encode_video)
+
+        if any([_l, _r, _t, _b]):
+            crop = (_l, _t, _r, _b)
+
+        self.crop = crop
+
+        return crop
 
     def _encode_lossless(self, clip_to_process: vs.VideoNode, caller: str | None = None) -> vs.VideoNode:
         from vsmuxtools import FFV1, LosslessPreset, get_workdir
         from vssource import BestSource
 
-        self.lossless_path = get_workdir() / f"{self.script_info.show_title}_{self.script_info.ep_num}_lossless.mkv"
+        self.lossless_path = SPath(
+            get_workdir() / f"{self.script_info.show_title}_{self.script_info.ep_num}_lossless.mkv"
+        )
 
         if self.lossless_path.exists():
             Log.info(
@@ -160,16 +223,17 @@ class _VideoEncoder(_BaseEncoder):
 
     def _normalize_zones(self, clip: vs.VideoNode, zones: Zones) -> Zones:
         """Normalizes zones so they don't destroy the encoder with a \"Broken Pipe\" error."""
+
         if not isinstance(zones, list):
             zones = [zones]
 
-        norm_zones: list[Zones] = []
+        norm_zones: Zones = []
 
         for zone in zones:
-            if not len(zone) == 3:
+            if len(zone) != 3:
                 raise Log.error(
                     f"The zone \"{zone}\" must contain 3 values! "
-                    "(start frame, end frame, bitrate modifier)", self.encode_video, CustomValueError
+                    "(start frame, end frame, bitrate modifier)", self.encode_video, CustomValueError  # type:ignore
                 )
 
             if any(map(lambda x: x is None, zone)):
@@ -194,3 +258,20 @@ class _VideoEncoder(_BaseEncoder):
             norm_zones += [zone]
 
         return norm_zones
+
+    def _warn_if_path_too_long(self, func_except: FuncExceptT | None = None) -> bool:
+        """Logs a warning if the premux path is too long, but only once."""
+
+        func = func_except or self._warn_if_path_too_long
+
+        self._path_too_long = getattr(self, "_path_too_long", False)
+
+        if self._path_too_long:
+            return self._path_too_long
+
+        if len(str(self.premux_path)) > 255:
+            Log.warn("Output path is too long! Please move this file...", func)  # type:ignore
+
+            self._path_too_long = True
+
+        return self._path_too_long

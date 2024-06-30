@@ -95,7 +95,8 @@ class ScriptInfo:
         self.sc_path = SPath(f"_scenechanges/{self.file.stem}_scening.txt")
         self.sc_lock_file = SPath(f"_scenechanges/{self.file.stem}_scening.lock")
 
-        self.tc_path = SPath(f"_assets/{self.file.stem}_timecodes.txt")
+        tc_path = SPath(f"_assets/{self.file.stem}_timecodes.txt")
+        self.tc_path = tc_path if tc_path.exists() else None
 
 
     def _append_cwd(self) -> None:

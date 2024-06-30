@@ -367,7 +367,7 @@ class _AudioEncoder(_BaseEncoder):
                 afile_copy.unlink(missing_ok=True)
 
             atrack = do_audio(
-                audio_file, encoder=encoder, fps=wclip.fps, num_frames=wclip.num_frames
+                audio_file, encoder=encoder, trims=trim, fps=wclip.fps, num_frames=wclip.num_frames
             )
 
             atrack.container_delay = delay

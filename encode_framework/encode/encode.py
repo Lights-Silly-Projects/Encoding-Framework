@@ -67,17 +67,13 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
 
         tc_file = self.script_info.tc_path if self.script_info.tc_path.exists() else None
 
-        if self.video_container_args:
-            mkvmerge_args = " ".join(self.video_container_args)
-            lang += f" {mkvmerge_args}"
-
         crop = self._get_crop_args(crop)
 
         self.video_track = self.video_file.to_track(
             default=True, timecode_file=tc_file, lang=lang.strip(), crop=crop, *args
         )
 
-        self._mux_logs(crop, mkvmerge_args)
+        self._mux_logs(crop)
 
         self.premux_path = SPath(mux(
             self.video_track, *self.audio_tracks,
@@ -119,7 +115,6 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
     def _mux_logs(
         self,
         crop: tuple[int, int] | tuple[int, int, int, int] | None,
-        mkvmerge_args: str = ""
     ) -> None:
         track_args = f"{self.video_track.default=}, {self.video_track.forced=}, {self.video_track.name=}, "
         track_args += f"{self.video_track.lang=}, {self.video_track.delay=}"
@@ -134,7 +129,7 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
             Log.info(f"       - [+] Container cropping: \"{crop}\"", self.mux)
 
         if self.video_container_args:
-            Log.info(f"       - [+] Additional args: \"{mkvmerge_args}\"", self.mux)
+            Log.info(f"       - [+] Additional args: \"{" ".join(self.video_container_args)}\"", self.mux)
 
         if self.audio_tracks:
             for track in self.audio_tracks:

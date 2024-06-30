@@ -90,19 +90,16 @@ def splice_ncs(
     return_scomp: list[vs.VideoNode] = list()
     diff_rfs = FrameRangesN()
 
-    if isinstance(opstart, int) and not isinstance(opstart, bool):
-        assert isinstance(ncop, vs.VideoNode)
-
+    if isinstance(ncop, vs.VideoNode) and isinstance(opstart, int) and not isinstance(opstart, bool):
         ncop = ncop + ncop[-1] * 12
         diff_rfs += [(opstart, opstart+ncop.num_frames-1-op_offset)]  # type:ignore
 
+        print(op_offset)
         op_scomp = stack_compare(clip.text.FrameNum()[opstart:opstart+ncop.num_frames-1]+b, ncop[:-op_offset]+b)  # noqa
         clip = insert_clip(clip, ncop[:-op_offset], opstart)
         return_scomp += [op_scomp]
 
-    if isinstance(edstart, int) and not isinstance(edstart, bool):
-        assert isinstance(nced, vs.VideoNode)
-
+    if isinstance(nced, vs.VideoNode) and isinstance(edstart, int) and not isinstance(edstart, bool):
         nced = nced + nced[-1] * 12
         diff_rfs += [(edstart, edstart+nced.num_frames-1-ed_offset)]  # type:ignore
 
@@ -116,22 +113,22 @@ def splice_ncs(
     diff = DFTTest.denoise(diff, sigma=100)
 
     # For some reason there's ugly noise around the credits? Removing that here.
-    diff_brz = diff.std.BinarizeMask([0.0035, 0.0025])
-    diff = core.akarin.Expr([diff, diff_brz.std.Inflate().std.Maximum()], "x y min 1.01 *")
+    # diff_brz = diff.std.BinarizeMask([0.0035, 0.0025])
+    # diff = core.akarin.Expr([diff, diff_brz.std.Inflate().std.Maximum()], "x y min 1.01 *")
 
     # And somehow it creates weird values in some places? Limiting except for OP/ED.
     diff_lim = diff.std.BlankClip(keep=True).std.SetFrameProps(no_diff=True)
 
     # We also want to remove any extra junk from different compressions so they don't get diff'd back.
-    diff_brz = core.std.Binarize(get_y(diff).akarin.Expr("x abs"), 0.02)
-    diff_mask = iterate(diff_brz, core.std.Deflate, minimum)
-    diff_mask = iterate(diff_mask, core.std.Inflate, inflate)
-    diff_mask = iterate(diff_mask, core.std.Inflate, maximum)
-    diff_mask = Morpho.closing(diff_mask, size=close).std.BinarizeMask()
-    diff_brz = gauss_blur(diff_mask, 0.5)
+    # diff_brz = core.std.Binarize(get_y(diff).akarin.Expr("x abs"), 0.02)
+    # diff_mask = iterate(diff_brz, core.std.Deflate, minimum)
+    # diff_mask = iterate(diff_mask, core.std.Inflate, inflate)
+    # diff_mask = iterate(diff_mask, core.std.Inflate, maximum)
+    # diff_mask = Morpho.closing(diff_mask, size=close).std.BinarizeMask()
+    # diff = gauss_blur(diff_mask, 0.5)
 
     if show_mask:
-        return diff_brz
+        return diff
 
     # diff = core.std.MaskedMerge(diff_lim, diff, diff_brz)
     diff = replace_ranges(diff_lim, diff, diff_rfs)  # type:ignore

@@ -3,7 +3,7 @@ import shutil
 from typing import Any, Literal
 
 from vsmuxtools import (AudioFile, AudioTrack, Encoder,  # type:ignore[import]
-                        FFMpeg, HasTrimmer, Opus, ensure_path)
+                        FFMpeg, HasTrimmer, AutoEncoder, ensure_path)
 from vstools import (CustomIndexError, CustomNotImplementedError,
                      CustomRuntimeError, CustomValueError, FileNotExistsError,
                      FileType, SPath, SPathLike, vs)
@@ -146,7 +146,7 @@ class _AudioEncoder(_BaseEncoder):
         reorder: list[int] | Literal[False] = False,
         ref: vs.VideoNode | None = None,
         track_args: list[dict[str, Any]] = [dict(lang="ja", default=True)],
-        encoder: Encoder = Opus,
+        encoder: Encoder = AutoEncoder,
         trimmer: HasTrimmer | None | Literal[False] = None,
         force: bool = False,
         verbose: bool = False,
@@ -166,7 +166,7 @@ class _AudioEncoder(_BaseEncoder):
         :param track_args:      Keyword arguments for the track. Accepts a list,
                                 where one set of kwargs goes to every track.
         :param encoder:         Audio encoder to use. If the audio file is lossy, it will NEVER re-encode it!
-                                Default: Opus (default arguments).
+                                Default: AutoEncoder (default arguments).
         :param trimmer:         Trimmer to use for trimming. If False, don't trim at all.
                                 If None, automatically determine the trimmer based on input file.
         :param verbose:         Enable more verbose output.

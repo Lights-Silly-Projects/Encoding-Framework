@@ -216,7 +216,7 @@ class ScriptInfo:
                 trim[0] = 0  # type:ignore[assignment, index]
 
             if trim[1] is None:
-                trim[1] = self.clip_cut.num_frames + 1  # type:ignore[index]
+                trim[1] = self.src.init().num_frames + 1  # type:ignore[index]
 
             trim = tuple(trim)
 

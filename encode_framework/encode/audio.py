@@ -145,7 +145,7 @@ class _AudioEncoder(_BaseEncoder):
         audio_file: SPath | list[SPath] | vs.AudioNode | None = None,
         trims: list[tuple[int, int]] | tuple[int, int] | None = None,
         reorder: list[int] | Literal[False] = False,
-        ref: vs.VideoNode | None = None,
+        ref: vs.VideoNode | Any | None = None,
         track_args: list[dict[str, Any]] = [dict(lang="ja", default=True)],
         encoder: Encoder = AutoEncoder,
         trimmer: HasTrimmer | None | Literal[False] = None,
@@ -178,6 +178,7 @@ class _AudioEncoder(_BaseEncoder):
 
         from vsmuxtools import (FLAC, Sox, do_audio, frames_to_samples,
                                 is_fancy_codec, make_output)
+        from ..script import ScriptInfo
 
         func = self.encode_audio
 
@@ -207,7 +208,7 @@ class _AudioEncoder(_BaseEncoder):
         if ref is not None:
             Log.debug(f"`ref` VideoNode passed: {ref}", func)
 
-        wclip = ref or self.script_info.src.init()
+        wclip = ref.src.init() if isinstance(ref, ScriptInfo) else ref or self.script_info.src.init()
 
         trims = True if trims is None else trims
 
@@ -218,7 +219,7 @@ class _AudioEncoder(_BaseEncoder):
             if is_file:
                 trims = [self.script_info.trim]
             else:
-                trims = [tuple(frames_to_samples(x) for x in self.script_info.trim[0])]
+                trims = [tuple(frames_to_samples(x, 48000, wclip.fps) for x in self.script_info.trim[0])]
 
         # Normalising reordering of tracks.
         if reorder and is_file:
@@ -292,7 +293,7 @@ class _AudioEncoder(_BaseEncoder):
                     shutil.rmtree(trimmed_files[0].parent / ".temp", True)
 
                 # If a trimmed audio file already exists, this means it was likely already encoded.
-                if trims:
+                if trim:
                     Log.debug(f"Trimmed file found at \"{trimmed_files[0]}\"! Skipping encoding...", func)
 
                     afile = AudioFile.from_file(trimmed_files[0], func)
@@ -329,11 +330,16 @@ class _AudioEncoder(_BaseEncoder):
                 raise Log.error(f"Could not get the mediainfo for \"{afile.file}\"!", CustomIndexError)
 
             # Trim the audio file if applicable.
-            if trims and trimmer is not False:
+            if trim and trimmer is not False:
                 trimmer_obj = trimmer or (FFMpeg.Trimmer if is_lossy else Sox)
                 trimmer_obj = trimmer_obj(**trimmer_kwargs)
 
+                if any(x is None for x in trim):
+                    trim = (trim[0] or 0, trim[1] or wclip.num_frames)
+
                 setattr(trimmer_obj, "trim", trim)
+                setattr(trimmer_obj, "fps", wclip.fps)
+                setattr(trimmer_obj, "num_frames", wclip.num_frames)
 
                 if force and is_lossy:
                     Log.debug(
@@ -343,6 +349,7 @@ class _AudioEncoder(_BaseEncoder):
 
                     afile = FLAC(compression_level=0, dither=False).encode_audio(afile)
 
+                Log.info(f"Trimming audio file \"{afile.file}\" with trims {trim}...", self.encode_audio)
                 afile = trimmer_obj.trim_audio(afile)
 
             # Unset the encoder if force=False and it's a specific kind of audio track.

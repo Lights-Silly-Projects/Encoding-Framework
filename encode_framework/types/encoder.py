@@ -6,7 +6,7 @@ __all__: list[str] = [
     "TrimAuto",
 ]
 
-Zones = list[tuple[int, int, float]]
+Zones = list[tuple[int | None, int | None, float]]
 """List of tuples containing zoning information (start, end, bitrate multiplier)."""
 
 TrimAuto = tuple[int | Literal["auto"] | None, int | Literal["auto"] | None]

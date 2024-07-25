@@ -241,16 +241,20 @@ class _VideoEncoder(_BaseEncoder):
 
                 if start is None:
                     start = 0
+                elif start < 0:
+                    start = clip.num_frames - abs(start)
 
                 if end is None:
                     end = clip.num_frames
+                elif end < 0:
+                    end = clip.num_frames - abs(end)
 
                 if bitrate is None:
                     raise Log.error(
                         f"The value of \"bitrate modifier\" can't be None ({zone})!",
                         self.encode_video, CustomValueError
                     )
-                elif bitrate == 0:
+                elif bitrate <= 0:
                     continue
 
                 zone = (start, end, bitrate)

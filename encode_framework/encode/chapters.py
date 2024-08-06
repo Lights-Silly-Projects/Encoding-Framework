@@ -23,7 +23,7 @@ class _Chapters(_BaseEncoder):
 
     def get_chapters(
         self, ref: src_file | ScriptInfo | list[int | tuple[int, str]] | SPathLike | None = None,
-        shift: int = 0, force: bool = False, func: FuncExceptT | None = None, **kwargs: Any
+        shift: int | None = None, force: bool = False, func: FuncExceptT | None = None, **kwargs: Any
     ) -> Chapters | None:
         """
         Create chapter objects if chapter files exist.
@@ -32,6 +32,7 @@ class _Chapters(_BaseEncoder):
                         Can also be a list of integers representing frame numbers with additional names.
                         Furthermore, it can also be an SPath pointing to a chapter-like file.
         :param shift:   Amount to globally shift chapters by in frames (relative to `src_file`'s fps).
+        :param func:    Function to log messages to.
         :param force:   Force chapter creation, even for videos such as NCs or MVs.
         """
         from vsmuxtools import frame_to_timedelta
@@ -40,9 +41,8 @@ class _Chapters(_BaseEncoder):
 
         if isinstance(ref, ScriptInfo):
             ref = ref.src
-        elif isinstance(ref, SPathLike):
-            if not (ref := SPath(ref)).exists():
-                raise Log.error(f"Could not find the file \"{ref}\"!", func)
+        elif isinstance(ref, SPathLike) and not (ref := SPath(ref)).exists():
+            raise Log.error(f"Could not find the file \"{ref}\"!", func)
 
         if any(str(self.script_info.ep_num).startswith(x) for x in ["NC", "OP", "ED", "EP", "MV"]):
             if not force:
@@ -57,7 +57,7 @@ class _Chapters(_BaseEncoder):
 
         wclip = ref or self.script_info.src
 
-        if isinstance(wclip, src_file) and not SPath(wclip.file).suffix in (".m2ts", ".vob", ".iso"):
+        if isinstance(wclip, src_file) and SPath(wclip.file).suffix not in (".m2ts", ".vob", ".iso"):
             Log.debug(
                 f"work clip is not a BD/DVD file, checking for \"*.chapters.txt\"...", func)
 
@@ -75,11 +75,15 @@ class _Chapters(_BaseEncoder):
 
         chapters = Chapters(wclip, **kwargs)
 
+        if shift is None:
+            if isinstance((shift := getattr(self, "script_info", 0)), ScriptInfo):
+                shift = shift.trim[0]
+
         if shift:
             for i, _ in enumerate(self.chapters.chapters):
                 self.chapters = self.chapters.shift_chapter(i, shift)
 
-            Log.info(f"After shift:", func)
+            Log.info("After shift:", func)
             self.chapters.print()
 
         if chapters.chapters:

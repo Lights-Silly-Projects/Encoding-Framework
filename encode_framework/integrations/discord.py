@@ -13,6 +13,7 @@ from stgpytools import CustomValueError, SPath, SPathLike
 from vsmuxtools.video.settings import (file_or_default, fill_props,
                                        settings_builder_x265)
 from vstools import vs
+from muxtools import find_tracks, VideoTrack, AudioTrack, SubTrack
 
 from ..config import get_items, get_option
 from ..encode import Encoder
@@ -54,6 +55,9 @@ class DiscordEmbedOpts(str, Enum):
 
     TRACKS_INFO = auto()
     """Display the number of tracks and basic information about each track."""
+
+    GENERAL_FILE_INFO = auto()
+    """Display basic information about the file. Ignored if TRACKS_INFO is enabled."""
 
 
 DisOpt = DiscordEmbedOpts
@@ -128,6 +132,12 @@ class DiscordEmbedder(DiscordWebhook):
 
         self._encode_embed_opts = options
 
+        if all(x in self._encode_embed_opts for x in (
+            DiscordEmbedOpts.TRACKS_INFO,
+            DiscordEmbedOpts.GENERAL_FILE_INFO
+        )):
+            self._encode_embed_opts.pop(DiscordEmbedOpts.GENERAL_FILE_INFO, False)
+
         if DiscordEmbedOpts.ANIME_INFO in self._encode_embed_opts:
             self._set_anilist()
 
@@ -151,21 +161,27 @@ class DiscordEmbedder(DiscordWebhook):
 
     def success(self, msg: str = "", pmx: SPathLike = "") -> None:
         """Encode success embed."""
+
         if not self.webhook_url:
             return
 
-        if not self._start:
-            Log.error(f"You must run \"{self.__class__.__name__}.start\" first!", self.success)
+        # if not self._start:
+        #     Log.error(f"You must run \"{self.__class__.__name__}.start\" first!", self.success)
 
         if pmx:
-            self.encoder.premux_path = SPath(pmx)
+            if isinstance(self.encoder, tuple):
+                self.encoder[0].premux_path = SPath(pmx)
+            else:
+                self.encoder.premux_path = SPath(pmx)
 
         embed = DiscordEmbed(title=self._get_base_title("has finished encoding!"), description=msg, color=32768)
 
         if DiscordEmbedOpts.ANIME_INFO in self._encode_embed_opts:
             embed = self._set_anilist_title(embed, "has finished encoding!")
 
-        if DiscordEmbedOpts.TRACKS_INFO in self._encode_embed_opts:
+        if any(x in self._encode_embed_opts for x in (
+            DiscordEmbedOpts.TRACKS_INFO, DiscordEmbedOpts.GENERAL_FILE_INFO
+        )):
             embed = self._track_info(embed)
 
         if DiscordEmbedOpts.TIME_ELAPSED in self._encode_embed_opts:
@@ -242,19 +258,19 @@ class DiscordEmbedder(DiscordWebhook):
 
     # !This is the start of all private functions ---------------------------------------------------------------------
     def _set_webhook_url(self, auth: str = "auth.ini") -> str:
-        self.webhook_url = get_option("auth.ini", "DISCORD", "webhook_url")
+        self.webhook_url = get_option(auth, "DISCORD", "webhook_url")
 
         if "support.discord.com" in str(self.webhook_url):
             self.webhook_url = None
 
         if not self.webhook_url:
-            Log.error(f"You MUST set a webhook url to use Discord embeds!", self._set_webhook_url)
+            Log.error("You MUST set a webhook url to use Discord embeds!", self._set_webhook_url)
 
         return self.webhook_url
 
     def _get_project_options(self, config: str = "config.ini") -> dict[str, str]:
         """Get all the options from the config file's project section."""
-        return get_items("config.ini", "SETUP")
+        return get_items(config, "SETUP")
 
     def _get_response_datetime(self, response: Response) -> datetime:
         return datetime.fromisoformat(dict(response.json()).get("timestamp", ""))
@@ -330,7 +346,8 @@ class DiscordEmbedder(DiscordWebhook):
 
         if self._anime.next_airing_episode is not None:
             # TODO: this
-            desc += "\nTODO: add airing info :D (remind @lightarrowsexe if you see this)"
+            # desc += "\nTODO: add airing info :D (remind @lightarrowsexe if you see this)"
+            pass
 
         embed = self._append_to_embed_description(embed, desc)
 
@@ -391,21 +408,27 @@ class DiscordEmbedder(DiscordWebhook):
         return self._append_to_embed_description(embed, desc)
 
     def _track_info(self, embed: DiscordEmbed) -> DiscordEmbed:
-        tracks = self._get_track_info()
+        encoder = self.encoder[0] if isinstance(self.encoder, tuple) else self.encoder
+        tracks = self._get_tracks(encoder.premux_path)
 
-        desc = f"```markdown\n{self.encoder.premux_path.name}\n * Total Filesize: {tracks[0][1]}```\n"
-        desc += "```markdown\n"
+        print(encoder.premux_path)
+        print(tracks)
 
-        for track_title, track_info in tracks[1:]:
-            desc += f"**{track_title}**"
+        desc = f"```markdown\n{encoder.premux_path.name}\n * Total Filesize: {tracks[0][1]}```\n"
 
-            if track_info:
-                desc += ":\n    - "
-                desc += "\n    - ".join(track_info)
+        if DiscordEmbedOpts.GENERAL_FILE_INFO not in self._encode_embed_opts:
+            desc += "```markdown\n"
 
-            desc += "\n\n"
+            for track_title, track_info in tracks[1:]:
+                desc += f"**{track_title}**"
 
-        desc += "```"
+                if track_info:
+                    desc += ":\n    - "
+                    desc += "\n    - ".join(track_info)
+
+                desc += "\n\n"
+
+            desc += "```"
 
         Log.debug(f"Discord embed for tracks:\n{desc.strip()}", self._track_info)
 
@@ -413,8 +436,7 @@ class DiscordEmbedder(DiscordWebhook):
 
         return embed
 
-    def _get_track_info(self, premux_path: SPathLike | None = None) -> list[tuple[str, list[str]]]:
-
+    def _get_tracks(self, premux_path: SPathLike | None = None) -> list[tuple[str, list[str]]]:
         if not premux_path:
             if isinstance(self.encoder, tuple):
                 encoder = self.encoder[0]
@@ -429,6 +451,8 @@ class DiscordEmbedder(DiscordWebhook):
 
         try:
             for track in MediaInfo.parse(premux_path).tracks:
+                assert isinstance(track, Track), f"Track {track} is not a track!"
+
                 if track.track_type == "General":
                     tracks += [(track.track_type, track.other_file_size[0])]
                 elif track.track_type == "Video":
@@ -444,10 +468,10 @@ class DiscordEmbedder(DiscordWebhook):
                         tracks += [ch]
                 else:
                     Log.debug(f"Unprocessed track: {vars(track)}", self._get_track_info)
-        except:
-            Log.error(str(vars(track)), self._get_track_info)
+        except Exception as e:
+            Log.error((str(vars(track)), e), self._get_track_info)
 
-            raise Log.error(f"An error occured with the \"{track.track_type}\" track!", self._get_track_info)
+            raise Log.error(f"An error occured while retrieving the \"{track.track_type}\" track!", self._get_tracks)
 
         return tracks
 
@@ -461,14 +485,20 @@ class DiscordEmbedder(DiscordWebhook):
     def _get_video_track_info(self, track: Track) -> tuple[str, list[str]]:
         t_data = track.to_data()
 
+        Log.debug(t_data, self._get_video_track_info)
+
         res = f"{track.width}x{track.height}"
 
         # TODO: Add a check for progressive/interlaced video
         res += "p"
 
+        encoder = self.encoder[0] if isinstance(self.encoder, tuple) else self.encoder
+
         info = [
+            # Language
+            f"Language: {t_data.get('language', 'Not set')}",
             # Framerate check (can help you figure out whether the encode truly finished)
-            f"{track.frame_count}/{self.encoder.out_clip.num_frames} frames",
+            f"{track.frame_count}/{encoder.out_clip.num_frames} frames",
             # Base resolution + Bit depth
             f"{res} ({track.other_display_aspect_ratio[0]}) {track.other_bit_depth[0][:-1]}",
             # Frame rate
@@ -490,9 +520,18 @@ class DiscordEmbedder(DiscordWebhook):
         return (self._get_basic_track_title(track), info)
 
     def _get_audio_track_info(self, track: Track) -> tuple[str, list[str]]:
+        t_data = track.to_data()
+
+        Log.debug(t_data, self._get_audio_track_info)
+
         info = [
             # Number of channels
             str(track.other_channel_s[0]),
+            # Language
+            f"Language: {t_data.get('language', 'Not set')}",
+            # Track selection
+            f"Default: {t_data.get('default', 'Unknown')}",
+            f"Forced: {t_data.get('forced', 'Unknown')}",
         ]
 
         if track.commercial_name == "FLAC":
@@ -506,7 +545,16 @@ class DiscordEmbedder(DiscordWebhook):
         return (self._get_basic_track_title(track), info)
 
     def _get_subtitle_track_info(self, track: Track) -> tuple[str, list[str]]:
-        return (self._get_basic_track_title(track), [])
+        t_data = track.to_data()
+
+        return (
+            self._get_basic_track_title(track),
+            [
+                f"Language: {t_data.get('language', 'Not set')}",
+                f"Default: {t_data.get('default', 'Unknown')}"
+                f"Forced: {t_data.get('forced', 'Unknown')}",
+            ]
+        )
 
     def _get_menu_track_info(self, track: Track) -> tuple[str, list[str]]:
         chapters = []
@@ -546,7 +594,8 @@ class DiscordEmbedder(DiscordWebhook):
             return False
 
         if premux_path is None:
-            premux_path = self.encoder.premux_path
+            encoder = self.encoder[0] if isinstance(self.encoder, tuple) else self.encoder
+            premux_path = encoder.premux_path
 
         premux_path = SPath(premux_path)
 
@@ -603,7 +652,7 @@ class DiscordEmbedder(DiscordWebhook):
 
     def _prettify_exception(self, embed: DiscordEmbed, exception: BaseException | str | None = None) -> DiscordEmbed:
         if isinstance(exception, KeyboardInterrupt):
-            exception = "The encode was manually interrupted!"
+            exception = "The encode was manually interrupted! "
 
         if exception:
             exception = markdownify(str(exception))

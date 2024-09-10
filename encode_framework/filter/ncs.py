@@ -94,10 +94,9 @@ def splice_ncs(
         ncop = ncop + ncop[-1] * 12
         diff_rfs += [(opstart, opstart+ncop.num_frames-1-op_offset)]  # type:ignore
 
-        print(op_offset)
         op_scomp = stack_compare(clip.text.FrameNum()[opstart:opstart+ncop.num_frames-1]+b, ncop[:-op_offset]+b)  # noqa
         clip = insert_clip(clip, ncop[:-op_offset], opstart)
-        return_scomp += [op_scomp]
+        return_scomp += [op_scomp.std.SetFrameProps(Name="OP splice trim")]
 
     if isinstance(nced, vs.VideoNode) and isinstance(edstart, int) and not isinstance(edstart, bool):
         nced = nced + nced[-1] * 12
@@ -105,9 +104,9 @@ def splice_ncs(
 
         ed_scomp = stack_compare(clip.text.FrameNum()[edstart:edstart+nced.num_frames-1]+b, nced[:-ed_offset]+b)  # noqa
         clip = insert_clip(clip, nced[:-ed_offset], edstart)
-        return_scomp += [ed_scomp]
+        return_scomp += [ed_scomp.std.SetFrameProps(Name="ED splice trim")]
 
-    return_scomp += [clip]
+    return_scomp += [clip.std.SetFrameProps(Name="NCs spliced in")]
 
     diff = core.std.MakeDiff(*[depth(x, 32) for x in [clip_c, clip]])  # type:ignore
     diff = DFTTest.denoise(diff, sigma=100)
@@ -133,12 +132,9 @@ def splice_ncs(
     # diff = core.std.MaskedMerge(diff_lim, diff, diff_brz)
     diff = replace_ranges(diff_lim, diff, diff_rfs)  # type:ignore
 
-    return_scomp += [diff]
+    return_scomp += [diff.std.SetFrameProps(Name="Credits diff")]
 
     if return_scomps:
-        for i, f in enumerate(return_scomp, 1):
-            Log.info(f"[{i}/{len(return_scomp)}] - {f}", splice_ncs)
-
         return return_scomp
 
     return clip, diff

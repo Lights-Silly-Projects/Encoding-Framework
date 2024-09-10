@@ -1,6 +1,5 @@
-import re
 import shutil
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from vsmuxtools import (AudioFile, AudioTrack, Encoder,  # type:ignore[import]
                         FFMpeg, HasTrimmer, AutoEncoder, ensure_path, get_workdir)
@@ -25,7 +24,10 @@ class _AudioEncoder(_BaseEncoder):
     audio_tracks: list[AudioTrack] = []
     """A list of all audio tracks."""
 
-    def find_audio_files(self, dgi_path: SPathLike | None = None) -> list[SPath]:
+    def find_audio_files(
+        self, dgi_path: SPathLike | None = None,
+        reorder: list[int] | Literal[False] = False,
+    ) -> list[SPath]:
         """
         Find accompanying DGIndex(NV) demuxed audio tracks.
 
@@ -85,11 +87,17 @@ class _AudioEncoder(_BaseEncoder):
 
         audio_files = sorted(audio_files, key=self.extract_pid)
 
+        if reorder:
+            old, new = audio_files, self._reorder(audio_files, reorder)
+            Log.info(f"Reordering files! {old=}, {new=}", self.find_audio_files)
+            audio_files = new
+
         for f in audio_files:
             try:
                 Log.info(f"    - \"{f.name if isinstance(f, SPath) else f.file}\"")  # type:ignore[attr-defined]
             except (AttributeError, ValueError) as e:
                 Log.warn(f"    - Unknown track!\n{e}")
+
         self.audio_files += audio_files
 
         return audio_files
@@ -177,7 +185,7 @@ class _AudioEncoder(_BaseEncoder):
         from itertools import zip_longest
 
         from vsmuxtools import (FLAC, Sox, do_audio, frames_to_samples,
-                                is_fancy_codec, make_output)
+                                is_fancy_codec)
         from ..script import ScriptInfo
 
         func = self.encode_audio
@@ -221,15 +229,7 @@ class _AudioEncoder(_BaseEncoder):
             else:
                 trims = [tuple(frames_to_samples(x, 48000, wclip.fps) for x in self.script_info.trim[0])]
 
-        # Normalising reordering of tracks.
-        if reorder and is_file:
-            if len(reorder) > len(process_files):  # type:ignore[arg-type]
-                reorder = reorder[:len(process_files)]  # type:ignore[arg-type]
-
-            process_files = [process_files[i] for i in reorder]  # type:ignore[index, misc]
-
-            # Commented out because it'd be way too confusing otherwise.
-            # track_args = [track_args[i] for i in reorder]  # type:ignore[index, misc]
+        process_files = self._reorder(process_files, reorder)
 
         if not process_files:
             return process_files
@@ -263,10 +263,12 @@ class _AudioEncoder(_BaseEncoder):
                 f"Processing audio track {i + 1}/{len(process_files)}...",  self.encode_audio  # type:ignore[arg-type]
             )
             Log.debug(f"Processing audio file \"{audio_file}\"...", func)
-            Log.info(f"{track_arg=}", func)
+            Log.info(f"{trim=}, {track_arg=}", func)
 
             if delay:
                 Log.info(f"Delay passed ({delay}ms), applying to source audio file...", func)
+
+            src = cast(vs.VideoNode, self.script_info.src.init())
 
             # This is mainly meant to support weird trims we don't typically support and should not be used otherwise!
             if isinstance(audio_file, vs.AudioNode):
@@ -276,7 +278,7 @@ class _AudioEncoder(_BaseEncoder):
                 )  # type:ignore[arg-type]
 
                 atrack = do_audio(
-                    audio_file, encoder=encoder, fps=wclip.fps, num_frames=wclip.num_frames
+                    audio_file, encoder=encoder, fps=src.fps, num_frames=src.num_frames
                 )
 
                 atrack.container_delay = delay
@@ -350,7 +352,7 @@ class _AudioEncoder(_BaseEncoder):
                     afile = FLAC(compression_level=0, dither=False).encode_audio(afile)
 
                 Log.info(f"Trimming audio file \"{afile.file}\" with trims {trim}...", self.encode_audio)
-                afile = trimmer_obj.trim_audio(afile)
+                # afile = trimmer_obj.trim_audio(afile)
 
             # Unset the encoder if force=False and it's a specific kind of audio track.
             if is_lossy and force:
@@ -366,9 +368,9 @@ class _AudioEncoder(_BaseEncoder):
 
             if encoder:
                 setattr(encoder, "output", None)
-                encoded = do_audio(afile, i, trim, wclip.fps, wclip.num_frames, None, None, encoder, not verbose)
-                ensure_path(afile.file, func).unlink(missing_ok=True)
-                afile = encoded
+                # encoded = do_audio(afile, i, trim, wclip.fps, wclip.num_frames, None, None, encoder, not verbose)
+                # ensure_path(afile.file, func).unlink(missing_ok=True)
+                # afile = encoded
 
             # Move the acopy to the original position if muxtools Thanos snapped it.
             if not SPath(afile_old).exists():
@@ -376,7 +378,7 @@ class _AudioEncoder(_BaseEncoder):
                 afile_copy.unlink(missing_ok=True)
 
             atrack = do_audio(
-                audio_file, encoder=encoder, trims=trim, fps=wclip.fps, num_frames=wclip.num_frames
+                audio_file, encoder=encoder, trims=trim, fps=src.fps, num_frames=src.num_frames, quiet=not verbose
             )
 
             atrack.container_delay = delay
@@ -393,6 +395,20 @@ class _AudioEncoder(_BaseEncoder):
         self.__clean_acopy(afile.file)
 
         return self.audio_tracks
+
+    def _reorder(
+        self, process_files: list[SPath] | None = None,
+        reorder: list[int] | Literal[False] = False
+    ) -> list[SPath]:
+        if not reorder:
+            return
+
+        process_files = process_files or self.audio_files
+
+        if len(reorder) > len(process_files):  # type:ignore[arg-type]
+            reorder = reorder[:len(process_files)]  # type:ignore[arg-type]
+
+        return [process_files[i] for i in reorder]
 
     def __clean_acopy(self, base_path: SPathLike | AudioFile) -> None:
         """Try to forcibly clean up acopy files so they no longer pollute other methods."""

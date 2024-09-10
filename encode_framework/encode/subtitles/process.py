@@ -91,9 +91,9 @@ class _ProcessSubtitles(_BaseSubtitles):
 
         return self.subtitle_tracks
 
-    def passthrough(
+    def sub_passthrough(
         self, subtitle_files: SPathLike | list[SPath] | None = None,
-        track_args: dict[str, Any] = [dict(lang="en", default=True)],
+        track_args: list[dict[str, Any]] = [dict(lang="en", default=True)],
         reorder: list[int] | Literal[False] = False,
         sub_delay: int | None = None,
         supmover_cmd: list[str] = [],
@@ -148,10 +148,10 @@ class _ProcessSubtitles(_BaseSubtitles):
             if track_arg:
                 track_arg = dict(track_arg)
 
-            Log.info(f"[{i + 1}/{len(sub_files)}] {track_arg=}", self.passthrough)
+            Log.info(f"[{i + 1}/{len(sub_files)}] {track_arg=}", self.sub_passthrough)
 
             if self.check_is_empty(sub):
-                Log.debug(f"\"{sub.name}\" is an empty file! Ignoring...", self.passthrough)
+                Log.debug(f"\"{sub.name}\" is an empty file! Ignoring...", self.sub_passthrough)
                 continue
 
             sub_delay = track_arg.pop("delay", sub_delay)
@@ -166,13 +166,14 @@ class _ProcessSubtitles(_BaseSubtitles):
 
     def _shift_pgs(self, subfile: SPath, delay: int = 0, cmd_args: list[str] = []) -> SPath:
         """Muxtools does not touch PGS files, so we have to delay it ourselves."""
-        Log.info(f"Delay set or SupMover args passed, trying to modify PGS...", self.passthrough)
+
+        Log.info("Delay set or SupMover args passed, trying to modify PGS...", self.sub_passthrough)
 
         if not shutil.which("SupMover-win.exe"):
-            raise Log.error(DependencyNotFoundError(self.passthrough, "SupMover-win.exe"), self.passthrough)
+            raise Log.error(DependencyNotFoundError(self.sub_passthrough, "SupMover-win.exe"), self.sub_passthrough)
 
         out_subfile = SPath(get_workdir() / subfile.name)
-        Log.debug(f"SUP output location: \"{out_subfile.absolute()}\"", self.passthrough)
+        Log.debug(f"SUP output location: \"{out_subfile.absolute()}\"", self.sub_passthrough)
 
         if out_subfile.exists():
             out_subfile.unlink(True)
@@ -182,14 +183,13 @@ class _ProcessSubtitles(_BaseSubtitles):
         ] + [str(arg) for arg in cmd_args]
 
         try:
-            Log.info(sp.run(cmd, check=True, stdout=sp.PIPE, stderr=sp.PIPE, text=True), self.passthrough)
+            Log.info(sp.run(cmd, check=True, stdout=sp.PIPE, stderr=sp.PIPE, text=True), self.sub_passthrough)
         except sp.CalledProcessError as e:
-            Log.error(f"Error executing command: {e}", self.passthrough)
-            Log.error(f"Output: {e.output}", self.passthrough)
-            raise Log.error(f"Error: {e.stderr}", self.passthrough)
+            Log.error(f"Error executing command: {e}", self.sub_passthrough)
+            Log.error(f"Output: {e.output}", self.sub_passthrough)
+            raise Log.error(f"Error: {e.stderr}", self.sub_passthrough)
 
         return out_subfile
-
 
     def _save(self) -> list[SPath]:
         show_name = get_setup_attr("show_name", "Example")
@@ -232,7 +232,7 @@ class _ProcessSubtitles(_BaseSubtitles):
                         line = line.replace("|", "I")
                         line = line.replace(" L ", " I ")
                         line = line.replace(" ll ", " I ")
-                        line = line.replace("{\i}", "{\i0}")
+                        line = line.replace(r"{\i}", r"{\i0}")
 
                         fout.write(line)
         except Exception as e:
@@ -291,7 +291,7 @@ class _ProcessSubtitles(_BaseSubtitles):
                 continue
 
             name = "OCR'd" if sub in ocrd_files else ""
-            default = default=first_track_removed or not bool(i)
+            default = first_track_removed or not bool(i)
 
             if sub.to_str().endswith(".sup"):
                 self.subtitle_tracks += [SubTrack(sub, name, default, delay=sub_delay)]

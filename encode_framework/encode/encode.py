@@ -119,7 +119,7 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
                 track_args = f"{strack.default=}, {strack.forced=}, {strack.name=}, {strack.lang=}, {strack.delay=}"
                 Log.info(f"   - [SUBTITLES] \"{strack.file}\" ({track_args})", self.mux)
 
-        if self.chapters:
+        if hasattr(self.chapters, 'chapters') and self.chapters.chapters:
             Log.info(f"   - [CHAPTERS] {[f'{ch[1]} ({ch[0]})' for ch in self.chapters.chapters]}", self.mux)
 
     def _move_once_done(self, dir_name: str = "_done") -> SPath:
@@ -199,7 +199,18 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
 
     def move_nc_to_extras_dir(self, dir_out: str = "Extras") -> SPath:
         """For moving NCs to an extras directory."""
-        if "NC" not in str(self.script_info.ep_num):
+
+        Log.warn(
+            "This function is *DEPRECATED*! Please us `move_extras_to_extra_dir` instead!",
+            self.move_nc_to_extras_dir
+        )
+
+        self.move_extras_to_extra_dir(dir_out)
+
+    def move_extras_to_extra_dir(self, dir_out: str = "Extras") -> SPath:
+        """Move anything that doesn't fall under SxxEyy into the extras directory."""
+
+        if re.search(r'S\d{2}E\d+', str(self.script_info.ep_num)):
             return self.premux_path
 
         if not (nc_dir := self.premux_path.parent / dir_out).exists():
@@ -216,8 +227,9 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         return self.premux_path
 
     def move_specials_to_specials_dir(self, dir_out: str = "Specials") -> SPath:
-        """For moving NCs to an extras directory."""
-        if not any(x in str(self.script_info.ep_num) for x in ("Movie", "MV", "ONA", "OVA", "S00", "SP")):
+        """Move any specials (S00) into the specials directory."""
+
+        if not re.search(r'S00E\d+', str(self.script_info.ep_num)):
             return self.premux_path
 
         if not (sp_dir := self.premux_path.parent / dir_out).exists():

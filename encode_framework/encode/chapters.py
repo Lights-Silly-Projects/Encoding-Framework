@@ -58,8 +58,7 @@ class _Chapters(_BaseEncoder):
         wclip = ref or self.script_info.src
 
         if isinstance(wclip, src_file) and SPath(wclip.file).suffix not in (".m2ts", ".vob", ".iso"):
-            Log.debug(
-                f"work clip is not a BD/DVD file, checking for \"*.chapters.txt\"...", func)
+            Log.debug(f"work clip is not a BD/DVD file, checking for \"*.chapters.txt\"...", func)
 
             file = SPath(wclip.file)
             files = list(SPath(file.parent).glob(
@@ -79,15 +78,13 @@ class _Chapters(_BaseEncoder):
             if isinstance((shift := getattr(self, "script_info", 0)), ScriptInfo):
                 shift = shift.trim[0]
 
-        if shift:
-            for i, _ in enumerate(self.chapters.chapters):
-                self.chapters = self.chapters.shift_chapter(i, shift)
+        chapters_found = chapters and hasattr(chapters, 'chapters')
 
-            Log.info("After shift:", func)
-            self.chapters.print()
+        if shift and chapters_found:
+            for i, _ in enumerate(chapters.chapters):
+                chapters = chapters.shift_chapter(i, shift)
 
-        if chapters.chapters:
-            self.chapters = chapters
+        self.chapters = chapters
 
         return self.chapters
 

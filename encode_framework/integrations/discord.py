@@ -41,6 +41,9 @@ class DiscordEmbedOpts(str, Enum):
     EXCEPTION = auto()
     """Display the exception if an error is thrown."""
 
+    GENERAL_FILE_INFO = auto()
+    """Display basic information about the file. Ignored if TRACKS_INFO is enabled."""
+
     PLOTBITRATE = auto()
     """Embed an image with the plotted bitrate of the output file if possible."""
 
@@ -55,9 +58,6 @@ class DiscordEmbedOpts(str, Enum):
 
     TRACKS_INFO = auto()
     """Display the number of tracks and basic information about each track."""
-
-    GENERAL_FILE_INFO = auto()
-    """Display basic information about the file. Ignored if TRACKS_INFO is enabled."""
 
 
 DisOpt = DiscordEmbedOpts
@@ -136,7 +136,7 @@ class DiscordEmbedder(DiscordWebhook):
             DiscordEmbedOpts.TRACKS_INFO,
             DiscordEmbedOpts.GENERAL_FILE_INFO
         )):
-            self._encode_embed_opts.pop(DiscordEmbedOpts.GENERAL_FILE_INFO, False)
+            self._encode_embed_opts -= set(DiscordEmbedOpts.GENERAL_FILE_INFO)
 
         if DiscordEmbedOpts.ANIME_INFO in self._encode_embed_opts:
             self._set_anilist()
@@ -411,20 +411,16 @@ class DiscordEmbedder(DiscordWebhook):
         encoder = self.encoder[0] if isinstance(self.encoder, tuple) else self.encoder
         tracks = self._get_tracks(encoder.premux_path)
 
-        print(encoder.premux_path)
-        print(tracks)
-
         desc = f"```markdown\n{encoder.premux_path.name}\n * Total Filesize: {tracks[0][1]}```\n"
 
         if DiscordEmbedOpts.GENERAL_FILE_INFO not in self._encode_embed_opts:
             desc += "```markdown\n"
 
             for track_title, track_info in tracks[1:]:
-                desc += f"**{track_title}**"
+                desc += f"{track_title}:"
 
                 if track_info:
-                    desc += ":\n    - "
-                    desc += "\n    - ".join(track_info)
+                    desc += ("\n    - " + "\n    - ".join(track_info))
 
                 desc += "\n\n"
 
@@ -460,16 +456,16 @@ class DiscordEmbedder(DiscordWebhook):
                 elif track.track_type == "Audio":
                     tracks += [self._get_audio_track_info(track)]
                 elif track.track_type == "Text":
-                    tracks += [(self._get_subtitle_track_info(track))]
+                    tracks += [self._get_subtitle_track_info(track)]
                 elif track.track_type == "Menu":
                     ch = self._get_menu_track_info(track)
 
                     if ch:
                         tracks += [ch]
                 else:
-                    Log.debug(f"Unprocessed track: {vars(track)}", self._get_track_info)
+                    Log.debug(f"Unprocessed track: {vars(track)}", self._track_info)
         except Exception as e:
-            Log.error((str(vars(track)), e), self._get_track_info)
+            Log.error((str(vars(track)), e), self._track_info)
 
             raise Log.error(f"An error occured while retrieving the \"{track.track_type}\" track!", self._get_tracks)
 
@@ -526,7 +522,7 @@ class DiscordEmbedder(DiscordWebhook):
 
         info = [
             # Number of channels
-            str(track.other_channel_s[0]),
+            str(t_data.get('other_channel_s', ['Unknown number of channels'])[0]),
             # Language
             f"Language: {t_data.get('language', 'Not set')}",
             # Track selection
@@ -534,12 +530,16 @@ class DiscordEmbedder(DiscordWebhook):
             f"Forced: {t_data.get('forced', 'Unknown')}",
         ]
 
-        if track.commercial_name == "FLAC":
+        if t_data.get('commercial_name', '') == "FLAC":
             info += [
                 # Bit depth
-                str(track.other_bit_depth[0]),
+                str(t_data.get('other_bit_depth', ['?'])[0]),
+            ]
+
+        if (delay := t_data.get('delay_relative_to_video', 0)):
+            info += [
                 # Delay
-                f"Delay relative to video: {str(track.delay_relative_to_video)}ms"
+                f"Delay relative to video: {str(delay)}ms"
             ]
 
         return (self._get_basic_track_title(track), info)
@@ -547,14 +547,19 @@ class DiscordEmbedder(DiscordWebhook):
     def _get_subtitle_track_info(self, track: Track) -> tuple[str, list[str]]:
         t_data = track.to_data()
 
-        return (
-            self._get_basic_track_title(track),
-            [
-                f"Language: {t_data.get('language', 'Not set')}",
-                f"Default: {t_data.get('default', 'Unknown')}"
-                f"Forced: {t_data.get('forced', 'Unknown')}",
+        info = [
+            f"Language: {t_data.get('language', 'Not set')}",
+            f"Default: {t_data.get('default', 'Unknown')}",
+            f"Forced: {t_data.get('forced', 'Unknown')}",
+        ]
+
+        if (delay := t_data.get('delay_relative_to_video', 0)):
+            info += [
+                # Delay
+                f"Delay relative to video: {str(delay)}ms"
             ]
-        )
+
+        return (self._get_basic_track_title(track), info)
 
     def _get_menu_track_info(self, track: Track) -> tuple[str, list[str]]:
         chapters = []
@@ -640,7 +645,9 @@ class DiscordEmbedder(DiscordWebhook):
         desc = f"\nTime elapsed: {str(elapsed)[:-3]}"
 
         if DiscordEmbedOpts.SHOW_FPS in self._encode_embed_opts:
-            desc += f" ({self._calc_fps(self.encoder.out_clip, elapsed.seconds):.2f} fps)"
+            encoder = self.encoder[0] if isinstance(self.encoder, tuple) else self.encoder
+
+            desc += f" ({self._calc_fps(encoder.out_clip, elapsed.seconds):.2f} fps)"
 
         embed = self._append_to_embed_description(embed, desc)
 

@@ -318,6 +318,7 @@ class ScriptInfo:
         wclip = Hermite.scale(wclip, get_w(height, wclip), height)
         wclip = prefilter_to_full_range(wclip, range_conversion)
 
+        Log.debug(f"Generating keyframes for \"{self.sc_path.name}\"...", self.generate_keyframes)
         kf = Keyframes.from_clip(wclip, mode)
         kf.append(wclip.num_frames - 1)
 

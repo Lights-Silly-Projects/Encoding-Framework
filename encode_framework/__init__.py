@@ -1,13 +1,15 @@
+# ruff: noqa: F401, F403, F405
+
 from vsmuxtools import Setup  # type:ignore[import]
 
-from .config import *  # noqa: F401, F403
-from .encode import *  # noqa: F401, F403
-from .filter import *  # noqa: F401, F403
-from .git import *  # noqa: F401, F403
-from .integrations import *  # noqa: F401, F403
-from .script import *  # noqa: F401, F403
-from .types import *  # noqa: F401, F403
-from .util import *  # noqa: F401, F403
+from .config import *
+from .encode import *
+from .filter import *
+from .git import *
+from .integrations import *
+from .script import *
+from .types import *
+from .util import *
 
 # Forcibly create config files before we do anything.
 setup_auth()

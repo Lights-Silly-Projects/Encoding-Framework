@@ -9,8 +9,8 @@ from configparser import ConfigParser, NoOptionError, NoSectionError
 from dataclasses import dataclass
 from ftplib import FTP
 
-from stgpytools import (CustomError, CustomNotImplementedError,
-                        FileNotExistsError, SPath, SPathLike)
+from vstools import (CustomError, CustomNotImplementedError,
+                     FileNotExistsError, SPath, SPathLike)
 
 from ..git.ignore import append_gitignore
 from ..util.logging import Log

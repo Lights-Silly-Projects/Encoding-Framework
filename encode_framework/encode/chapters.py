@@ -1,9 +1,9 @@
+from fractions import Fraction
 from typing import Any
 
 # type:ignore[import]
 from vsmuxtools import Chapters, src_file, timedelta_to_frame
-from vstools import SPath, SPathLike, CustomNotImplementedError, FileNotExistsError, vs, FuncExceptT
-from fractions import Fraction
+from vstools import FileNotExistsError, FuncExceptT, SPath, SPathLike, vs
 
 from ..script import ScriptInfo
 from ..util.logging import Log
@@ -58,7 +58,7 @@ class _Chapters(_BaseEncoder):
         wclip = ref or self.script_info.src
 
         if isinstance(wclip, src_file) and SPath(wclip.file).suffix not in (".m2ts", ".vob", ".iso"):
-            Log.debug(f"work clip is not a BD/DVD file, checking for \"*.chapters.txt\"...", func)
+            Log.debug("work clip is not a BD/DVD file, checking for \"*.chapters.txt\"...", func)
 
             file = SPath(wclip.file)
             files = list(SPath(file.parent).glob(
@@ -110,9 +110,10 @@ def get_chapter_frames(
 
     wclip = ref or script_info.src
 
-    if isinstance(wclip, src_file) and not SPath(wclip.file).suffix in (".m2ts", ".vob", ".iso"):
+    if isinstance(wclip, src_file) and SPath(wclip.file).suffix not in (".m2ts", ".vob", ".iso"):
         Log.debug(
-            f"work clip is not a BD/DVD file, checking for \"*.chapters.txt\"...", func)
+            "work clip is not a BD/DVD file, checking for \"*.chapters.txt\"...", func
+        )
 
         file = SPath(wclip.file)
         files = list(SPath(file.parent).glob(f"*{file.stem}*.chapters.txt"))
@@ -135,7 +136,7 @@ def get_chapter_frames(
         for i, _ in enumerate(chs.chapters):
             chs = chs.shift_chapter(i, -trim_start)
 
-        Log.info(f"After shift:", func)
+        Log.info("After shift:", func)
         chs.print()
 
     fps = ref.fps if ref is not None else Fraction(24000, 1001)

@@ -462,7 +462,6 @@ class Preview:
 
     def set_audio_outputs(self, path: SPathLike | None = None) -> None:
         """Set AudioNode outputs."""
-        from vstools import core
 
         if path is not None:
             audios = [core.bs.AudioSource(SPath(path).to_str())]

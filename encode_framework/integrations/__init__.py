@@ -1,3 +1,5 @@
-from .anilist import *  # noqa: F401, F403
-from .discord import *  # noqa: F401, F403
-from .ftp import *  # noqa: F401, F403
+# ruff: noqa: F401, F403
+
+from .anilist import *
+from .discord import *
+from .ftp import *

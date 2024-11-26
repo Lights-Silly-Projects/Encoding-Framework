@@ -6,7 +6,8 @@ from vstools import SPath, SPathLike, vs
 
 from ...git import clone_git_repo
 from ...types import IsWindows
-from ...util import (Log, cargo_build, check_package_installed, check_program_installed, install_package, run_cmd,
+from ...util import (Log, cargo_build, check_package_installed,
+                     check_program_installed, install_package, run_cmd,
                      temp_download, unpack_zip)
 
 __all__: list[str] = [
@@ -189,7 +190,7 @@ class OcrProgram(str, Enum):
         try:
             clone_git_repo("https://github.com/tesseract-ocr/tessdata_best.git")
         except Exception as e:
-            if not "exit code(128)" in str(e):
+            if "exit code(128)" not in str(e):
                 Log.error(
                     f"Some kind of error occurred while cloning the \"tessdata_best\" repo!\n{e}",
                     self.__install_pgsrip

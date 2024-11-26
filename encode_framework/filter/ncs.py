@@ -1,10 +1,7 @@
 from typing import Literal, Sequence, overload
 
-from vstools import (FrameRangesN, FunctionUtil, core, depth, expect_bits,
-                     get_depth, get_y, insert_clip, iterate, replace_ranges,
-                     vs)
-
-from ..util import Log
+from vstools import (FrameRangesN, core, depth, expect_bits, get_depth,
+                     insert_clip, replace_ranges, vs)
 
 __all__: Sequence[str] = [
     "splice_ncs",
@@ -79,8 +76,6 @@ def splice_ncs(
     """
     from lvsfunc import stack_compare
     from vsdenoise import DFTTest
-    from vsmasktools import Morpho
-    from vsrgtools import gauss_blur
 
     # Preparing clips.
     b = clip.std.BlankClip(length=1, color=[0] * 3)
@@ -156,8 +151,8 @@ def merge_credits_mask(
     flt: vs.VideoNode, diff: vs.VideoNode, src: vs.VideoNode, show_mask: bool = False
 ) -> vs.VideoNode:
     """A simple helper function to merge the credits back onto a clip by creating a mask."""
-    from vstools import get_neutral_value
     from vsexprtools import norm_expr
+    from vstools import get_neutral_value
 
     flt = depth(flt, diff)
     src = depth(src, flt)

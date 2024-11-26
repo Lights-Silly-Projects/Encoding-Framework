@@ -9,11 +9,9 @@ from discord_webhook import DiscordEmbed, DiscordWebhook
 from pymediainfo import MediaInfo, Track  # type:ignore[import]
 from pyupload.uploader import CatboxUploader  # type:ignore
 from requests import Response  # type:ignore[import]
-from stgpytools import CustomValueError, SPath, SPathLike
 from vsmuxtools.video.settings import (file_or_default, fill_props,
                                        settings_builder_x265)
-from vstools import vs
-from muxtools import find_tracks, VideoTrack, AudioTrack, SubTrack
+from vstools import CustomValueError, SPath, SPathLike, vs
 
 from ..config import get_items, get_option
 from ..encode import Encoder
@@ -230,7 +228,7 @@ class DiscordEmbedder(DiscordWebhook):
         if not ftp._history:
             raise CustomValueError("You cannot call this embedded if you haven't uploaded anything!", self.ftp_upload)
 
-        msg = f"The following files were uploaded to the FTP:"
+        msg = "The following files were uploaded to the FTP:"
 
         for transfer in ftp._history:
             msg += f"\n - {transfer.human_readable(DiscordEmbedOpts.TIME_ELAPSED in self._encode_embed_opts)}"

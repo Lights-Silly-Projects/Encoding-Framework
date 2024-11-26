@@ -35,7 +35,7 @@ def install_package(pkg: str, extra_params: list[str] = [], prompt: bool = False
     """Install a given Python package."""
     Log.info(f"Installing \"{pkg}\" via pip!", install_package)
 
-    if prompt and not input("Continue with this process? [Y/n] ").strip().lower() in TruthyInput:
+    if prompt and input("Continue with this process? [Y/n] ").strip().lower() not in TruthyInput:
         return False
 
     try:

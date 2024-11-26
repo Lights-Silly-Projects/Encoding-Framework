@@ -1,6 +1,8 @@
-from .logging import Log
 from typing import Any, Callable
+
 from vstools import CustomValueError
+
+from .logging import Log
 
 __all__: list[str] = [
     "assert_truthy"

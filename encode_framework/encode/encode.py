@@ -1,8 +1,8 @@
 import re
 from typing import Any, cast
 
-from vstools import FuncExceptT, CustomRuntimeError, SPath, SPathLike, vs
 from muxtools import get_setup_attr
+from vstools import CustomRuntimeError, SPath, SPathLike, vs
 
 from ..script import ScriptInfo
 from ..util import Log

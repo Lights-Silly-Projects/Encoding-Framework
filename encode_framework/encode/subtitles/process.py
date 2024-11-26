@@ -1,11 +1,11 @@
 import shutil
-from itertools import zip_longest
 import subprocess as sp
+from itertools import zip_longest
 from typing import Any, Literal
 
 from vsmuxtools import (GJM_GANDHI_PRESET, SubFile, SubTrack, frame_to_ms,
                         get_setup_attr, get_workdir, uniquify_path)
-from vstools import SPath, SPathLike, vs, DependencyNotFoundError
+from vstools import DependencyNotFoundError, SPath, SPathLike, vs
 
 from ...types import BitmapSubExt, TextSubExt
 from ...util import Log

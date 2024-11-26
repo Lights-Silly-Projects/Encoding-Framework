@@ -1,8 +1,8 @@
 import shutil
 from typing import Any, Literal, cast
 
-from vsmuxtools import (AudioFile, AudioTrack, Encoder,  # type:ignore[import]
-                        FFMpeg, HasTrimmer, AutoEncoder, ensure_path, get_workdir)
+from vsmuxtools import (AudioFile, AudioTrack,  # type:ignore[import]
+                        AutoEncoder, Encoder, FFMpeg, HasTrimmer, get_workdir)
 from vstools import (CustomIndexError, CustomNotImplementedError,
                      CustomRuntimeError, CustomValueError, FileNotExistsError,
                      FileType, SPath, SPathLike, vs)
@@ -186,6 +186,7 @@ class _AudioEncoder(_BaseEncoder):
 
         from vsmuxtools import (FLAC, Sox, do_audio, frames_to_samples,
                                 is_fancy_codec)
+
         from ..script import ScriptInfo
 
         func = self.encode_audio
@@ -456,4 +457,3 @@ class _AudioEncoder(_BaseEncoder):
         """
 
         return []
-        ...

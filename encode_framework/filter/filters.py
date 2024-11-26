@@ -5,10 +5,10 @@
 
 from typing import Any, Literal
 
+from vsexprtools import norm_expr
 from vsscale import DescaleResult
 from vstools import (CustomValueError, FrameRangesN, SPath, VSFunction, core,
                      replace_ranges, vs)
-from vsexprtools import norm_expr
 
 from ..util.logging import Log
 
@@ -174,8 +174,10 @@ def diff_keyframes(
         Log.warn("Diff keyframe file already exists!")
 
         match input("Want to overwrite? [Y/n] ").lower().strip():
-            case "y" | "yes": kf_path.unlink(missing_ok=True)
-            case _: return kf_path
+            case "y" | "yes":
+                kf_path.unlink(missing_ok=True)
+            case _:
+                return kf_path
 
     if prefilter is not None:
         clip_a, clip_b = prefilter(clip_a), prefilter(clip_b)

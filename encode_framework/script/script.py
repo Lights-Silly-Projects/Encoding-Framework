@@ -141,7 +141,8 @@ class ScriptInfo:
             idx_dir = SPath(idx_dir)
 
         if force_dgi and not self.src_file[0].to_str().endswith(".dgi"):
-            from vssource import DGIndexNV
+            from ..encode.idx.dgindexnv import \
+                DGIndexNVAddFilenames as DGIndexNV
 
             try:
                 self.src_file = DGIndexNV().index(self.src_file, force_reindex, False, idx_dir, *cmd_args)

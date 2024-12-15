@@ -213,16 +213,16 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         if re.search(r'S\d{2}E\d+', str(self.script_info.ep_num)):
             return self.premux_path
 
-        if not (nc_dir := self.premux_path.parent / dir_out).exists():
-            nc_dir.mkdir(exist_ok=True)
+        if not (extra_dir := self.premux_path.parent / dir_out).exists():
+            extra_dir.mkdir(exist_ok=True)
 
-        nc_out = nc_dir / self.premux_path.name
+        extra_out = extra_dir / self.premux_path.name
 
-        Log.info(f"Moving NC file: \"{self.premux_path}\" --> \"{nc_out}\"", self.mux)
+        Log.info(f"Moving NC file: \"{self.premux_path}\" --> \"{extra_out}\"", self.mux)
 
-        self.premux_path = self.premux_path.rename(nc_out)
+        self.premux_path = self.premux_path.rename(extra_out)
 
-        self._warn_if_path_too_long(self.move_nc_to_extras_dir)
+        self._warn_if_path_too_long(self.move_extras_to_extra_dir)
 
         return self.premux_path
 

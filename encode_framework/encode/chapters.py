@@ -1,5 +1,5 @@
 from fractions import Fraction
-from typing import Any
+from typing import Any, cast
 
 # type:ignore[import]
 from vsmuxtools import Chapters, src_file, timedelta_to_frame
@@ -107,20 +107,19 @@ def get_chapter_frames(
     elif isinstance(ref, SPathLike):
         if not (ref := SPath(ref)).exists():
             raise Log.error(f"Could not find the file \"{ref}\"!", func)
+    elif isinstance(ref, vs.VideoNode):
+        ref = cast(vs.VideoNode, ref)
 
     wclip = ref or script_info.src
 
-    if isinstance(wclip, src_file) and SPath(wclip.file).suffix not in (".m2ts", ".vob", ".iso"):
-        Log.debug(
-            "work clip is not a BD/DVD file, checking for \"*.chapters.txt\"...", func
-        )
+    if isinstance(wclip, src_file) and not SPath(wclip.file).suffix in (".m2ts", ".vob", ".iso"):
+        Log.debug("work clip is not a BD/DVD file, checking for \"*.chapters.txt\"...", func)
 
         file = SPath(wclip.file)
         files = list(SPath(file.parent).glob(f"*{file.stem}*.chapters.txt"))
 
         if files:
-            Log.debug("The following files were found: " +
-                      '\n    - '.join([f.to_str() for f in files]), func)
+            Log.debug("The following files were found: " + '\n    - '.join([f.to_str() for f in files]), func)
 
             wclip = files[0]
         else:
@@ -134,7 +133,7 @@ def get_chapter_frames(
 
     if trim_start := script_info.trim[0]:
         for i, _ in enumerate(chs.chapters):
-            chs = chs.shift_chapter(i, -trim_start)
+            chs = chs.shift_chapter(i, -abs(trim_start))
 
         Log.info("After shift:", func)
         chs.print()

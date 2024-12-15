@@ -350,7 +350,7 @@ class _AudioEncoder(_BaseEncoder):
                         self.encode_audio
                     )
 
-                    afile = FLAC(compression_level=0, dither=False).encode_audio(afile)
+                    afile = FLAC(compression_level=0).encode_audio(afile)
 
                 Log.info(f"Trimming audio file \"{afile.file}\" with trims {trim}...", self.encode_audio)
                 # afile = trimmer_obj.trim_audio(afile)

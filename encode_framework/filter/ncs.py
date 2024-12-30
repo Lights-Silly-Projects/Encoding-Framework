@@ -89,7 +89,10 @@ def splice_ncs(
         ncop = ncop + ncop[-1] * 12
         diff_rfs += [(opstart, opstart+ncop.num_frames-1-op_offset)]  # type:ignore
 
-        op_scomp = stack_compare(clip.text.FrameNum()[opstart:opstart+ncop.num_frames-1]+b, ncop[:-op_offset]+b)  # noqa
+        op_scomp = stack_compare(
+            clip.text.FrameNum()[opstart:opstart+ncop.num_frames-1]+b, ncop[:-op_offset]+b.text.FrameNum()
+        )  # noqa
+
         clip = insert_clip(clip, ncop[:-op_offset], opstart)
         return_scomp += [op_scomp.std.SetFrameProps(Name="OP splice trim")]
 
@@ -97,7 +100,10 @@ def splice_ncs(
         nced = nced + nced[-1] * 12
         diff_rfs += [(edstart, edstart+nced.num_frames-1-ed_offset)]  # type:ignore
 
-        ed_scomp = stack_compare(clip.text.FrameNum()[edstart:edstart+nced.num_frames-1]+b, nced[:-ed_offset]+b)  # noqa
+        ed_scomp = stack_compare(
+            clip.text.FrameNum()[edstart:edstart+nced.num_frames-1]+b, nced[:-ed_offset]+b.text.FrameNum()
+        )  # noqa
+
         clip = insert_clip(clip, nced[:-ed_offset], edstart)
         return_scomp += [ed_scomp.std.SetFrameProps(Name="ED splice trim")]
 

@@ -131,13 +131,6 @@ def get_chapter_frames(
         Log.warn("No chapters could be found.", func)
         return
 
-    if trim_start := script_info.trim[0]:
-        for i, _ in enumerate(chs.chapters):
-            chs = chs.shift_chapter(i, -abs(trim_start))
-
-        Log.info("After shift:", func)
-        chs.print()
-
     fps = ref.fps if ref is not None else Fraction(24000, 1001)
 
     try:
@@ -149,9 +142,7 @@ def get_chapter_frames(
     ch_ranges = []
 
     for i, (start_time, _) in enumerate(chs.chapters):
-        end_time = chs.chapters[i + 1][0] if i + \
-            1 < len(chs.chapters) else None
-        ch_ranges += [(timedelta_to_frame(start_time),
-                       end_time if end_time is None else timedelta_to_frame(end_time))]
+        end_time = chs.chapters[i + 1][0] if i + 1 < len(chs.chapters) else None
+        ch_ranges += [(timedelta_to_frame(start_time), end_time if end_time is None else timedelta_to_frame(end_time))]
 
     return ch_ranges

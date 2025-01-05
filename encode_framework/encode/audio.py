@@ -1,5 +1,6 @@
 import shutil
 from typing import Any, Literal, cast
+import re
 
 from vsmuxtools import (AudioFile, AudioTrack,  # type:ignore[import]
                         AutoEncoder, Encoder, FFMpeg, HasTrimmer, get_workdir)
@@ -66,7 +67,10 @@ class _AudioEncoder(_BaseEncoder):
 
             audio_files: list[SPath] = []  # type:ignore[no-redef]
 
-            for f in dgi_file.parent.glob(f"{dgi_file.stem}*.*"):
+            # [] and () characters mess up the glob, so replacing them
+            search_string = f'*{dgi_file.stem}*.*'.translate(str.maketrans('[]()', '????')).replace('**', '*')
+
+            for f in dgi_file.get_folder().glob(search_string):
                 # explicitly ignore certain files; audio.parse seems to count these for some reason?
                 if f.suffix.lower() in (".log", ".sup", ".ttf", ".otf", ".ttc"):
                     continue
@@ -75,7 +79,8 @@ class _AudioEncoder(_BaseEncoder):
 
                 try:
                     FileType.AUDIO.parse(f, func=self.find_audio_files)
-                except (AssertionError, ValueError):
+                except (AssertionError, ValueError) as e:
+                    print(e)
                     continue
 
                 audio_files += [f]

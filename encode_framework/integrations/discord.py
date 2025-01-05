@@ -9,8 +9,8 @@ from discord_webhook import DiscordEmbed, DiscordWebhook
 from pymediainfo import MediaInfo, Track  # type:ignore[import]
 from pyupload.uploader import CatboxUploader  # type:ignore
 from requests import Response  # type:ignore[import]
-from vsmuxtools.video.settings import (file_or_default, fill_props,
-                                       settings_builder_x265)
+from vsmuxtools.video.settings import file_or_default, settings_builder_x265
+from vsmuxtools import fill_props
 from vstools import CustomValueError, SPath, SPathLike, vs
 
 from ..config import get_items, get_option
@@ -200,7 +200,10 @@ class DiscordEmbedder(DiscordWebhook):
             return
 
         if not self._start:
-            return Log.error(f"You must run \"{self.__class__.__name__}.start\" first!", self.fail)
+            return Log.error(
+                f"You must run \"{self.__class__.__name__}.start\" first!\n"
+                f"Original exception: {exception}", self.fail
+            )
 
         embed = DiscordEmbed(title=self._get_base_title("has failed while encoding!"), description=msg, color=12582912)
 

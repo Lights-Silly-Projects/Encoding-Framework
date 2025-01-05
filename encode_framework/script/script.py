@@ -150,7 +150,8 @@ class ScriptInfo:
                 if any(any(ch in p.to_str() for ch in "[]") for p in self.src_file):
                     raise Log.error(
                         "DGIndexNV sometimes has issues with square brackets in the path! "
-                        "Remove all brackets inside directories or filenames and try again.",
+                        "Remove all brackets inside directories or filenames and try again. "
+                        f"Original error: {e}",
                         self.index, CustomIndexError
                     )
 

@@ -9,8 +9,8 @@ from discord_webhook import DiscordEmbed, DiscordWebhook
 from pymediainfo import MediaInfo, Track  # type:ignore[import]
 from pyupload.uploader import CatboxUploader  # type:ignore
 from requests import Response  # type:ignore[import]
-from vsmuxtools.video.settings import file_or_default, settings_builder_x265
-from vsmuxtools import fill_props
+from vsmuxtools.video.settings import (file_or_default, fill_props,
+                                       settings_builder_x265)
 from vstools import CustomValueError, SPath, SPathLike, vs
 
 from ..config import get_items, get_option

@@ -106,7 +106,8 @@ class ScriptInfo:
     def index(
         self, path: SPathLike | list[SPathLike], trim: TrimAuto | list[TrimAuto] | int | None = None,
         name: str | None = None, force_dgi: bool = True, force_reindex: bool = False,
-        idx_dir: SPathLike | None = None, cmd_args: tuple[str] = ("-a",)
+        idx_dir: SPathLike | None = None, cmd_args: tuple[str] = ("-a",),
+        replace_bs_clip: bool = True
     ) -> vs.VideoNode:
         """Index the given file. Returns a tuple containing the `src_file` object and the `init_cut` node."""
         from .trim import get_post_trim, get_pre_trim
@@ -184,7 +185,7 @@ class ScriptInfo:
 
         assert_truthy(is_iterable(self.src_file))
 
-        self.src = src_file(self.src_file[0].to_str(), trim=trim)
+        self.src = src_file(self.src_file[0].to_str(), trim=trim, force_bs=replace_bs_clip)
         self.clip_cut = cast(vs.VideoNode, self.src.init_cut()).std.SetFrameProps(
             OutNode="src", idx_filepath=SPath(path[0]).absolute().to_str()
         )

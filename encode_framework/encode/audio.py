@@ -1,12 +1,12 @@
 import shutil
 from typing import Any, Literal, cast
-import re
 
 from vsmuxtools import (AudioFile, AudioTrack,  # type:ignore[import]
                         AutoEncoder, Encoder, FFMpeg, HasTrimmer, get_workdir)
 from vstools import (CustomIndexError, CustomNotImplementedError,
-                     CustomRuntimeError, CustomValueError, FileNotExistsError,
-                     FileType, SPath, SPathLike, vs)
+                     CustomRuntimeError, CustomTypeError, CustomValueError,
+                     FileNotExistsError, FileType, SPath, SPathLike, to_arr,
+                     vs)
 
 from ..util.logging import Log
 from .base import _BaseEncoder
@@ -228,12 +228,15 @@ class _AudioEncoder(_BaseEncoder):
 
         # Normalising trims.
         if isinstance(trims, tuple):
-            trims = [trims]
+            trims = to_arr(trims, sub=True)
         elif trims:
             if is_file:
-                trims = [self.script_info.trim]
+                trims = to_arr(trims, sub=True)
             else:
-                trims = [tuple(frames_to_samples(x, 48000, wclip.fps) for x in self.script_info.trim[0])]
+                trims = to_arr(tuple(frames_to_samples(x, 48000, wclip.fps) for x in trims), sub=True)
+
+        if trims:
+            Log.debug(f"{trims=}", func)
 
         process_files = self._reorder(process_files, reorder)
 
@@ -256,6 +259,15 @@ class _AudioEncoder(_BaseEncoder):
         for i, (audio_file, trim, track_arg) in enumerate(  # type:ignore[arg-type, assignment]
             zip_longest(process_files, trims, track_args, fillvalue=trims[-1])  # type:ignore[arg-type]
         ):
+            if not isinstance(trim, tuple):
+                try:
+                    trim = tuple(trim)
+                except TypeError:
+                    raise Log.error(
+                        f"Invalid trim type passed! Please pass a tuple or a list of tuples, not {type(trim)}!",
+                        self.encode_audio, CustomTypeError
+                    )
+
             # I guess this is something to worry about now?
             if trim == track_arg:
                 track_arg = track_args[-1]

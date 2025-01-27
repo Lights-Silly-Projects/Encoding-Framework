@@ -112,7 +112,7 @@ def get_chapter_frames(
 
     wclip = ref or script_info.src
 
-    if isinstance(wclip, src_file) and not SPath(wclip.file).suffix in (".m2ts", ".vob", ".iso"):
+    if isinstance(wclip, src_file) and SPath(wclip.file).suffix not in (".m2ts", ".vob", ".iso"):
         Log.debug("work clip is not a BD/DVD file, checking for \"*.chapters.txt\"...", func)
 
         file = SPath(wclip.file)

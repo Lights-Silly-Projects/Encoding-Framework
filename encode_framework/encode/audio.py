@@ -1,12 +1,12 @@
 import shutil
 from typing import Any, Literal, cast
-import re
 
 from vsmuxtools import (AudioFile, AudioTrack, AutoEncoder, Encoder, FFMpeg,
-                        frame_to_ms, get_workdir, HasTrimmer)
+                        HasTrimmer, frame_to_ms, get_workdir)
 from vstools import (CustomIndexError, CustomNotImplementedError,
                      CustomRuntimeError, CustomValueError, FileNotExistsError,
                      FileType, SPath, SPathLike, vs)
+
 from ..util.logging import Log
 from .base import _BaseEncoder
 

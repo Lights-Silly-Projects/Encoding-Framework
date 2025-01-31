@@ -1,13 +1,12 @@
 import shutil
 from typing import Any, Literal, cast
+import re
 
-from vsmuxtools import (AudioFile, AudioTrack,  # type:ignore[import]
-                        AutoEncoder, Encoder, FFMpeg, HasTrimmer, get_workdir)
+from vsmuxtools import (AudioFile, AudioTrack, AutoEncoder, Encoder, FFMpeg,
+                        frame_to_ms, get_workdir, HasTrimmer)
 from vstools import (CustomIndexError, CustomNotImplementedError,
-                     CustomRuntimeError, CustomTypeError, CustomValueError,
-                     FileNotExistsError, FileType, SPath, SPathLike, to_arr,
-                     vs)
-
+                     CustomRuntimeError, CustomValueError, FileNotExistsError,
+                     FileType, SPath, SPathLike, vs)
 from ..util.logging import Log
 from .base import _BaseEncoder
 
@@ -36,6 +35,7 @@ class _AudioEncoder(_BaseEncoder):
         If it is, it will try to extract those audio tracks and return those.
         If input file is not a dgi file, it will throw an error.
         """
+
         if isinstance(dgi_path, list):
             dgi_path = dgi_path[0]
 
@@ -72,7 +72,7 @@ class _AudioEncoder(_BaseEncoder):
 
             for f in dgi_file.get_folder().glob(search_string):
                 # explicitly ignore certain files; audio.parse seems to count these for some reason?
-                if f.suffix.lower() in (".log", ".sup", ".ttf", ".otf", ".ttc"):
+                if f.suffix.lower() in (".log", ".sup", ".ttf", ".otf", ".ttc", ".wob"):
                     continue
 
                 Log.debug(f"Checking the following file: \"{f.name}\"...", self.find_audio_files)
@@ -227,13 +227,15 @@ class _AudioEncoder(_BaseEncoder):
         trims = self.script_info.trim if trims is None else trims
 
         # Normalising trims.
-        if isinstance(trims, tuple):
+        if not trims:
+            pass
+        elif isinstance(trims, tuple) and not isinstance(trims, list):
             trims = [trims]
-        elif trims:
-            if is_file:
-                trims = to_arr(trims, sub=True)
-            else:
-                trims = to_arr(tuple(frames_to_samples(x, 48000, wclip.fps) for x in trims), sub=True)
+        elif is_file:
+            trims = [trims] if not isinstance(trims[0], tuple) else trims
+        else:
+            trims_list = trims if isinstance(trims[0], tuple) else [trims]
+            trims = [frames_to_samples(x, 48000, wclip.fps) for x in trims_list]
 
         if trims:
             Log.debug(f"{trims=}", func)
@@ -260,17 +262,26 @@ class _AudioEncoder(_BaseEncoder):
             zip_longest(process_files, trims, track_args, fillvalue=trims[-1])  # type:ignore[arg-type]
         ):
             if not isinstance(trim, tuple):
-                try:
-                    trim = tuple(trim)
-                except TypeError:
-                    raise Log.error(
-                        f"Invalid trim type passed! Please pass a tuple or a list of tuples, not {type(trim)}!",
-                        self.encode_audio, CustomTypeError
-                    )
+                Log.warn(f"Trim is not a tuple: {trim} ({type(trim)})", self.encode_audio)
+                trim = tuple(trim)
 
             # I guess this is something to worry about now?
             if trim == track_arg:
                 track_arg = track_args[-1]
+
+            if any(x < 0 for x in trim):
+                old_trim, trim = trim, tuple(max(0, x) for x in trim)
+                Log.warn(
+                    f"Negative trim values set to 0: {trim}. Original trim: {old_trim}",
+                    self.encode_audio
+                )
+
+            if any(x > wclip.num_frames for x in trim):
+                old_trim, trim = trim, tuple(min(wclip.num_frames, x) for x in trim)
+                Log.warn(
+                    f"Trim values greater than the number of frames set to the number of frames: {trim}. "
+                    f"Original trim: {old_trim}", self.encode_audio
+                )
 
             if track_arg:
                 track_arg = dict(track_arg)
@@ -357,6 +368,31 @@ class _AudioEncoder(_BaseEncoder):
                 if any(x is None for x in trim):
                     trim = (trim[0] or 0, trim[1] or wclip.num_frames)
 
+                if trim[0] < 0:
+                    new_delay = frame_to_ms(abs(trim[0]), wclip.fps)
+
+                    Log.warn(
+                        f"Start trim value is negative ({trim[0]})! Calculating additional delay of {new_delay}ms!",
+                        self.encode_audio
+                    )
+
+                    delay -= new_delay
+                    trim = (0, trim[1])
+
+                if trim[1] > wclip.num_frames:
+                    trim = (trim[0], wclip.num_frames)
+                elif trim[1] < 0:
+                    trim_into_ep = wclip.num_frames - abs(trim[1])
+                    if trim_into_ep < 0:
+                        Log.warn(
+                            f"End trim is before the start trim ({trim[1]} < {trim[0]} ({trim_into_ep} frames))!",
+                            self.encode_audio
+                        )
+
+                        trim = (0, 0)
+                    else:
+                        trim = (trim[0], trim_into_ep)
+
                 setattr(trimmer_obj, "trim", trim)
                 setattr(trimmer_obj, "fps", wclip.fps)
                 setattr(trimmer_obj, "num_frames", wclip.num_frames)
@@ -400,6 +436,13 @@ class _AudioEncoder(_BaseEncoder):
             )
 
             atrack.container_delay = delay
+
+            if abs(atrack.container_delay) > 1001:
+                Log.warn(
+                    f"Container delay is greater than 1001ms ({atrack.container_delay}ms)! "
+                    "This is likely to cause syncing issues! Consider trimming the audio file further.",
+                    self.encode_audio
+                )
 
             atrack = atrack.to_track(**track_arg)
 

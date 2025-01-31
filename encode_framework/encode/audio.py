@@ -224,11 +224,11 @@ class _AudioEncoder(_BaseEncoder):
 
         wclip = ref.src.init() if isinstance(ref, ScriptInfo) else ref or self.script_info.src.init()
 
-        trims = True if trims is None else trims
+        trims = self.script_info.trim if trims is None else trims
 
         # Normalising trims.
         if isinstance(trims, tuple):
-            trims = to_arr(trims, sub=True)
+            trims = [trims]
         elif trims:
             if is_file:
                 trims = to_arr(trims, sub=True)

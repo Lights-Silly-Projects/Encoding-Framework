@@ -185,7 +185,7 @@ class ScriptInfo:
 
         assert_truthy(is_iterable(self.src_file))
 
-        self.src = src_file(self.src_file[0].to_str(), trim=trim, force_bs=replace_bs_clip)
+        self.src = src_file(self.src_file[0].to_str(), trim=trim)
         self.clip_cut = cast(vs.VideoNode, self.src.init_cut()).std.SetFrameProps(
             OutNode="src", idx_filepath=SPath(path[0]).absolute().to_str()
         )

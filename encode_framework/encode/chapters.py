@@ -55,6 +55,9 @@ class _Chapters(_BaseEncoder):
             else:
                 Log.warn("Not an episode, but \"force=True\" was set!", func)
 
+        if isinstance(ref, SPath) and ref.suffix in ('mkv',):
+            ref = src_file(ref)
+
         wclip = ref or self.script_info.src
 
         if isinstance(wclip, src_file) and SPath(wclip.file).suffix not in (".m2ts", ".vob", ".iso"):

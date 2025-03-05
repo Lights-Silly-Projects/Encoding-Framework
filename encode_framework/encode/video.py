@@ -201,7 +201,7 @@ class _VideoEncoder(_BaseEncoder):
         return crop
 
     def _encode_lossless(self, clip_to_process: vs.VideoNode, caller: str | None = None) -> vs.VideoNode:
-        from vsmuxtools import FFV1, LosslessPreset, get_workdir
+        from vsmuxtools import FFV1, get_workdir
         from vssource import BestSource
 
         self.lossless_path = SPath(
@@ -217,7 +217,7 @@ class _VideoEncoder(_BaseEncoder):
         else:
             Log.info("Creating a lossless intermediary...", caller or self._encode_lossless)
 
-            FFV1(LosslessPreset.COMPRESSION).encode(clip_to_process, self.lossless_path)
+            FFV1().encode(clip_to_process, self.lossless_path)
 
         return BestSource.source(self.lossless_path)
 

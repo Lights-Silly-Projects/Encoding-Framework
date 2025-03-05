@@ -270,9 +270,13 @@ class _AudioEncoder(_BaseEncoder):
                 track_arg = track_args[-1]
 
             if any(x < 0 for x in trim):
-                old_trim, trim = trim, tuple(max(0, x) for x in trim)
+                old_trim, trim = trim, (
+                    max(0, trim[0]),
+                    wclip.num_frames - abs(trim[1]) if trim[1] < 0 else trim[1]
+                )
+
                 Log.warn(
-                    f"Negative trim values set to 0: {trim}. Original trim: {old_trim}",
+                    f"Invalid trim values fixed: {trim}. Original trim: {old_trim}",
                     self.encode_audio
                 )
 

@@ -59,7 +59,7 @@ class _VideoEncoder(_BaseEncoder):
 
         :param input_clip:          Source clip. Used for certain metrics.
         :param output_clip:         Filtered clip to encode.
-        :param zones:               Zones for the encoder.
+        :param zones:               Zones for the encoder. If empty list or None, take from script_info.
         :param out_bit_depth:       Bitdepth to output to.
         :param dither_type:         Dither type when dithering down to `out_bit_depth`.
         :param qpfile:              qpfile for the encoder. A path must be passed.
@@ -129,7 +129,7 @@ class _VideoEncoder(_BaseEncoder):
                 self.encode_video
             )
 
-        zones = self._normalize_zones(out_clip, zones)
+        zones = self._normalize_zones(out_clip, zones or self.script_info.zones)
 
         # Args for finalizing the clip.
         if get_depth(out_clip) != out_bit_depth:

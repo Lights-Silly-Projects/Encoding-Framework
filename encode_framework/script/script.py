@@ -12,7 +12,7 @@ from vstools import (CustomIndexError, CustomValueError, Keyframes,
                      SceneChangeMode, SPath, SPathLike, core, get_prop,
                      normalize_ranges, set_output, to_arr, vs)
 
-from ..types import TrimAuto, is_iterable
+from ..types import TrimAuto, is_iterable, Zones
 from ..util import Log, assert_truthy
 
 __all__: list[str] = [
@@ -56,6 +56,9 @@ class ScriptInfo:
 
     tc_path: SPath | None = None
     """Path to an optional timecode file."""
+
+    zones: Zones = []
+    """Zones for the encode."""
 
     dryrun: bool = False
     """Whether this is a dryrun, only meant for testing."""

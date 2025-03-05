@@ -101,7 +101,6 @@ class ScriptInfo:
         tc_path = SPath(f"_assets/{self.file.stem}_timecodes.txt")
         self.tc_path = tc_path if tc_path.exists() else None
 
-
     def _append_cwd(self) -> None:
         """Appends the current working directory to PATH, allowing for project-specific modules to be loaded."""
         sys.path.append(self.file.parent.to_str())

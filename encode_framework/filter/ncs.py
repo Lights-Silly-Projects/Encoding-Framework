@@ -110,7 +110,7 @@ def splice_ncs(
     return_scomp += [clip.std.SetFrameProps(Name="NCs spliced in")]
 
     diff = core.std.MakeDiff(*[depth(x, 32) for x in [clip_c, clip]])  # type:ignore
-    diff = DFTTest.denoise(diff, sigma=100)
+    # diff = DFTTest.denoise(diff, sigma=50)
 
     # For some reason there's ugly noise around the credits? Removing that here.
     # diff_brz = diff.std.BinarizeMask([0.0035, 0.0025])

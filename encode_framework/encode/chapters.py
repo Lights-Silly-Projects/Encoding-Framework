@@ -98,6 +98,7 @@ def get_chapter_frames(
     func: FuncExceptT | None = None,
 ) -> tuple[int, int] | None:
     """Get the start and end frame of a chapter obtained from a file."""
+
     func = func or get_chapter_frames
 
     if not (ch_src := SPath(script_info.src.file)).exists():

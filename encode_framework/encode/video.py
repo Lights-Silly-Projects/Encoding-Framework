@@ -129,8 +129,11 @@ class _VideoEncoder(_BaseEncoder):
                 self.encode_video
             )
 
+        print(zones)
         zones += self.script_info.zones
         zones = self._normalize_zones(out_clip, zones)
+
+        Log.info(f"Zones: {zones}", self.encode_video)
 
         # Args for finalizing the clip.
         if get_depth(out_clip) != out_bit_depth:

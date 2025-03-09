@@ -13,37 +13,40 @@ __all__: Sequence[str] = [
 @overload
 def splice_ncs(
     clip: vs.VideoNode,
-    ncop: vs.VideoNode | None = None, opstart: int | Literal[False] = False, op_offset: int = 1,
-    nced: vs.VideoNode | None = None, edstart: int | Literal[False] = False, ed_offset: int = 1,
+    ncop: vs.VideoNode | None = None, opstart: int | Literal[False] = False, op_offset: int = 1, op_ignore_ranges: FrameRangesN = [],
+    nced: vs.VideoNode | None = None, edstart: int | Literal[False] = False, ed_offset: int = 1, ed_ignore_ranges: FrameRangesN = [],
     minimum: int = 2, inflate: int = 5, maximum: int = 5, close: int = 9,
     show_mask: bool = False, return_scomps: bool = True,
 ) -> list[vs.VideoNode]:
     ...
 
+
 @overload
 def splice_ncs(
     clip: vs.VideoNode,
-    ncop: vs.VideoNode | None = None, opstart: int | Literal[False] = False, op_offset: int = 1,
-    nced: vs.VideoNode | None = None, edstart: int | Literal[False] = False, ed_offset: int = 1,
+    ncop: vs.VideoNode | None = None, opstart: int | Literal[False] = False, op_offset: int = 1, op_ignore_ranges: FrameRangesN = [],
+    nced: vs.VideoNode | None = None, edstart: int | Literal[False] = False, ed_offset: int = 1, ed_ignore_ranges: FrameRangesN = [],
     minimum: int = 2, inflate: int = 5, maximum: int = 5, close: int = 9,
     show_mask: bool = False, return_scomps: bool = False,
 ) -> tuple[vs.VideoNode, vs.VideoNode]:
     ...
 
+
 @overload
 def splice_ncs(
     clip: vs.VideoNode,
-    ncop: vs.VideoNode | None = None, opstart: int | Literal[False] = False, op_offset: int = 1,
-    nced: vs.VideoNode | None = None, edstart: int | Literal[False] = False, ed_offset: int = 1,
+    ncop: vs.VideoNode | None = None, opstart: int | Literal[False] = False, op_offset: int = 1, op_ignore_ranges: FrameRangesN = [],
+    nced: vs.VideoNode | None = None, edstart: int | Literal[False] = False, ed_offset: int = 1, ed_ignore_ranges: FrameRangesN = [],
     minimum: int = 2, inflate: int = 5, maximum: int = 5, close: int = 9,
     show_mask: bool = True, return_scomps: bool = False,
 ) -> vs.VideoNode:
     ...
 
+
 def splice_ncs(
     clip: vs.VideoNode,
-    ncop: vs.VideoNode | None = None, opstart: int | Literal[False] = False, op_offset: int = 1,
-    nced: vs.VideoNode | None = None, edstart: int | Literal[False] = False, ed_offset: int = 1,
+    ncop: vs.VideoNode | None = None, opstart: int | Literal[False] = False, op_offset: int = 1, op_ignore_ranges: FrameRangesN = [],
+    nced: vs.VideoNode | None = None, edstart: int | Literal[False] = False, ed_offset: int = 1, ed_ignore_ranges: FrameRangesN = [],
     minimum: int = 2, inflate: int = 5, maximum: int = 5, close: int = 9,
     show_mask: bool = False, return_scomps: bool = False,
 ) -> vs.VideoNode | list[vs.VideoNode] | tuple[vs.VideoNode, vs.VideoNode]:
@@ -52,65 +55,85 @@ def splice_ncs(
 
     This is useful for splicing in NCs and later add the credits back in.
 
-    :param clip:            Clip to process.
-    :param ncop:            NCOP VideoNode.
-    :param opstart:         First frame of the OP in the episode.
-    :param op_offset:       Amount to trim the OP by from the end.
-                            Some episodes have a different length for the OP.
-    :param nced:            NCED VideoNode.
-    :param edstart:         First frame of the ED in the episode.
-    :param ed_offset:       Amount to trim the ED by from the end.
-                            Some episodes have a different length for the ED.
-    :param minimum:         Amount of times to perform a std.Minimum call on the mask.
-    :param inflate:         Amount of times to perform a std.Inflate call on the mask.
-    :param maximum:         Amount of times to perform a std.Maximum call on the mask.
-    :param close:           `Size` parameter for vsmasktools.Morpho.closing.
-    :param show_mask:       Return only the mask.
-    :param return_scomps:   Return a bunch of clips intended for checking that trims are correct
-                            and for other diagnostic purposes.
-                            To aid in this, it will also print basic information for every clip in the list.
+    :param clip:                Clip to process.
+    :param ncop:                NCOP VideoNode.
+    :param opstart:             First frame of the OP in the episode.
+    :param op_offset:           Amount to trim the OP by from the end.
+                                Some episodes have a different length for the OP.
+    :param op_ignore_ranges:    List of frames ranges to ignore for the OP.
+                                This is useful for skipping parts of the OP that have no NCs.
+    :param nced:                NCED VideoNode.
+    :param edstart:             First frame of the ED in the episode.
+    :param ed_offset:           Amount to trim the ED by from the end.
+                                Some episodes have a different length for the ED.
+    :param ed_ignore_ranges:    List of frames ranges to ignore for the ED.
+                                This is useful for skipping parts of the ED that have no NCs.
+    :param minimum:             Amount of times to perform a std.Minimum call on the mask.
+    :param inflate:             Amount of times to perform a std.Inflate call on the mask.
+    :param maximum:             Amount of times to perform a std.Maximum call on the mask.
+    :param close:               `Size` parameter for vsmasktools.Morpho.closing.
+    :param show_mask:           Return only the mask.
+    :param return_scomps:       Return a bunch of clips intended for checking that trims are correct
+                                and for other diagnostic purposes.
+                                To aid in this, it will also print basic information for every clip in the list.
 
-    :return:                Regularly, a tuple containing the processed clip and a diff clip.
-                            If `return_scomps=True`, a list of various clips depending on the inputs.
-                            If `show_mask=True`, return a single VideoNode. This overrides `return_scomps`.
+    :return:                    Regularly, a tuple containing the processed clip and a diff clip.
+                                If `return_scomps=True`, a list of various clips depending on the inputs.
+                                If `show_mask=True`, return a single VideoNode. This overrides `return_scomps`.
     """
+
     from lvsfunc import stack_compare
     from vsdenoise import DFTTest
 
+    def _process_nc_range(
+        clip: vs.VideoNode, nc_clip: vs.VideoNode | None, start: int | Literal[False],
+        offset: int, ignore_ranges: FrameRangesN, name: str
+    ) -> tuple[vs.VideoNode, FrameRangesN, list[vs.VideoNode]]:
+        if not isinstance(nc_clip, vs.VideoNode) or not isinstance(start, int) or isinstance(start, bool):
+            return clip, [], []
+
+        nc_clip = nc_clip + nc_clip[-1] * 12
+        nc_clip = replace_ranges(nc_clip, clip[start:start + nc_clip.num_frames - 1], ignore_ranges)
+
+        nc_range = [(start, start + nc_clip.num_frames - 1 - offset)]
+
+        b = clip.std.BlankClip(length=1, color=[0] * 3)
+        scomp = stack_compare(
+            clip.text.FrameNum()[start:start + nc_clip.num_frames - 1] + b,
+            nc_clip[:-offset] + b.text.FrameNum()
+        )
+
+        clip = insert_clip(clip, nc_clip[:-offset], start)
+
+        return clip, nc_range, [scomp.std.SetFrameProps(Name=f"{name} splice trim")]
+
     # Preparing clips.
-    b = clip.std.BlankClip(length=1, color=[0] * 3)
     clip_c = clip
 
     # OP/ED stack comps to check if they line up, as well as splicing them in.
     return_scomp: list[vs.VideoNode] = list()
     diff_rfs = FrameRangesN()
 
-    if isinstance(ncop, vs.VideoNode) and isinstance(opstart, int) and not isinstance(opstart, bool):
-        ncop = ncop + ncop[-1] * 12
-        diff_rfs += [(opstart, opstart+ncop.num_frames-1-op_offset)]  # type:ignore
+    # Process OP
+    clip, op_ranges, op_scomps = _process_nc_range(
+        clip, ncop, opstart, op_offset, op_ignore_ranges, "OP"
+    )
 
-        op_scomp = stack_compare(
-            clip.text.FrameNum()[opstart:opstart+ncop.num_frames-1]+b, ncop[:-op_offset]+b.text.FrameNum()
-        )  # noqa
+    diff_rfs += op_ranges
+    return_scomp += op_scomps
 
-        clip = insert_clip(clip, ncop[:-op_offset], opstart)
-        return_scomp += [op_scomp.std.SetFrameProps(Name="OP splice trim")]
+    # Process ED
+    clip, ed_ranges, ed_scomps = _process_nc_range(
+        clip, nced, edstart, ed_offset, ed_ignore_ranges, "ED"
+    )
 
-    if isinstance(nced, vs.VideoNode) and isinstance(edstart, int) and not isinstance(edstart, bool):
-        nced = nced + nced[-1] * 12
-        diff_rfs += [(edstart, edstart+nced.num_frames-1-ed_offset)]  # type:ignore
-
-        ed_scomp = stack_compare(
-            clip.text.FrameNum()[edstart:edstart+nced.num_frames-1]+b, nced[:-ed_offset]+b.text.FrameNum()
-        )  # noqa
-
-        clip = insert_clip(clip, nced[:-ed_offset], edstart)
-        return_scomp += [ed_scomp.std.SetFrameProps(Name="ED splice trim")]
+    diff_rfs += ed_ranges
+    return_scomp += ed_scomps
 
     return_scomp += [clip.std.SetFrameProps(Name="NCs spliced in")]
 
     diff = core.std.MakeDiff(*[depth(x, 32) for x in [clip_c, clip]])  # type:ignore
-    # diff = DFTTest.denoise(diff, sigma=50)
+    diff = DFTTest.denoise(diff, sigma=50)
 
     # For some reason there's ugly noise around the credits? Removing that here.
     # diff_brz = diff.std.BinarizeMask([0.0035, 0.0025])
@@ -169,5 +192,3 @@ def merge_credits_mask(
         return credit_mask
 
     return flt.std.MaskedMerge(src, credit_mask)
-
-

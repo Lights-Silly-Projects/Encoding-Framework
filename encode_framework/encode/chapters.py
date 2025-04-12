@@ -41,7 +41,7 @@ class _Chapters(_BaseEncoder):
 
         if isinstance(ref, ScriptInfo):
             ref = ref.src
-        elif isinstance(ref, SPathLike) and not (ref := SPath(ref)).exists():
+        elif isinstance(ref, (SPath, str)) and not (ref := SPath(ref)).exists():
             raise Log.error(f"Could not find the file \"{ref}\"!", func)
 
         if any(str(self.script_info.ep_num).startswith(x) for x in ["NC", "OP", "ED", "EP", "MV"]):
@@ -108,7 +108,7 @@ def get_chapter_frames(
 
     if isinstance(ref, ScriptInfo):
         ref = ref.src
-    elif isinstance(ref, SPathLike):
+    elif isinstance(ref, (SPath, str)):
         if not (ref := SPath(ref)).exists():
             raise Log.error(f"Could not find the file \"{ref}\"!", func)
     elif isinstance(ref, vs.VideoNode):

@@ -4,6 +4,7 @@ from typing import Any, cast
 # type:ignore[import]
 from vsmuxtools import Chapters, src_file, timedelta_to_frame
 from vstools import FileNotExistsError, FuncExceptT, SPath, SPathLike, vs
+from pathlib import Path
 
 from ..script import ScriptInfo
 from ..util.logging import Log
@@ -41,7 +42,7 @@ class _Chapters(_BaseEncoder):
 
         if isinstance(ref, ScriptInfo):
             ref = ref.src
-        elif isinstance(ref, (SPath, str)) and not (ref := SPath(ref)).exists():
+        elif isinstance(ref, (Path, SPath, str)) and not (ref := SPath(ref)).exists():
             raise Log.error(f"Could not find the file \"{ref}\"!", func)
 
         if any(str(self.script_info.ep_num).startswith(x) for x in ["NC", "OP", "ED", "EP", "MV"]):
@@ -98,7 +99,6 @@ def get_chapter_frames(
     func: FuncExceptT | None = None,
 ) -> tuple[int, int] | None:
     """Get the start and end frame of a chapter obtained from a file."""
-
     func = func or get_chapter_frames
 
     if not (ch_src := SPath(script_info.src.file)).exists():
@@ -108,7 +108,7 @@ def get_chapter_frames(
 
     if isinstance(ref, ScriptInfo):
         ref = ref.src
-    elif isinstance(ref, (SPath, str)):
+    elif isinstance(ref, (Path, SPath, str)):
         if not (ref := SPath(ref)).exists():
             raise Log.error(f"Could not find the file \"{ref}\"!", func)
     elif isinstance(ref, vs.VideoNode):

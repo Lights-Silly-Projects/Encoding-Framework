@@ -7,7 +7,7 @@ from time import time
 from typing import Any, cast
 
 from vskernels import Hermite
-from vsmuxtools import src_file  # type:ignore[import]
+from vsmuxtools import src_file, SourceFilter  # type:ignore[import]
 from vstools import (CustomIndexError, CustomValueError, Keyframes,
                      SceneChangeMode, SPath, SPathLike, core, get_prop,
                      normalize_ranges, set_output, to_arr, vs)
@@ -109,7 +109,7 @@ class ScriptInfo:
         self, path: SPathLike | list[SPathLike], trim: TrimAuto | list[TrimAuto] | int | None = None,
         name: str | None = None, force_dgi: bool = True, force_reindex: bool = False,
         idx_dir: SPathLike | None = None, cmd_args: tuple[str] = ("-a",),
-        replace_bs_clip: bool = True
+        replace_ffms2_clip: bool = True
     ) -> vs.VideoNode:
         """Index the given file. Returns a tuple containing the `src_file` object and the `init_cut` node."""
         from .trim import get_post_trim, get_pre_trim
@@ -187,7 +187,10 @@ class ScriptInfo:
 
         assert_truthy(is_iterable(self.src_file))
 
-        self.src = src_file(self.src_file[0].to_str(), trim=trim)
+        self.src = src_file(
+            self.src_file[0].to_str(), trim=trim,
+            sourcefilter=SourceFilter.FFMS2 if replace_ffms2_clip else SourceFilter.BESTSOURCE
+        )
         self.clip_cut = cast(vs.VideoNode, self.src.init_cut()).std.SetFrameProps(
             OutNode="src", idx_filepath=SPath(path[0]).absolute().to_str()
         )
@@ -332,6 +335,15 @@ class ScriptInfo:
         kf.to_file(self.sc_path, force=True, func=self.generate_keyframes)
 
         return kf
+
+    def set_keyframes(self, kf: Keyframes, func_except: FuncExceptT | None = None) -> None:
+        """Set the keyframes for the script."""
+
+        func_except = func_except or self.set_keyframes
+
+        self.sc_path.parent.mkdir(exist_ok=True, parents=True)
+
+        kf.to_file(self.sc_path, force=True, func=func_except)
 
     def replace_prefilter(
         self, prefilter: vs.VideoNode | tuple[vs.VideoNode],

@@ -157,8 +157,8 @@ class _AudioEncoder(_BaseEncoder):
         self,
         audio_file: SPath | list[SPath] | vs.AudioNode | None = None,
         trims: list[tuple[int, int]] | tuple[int, int] | None = None,
-        reorder: list[int] | Literal[False] = False,
-        ref: vs.VideoNode | Any | None = None,
+        reorder: list[int] | Literal[False] | int = False,
+        ref: vs.VideoNode | list[vs.VideoNode] | Any | None = None,
         track_args: list[dict[str, Any]] = [dict(lang="ja", default=True)],
         encoder: Encoder = AutoEncoder,
         trimmer: HasTrimmer | None | Literal[False] = None,
@@ -224,7 +224,7 @@ class _AudioEncoder(_BaseEncoder):
 
         wclip = ref.src.init() if isinstance(ref, ScriptInfo) else ref or self.script_info.src.init()
 
-        trims = self.script_info.trim if trims is None else trims
+        trims = trims or self.script_info.trim
 
         # Normalising trims.
         if not trims:
@@ -292,6 +292,11 @@ class _AudioEncoder(_BaseEncoder):
 
             delay = track_arg.pop("delay", 0)
 
+            try:
+                delay = int(delay)
+            except (ValueError, TypeError):
+                raise Log.error(f"Invalid delay value: {delay} ({type(delay)})", self.encode_audio)
+
             Log.debug(
                 f"Processing audio track {i + 1}/{len(process_files)}...",  self.encode_audio  # type:ignore[arg-type]
             )
@@ -301,8 +306,6 @@ class _AudioEncoder(_BaseEncoder):
             if delay:
                 Log.info(f"Delay passed ({delay}ms), applying to source audio file...", func)
 
-            src = cast(vs.VideoNode, self.script_info.src.init())
-
             # This is mainly meant to support weird trims we don't typically support and should not be used otherwise!
             if isinstance(audio_file, vs.AudioNode):
                 Log.warn(
@@ -311,7 +314,7 @@ class _AudioEncoder(_BaseEncoder):
                 )  # type:ignore[arg-type]
 
                 atrack = do_audio(
-                    audio_file, encoder=encoder, fps=src.fps, num_frames=src.num_frames
+                    audio_file, encoder=encoder, fps=wclip.fps, num_frames=wclip.num_frames
                 )
 
                 atrack.container_delay = delay
@@ -398,8 +401,6 @@ class _AudioEncoder(_BaseEncoder):
                         trim = (trim[0], trim_into_ep)
 
                 setattr(trimmer_obj, "trim", trim)
-                setattr(trimmer_obj, "fps", wclip.fps)
-                setattr(trimmer_obj, "num_frames", wclip.num_frames)
 
                 if force and is_lossy:
                     Log.debug(
@@ -436,7 +437,7 @@ class _AudioEncoder(_BaseEncoder):
                 afile_copy.unlink(missing_ok=True)
 
             atrack = do_audio(
-                audio_file, encoder=encoder, trims=trim, fps=src.fps, num_frames=src.num_frames, quiet=not verbose
+                audio_file, encoder=encoder, trims=trim, fps=wclip.fps, num_frames=wclip.num_frames, quiet=not verbose
             )
 
             atrack.container_delay = delay
@@ -467,6 +468,9 @@ class _AudioEncoder(_BaseEncoder):
     ) -> list[SPath]:
         if not reorder:
             return
+
+        if isinstance(reorder, int):
+            reorder = [reorder]
 
         process_files = process_files or self.audio_files
 

@@ -6,7 +6,6 @@
 from typing import Any, Literal
 
 from vsexprtools import norm_expr
-from vsscale import DescaleResult
 from vstools import (CustomValueError, FrameRangesN, SPath, VSFunction, core,
                      replace_ranges, vs)
 
@@ -14,7 +13,6 @@ from ..util.logging import Log
 
 __all__: list[str] = [
     "fixedges",
-    "fix_kernel_mask_edges",
     "diff_keyframes",
     "apply_squaremasks",
     "Squaremask",
@@ -138,24 +136,6 @@ def _rektlvl(c, num, adj_val, alignment='row', prot_val=[16, 235], min_val=16, m
         last = core.std.ShufflePlanes([last, c_orig], planes=[0, 1, 2], colorfamily=c_orig.format.color_family)
 
     return last
-
-
-def fix_kernel_mask_edges(clip: vs.VideoNode | DescaleResult, crop: int = 8) -> vs.VideoNode | DescaleResult:
-    """
-    Crop the edges of an error mask if using fixed kernels.
-
-    Note that this will cause issues with scrolling credits!
-    """
-    crops = (crop, crop, crop, crop)
-
-    if isinstance(clip, DescaleResult):
-        assert clip.error_mask
-
-        clip.error_mask = clip.error_mask.std.Crop(*crops).std.AddBorders(*crops)
-
-        return clip
-
-    return clip.std.Crop(*crops).std.AddBorders(*crops)
 
 
 def diff_keyframes(

@@ -154,6 +154,9 @@ class _ProcessSubtitles(_BaseSubtitles):
                 Log.debug(f"\"{sub.name}\" is an empty file! Ignoring...", self.sub_passthrough)
                 continue
 
+            if not isinstance(track_arg, dict):
+                track_arg = {}
+
             sub_delay = track_arg.pop("delay", sub_delay)
 
             if sub.suffix.lower() in (".pgs", ".sup") and (sub_delay or supmover_cmd):

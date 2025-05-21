@@ -1,7 +1,7 @@
 import shutil
 from typing import Any, Literal, cast
 
-from vsmuxtools import (AudioFile, AudioTrack, AutoEncoder, Encoder, FFMpeg,
+from vsmuxtools import (AudioFile, AudioTrack, Opus, Encoder, FFMpeg,
                         HasTrimmer, frame_to_ms, get_workdir)
 from vstools import (CustomIndexError, CustomNotImplementedError,
                      CustomRuntimeError, CustomValueError, FileNotExistsError,
@@ -160,7 +160,7 @@ class _AudioEncoder(_BaseEncoder):
         reorder: list[int] | Literal[False] | int = False,
         ref: vs.VideoNode | list[vs.VideoNode] | Any | None = None,
         track_args: list[dict[str, Any]] = [dict(lang="ja", default=True)],
-        encoder: Encoder = AutoEncoder,
+        encoder: Encoder = Opus,
         trimmer: HasTrimmer | None | Literal[False] = None,
         force: bool = False,
         verbose: bool = False,
@@ -261,6 +261,9 @@ class _AudioEncoder(_BaseEncoder):
         for i, (audio_file, trim, track_arg) in enumerate(  # type:ignore[arg-type, assignment]
             zip_longest(process_files, trims, track_args, fillvalue=trims[-1])  # type:ignore[arg-type]
         ):
+            Log.debug(f"Processing audio file {i + 1}/{len(process_files)}...", func)
+            Log.debug(f"{audio_file=}, {trim=}, {track_arg=}", func)
+
             if not isinstance(trim, tuple):
                 Log.warn(f"Trim is not a tuple: {trim} ({type(trim)})", self.encode_audio)
                 trim = tuple(trim)
@@ -466,8 +469,8 @@ class _AudioEncoder(_BaseEncoder):
         self, process_files: list[SPath] | None = None,
         reorder: list[int] | Literal[False] = False
     ) -> list[SPath]:
-        if not reorder:
-            return
+        if reorder is False:
+            return process_files
 
         if isinstance(reorder, int):
             reorder = [reorder]

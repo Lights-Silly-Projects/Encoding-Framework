@@ -1,6 +1,6 @@
 from typing import Literal, Sequence, overload
 
-from vstools import (FrameRangesN, core, depth, expect_bits, get_depth,
+from vstools import (CustomValueError, FrameRangesN, core, depth, expect_bits, get_depth,
                      insert_clip, replace_ranges, vs)
 
 __all__: Sequence[str] = [
@@ -85,6 +85,9 @@ def splice_ncs(
     from lvsfunc import stack_compare
     from vsdenoise import DFTTest
 
+    if all(x is None for x in (ncop, nced)):
+        raise CustomValueError("Both ncop and nced are None!", splice_ncs)
+
     def _process_nc_range(
         clip: vs.VideoNode, nc_clip: vs.VideoNode | None, start: int | Literal[False],
         offset: int, ignore_ranges: FrameRangesN, name: str
@@ -109,10 +112,9 @@ def splice_ncs(
 
     # Preparing clips.
     clip_c = clip
-
     # OP/ED stack comps to check if they line up, as well as splicing them in.
-    return_scomp: list[vs.VideoNode] = list()
-    diff_rfs = FrameRangesN()
+    return_scomp: list[vs.VideoNode] = list[vs.VideoNode]()
+    diff_rfs = []
 
     # Process OP
     clip, op_ranges, op_scomps = _process_nc_range(

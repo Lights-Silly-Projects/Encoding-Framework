@@ -115,9 +115,7 @@ class ScriptInfo:
         from .trim import get_post_trim, get_pre_trim
 
         if not path:
-            raise Log.error("No file given!", self.index)
-
-        self._original_src = path
+            raise Log.error(f"No file given ({path=})!", self.index)
 
         if trim and isinstance(trim, list) and all(isinstance(x, tuple) for x in trim):
             if len(trim) > 1:
@@ -140,12 +138,13 @@ class ScriptInfo:
 
             self.src_file += [p.resolve()]
 
+        self._original_src = self.src_file
+
         if idx_dir is not None:
             idx_dir = SPath(idx_dir)
 
         if force_dgi and not self.src_file[0].to_str().endswith(".dgi"):
-            from ..encode.idx.dgindexnv import \
-                DGIndexNVAddFilenames as DGIndexNV
+            from ..encode.idx.dgindexnv import DGIndexNVAddFilenames as DGIndexNV
 
             try:
                 self.src_file = DGIndexNV().index(self.src_file, force_reindex, False, idx_dir, *cmd_args)
@@ -187,10 +186,13 @@ class ScriptInfo:
 
         assert_truthy(is_iterable(self.src_file))
 
+        src_idx = SourceFilter.FFMS2 if replace_ffms2_clip else SourceFilter.BESTSOURCE
+
         self.src = src_file(
             self.src_file[0].to_str(), trim=trim,
-            sourcefilter=SourceFilter.FFMS2 if replace_ffms2_clip else SourceFilter.BESTSOURCE
+            sourcefilter=src_idx, preview_sourcefilter=src_idx
         )
+
         self.clip_cut = cast(vs.VideoNode, self.src.init_cut()).std.SetFrameProps(
             OutNode="src", idx_filepath=SPath(path[0]).absolute().to_str()
         )

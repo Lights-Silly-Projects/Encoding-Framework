@@ -47,6 +47,8 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         self, out_path: SPathLike | None = None,
         move_once_done: bool = False, lang: str = "ja",
         crop: int | tuple[int, int] | tuple[int, int, int, int] | None = None,
+        video_track_args: dict[str, Any] = {},
+        audio_track_args: dict[str, Any] = {},
     ) -> SPath:
         """
         Mux the different tracks together.
@@ -65,6 +67,9 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
             Log.info(f"Timecode file found at \"{self.script_info.tc_path}\"!", self.mux)
 
         crop = self._get_crop_args(crop)
+
+        if hasattr(self, "_video_track_args"):
+            self.video_track.args = self._video_track_args + self.video_track.args
 
         self._mux_logs()
 

@@ -76,7 +76,10 @@ class _Chapters(_BaseEncoder):
             else:
                 Log.warn("No chapter files could be found.", func)
 
-        chapters = Chapters(wclip, **kwargs)
+        if isinstance(wclip, SPath) and wclip.suffix == '.mkv':
+            chapters = Chapters.from_mkv(wclip)
+        else:
+            chapters = Chapters(wclip, **kwargs)
 
         if shift is None:
             if isinstance((shift := getattr(self, "script_info", 0)), ScriptInfo):

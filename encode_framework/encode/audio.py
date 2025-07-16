@@ -258,9 +258,11 @@ class _AudioEncoder(_BaseEncoder):
         )
 
         # TODO: Figure out how much I can move out of this for loop.
-        for i, (audio_file, trim, track_arg) in enumerate(  # type:ignore[arg-type, assignment]
-            zip_longest(process_files, trims, track_args, fillvalue=trims[-1])  # type:ignore[arg-type]
-        ):
+        for i, audio_file in enumerate(process_files):
+            # Get corresponding trim and track_arg if available.
+            trim = trims[i] if i < len(trims) else (trims[-1] if trims else None)
+            track_arg = track_args[i] if i < len(track_args) else (track_args[-1] if track_args else None)
+
             Log.debug(f"Processing audio file {i + 1}/{len(process_files)}...", func)
             Log.debug(f"{audio_file=}, {trim=}, {track_arg=}", func)
 
@@ -417,9 +419,11 @@ class _AudioEncoder(_BaseEncoder):
                 # afile = trimmer_obj.trim_audio(afile)
 
             # Unset the encoder if force=False and it's a specific kind of audio track.
+            is_fancy = is_fancy_codec(afile.get_mediainfo())
+
             if is_lossy and force:
                 Log.warn("Input audio is lossy, but \"force=True\"...", self.encode_audio, 1)
-            elif is_fancy_codec(afile.get_mediainfo()) and force:
+            elif is_fancy and force:
                 Log.warn("Audio contain Atmos or special DTS features, but \"force=True\"...", self.encode_audio, 1)
             elif is_lossy and not force:
                 Log.warn("Input audio is lossy. Not re-encoding...", self.encode_audio, 1)
@@ -439,9 +443,19 @@ class _AudioEncoder(_BaseEncoder):
                 afile_copy.replace(afile_old)
                 afile_copy.unlink(missing_ok=True)
 
-            atrack = do_audio(
-                audio_file, encoder=encoder, trims=trim, fps=wclip.fps, num_frames=wclip.num_frames, quiet=not verbose
-            )
+            if trimmer is not False and not is_fancy:
+                atrack = do_audio(
+                    audio_file,
+                    # track=i,
+                    extractor=FFMpeg.Extractor(full_analysis=True),
+                    encoder=encoder,
+                    trims=None if (trim == (0, wclip.num_frames)) else trim,
+                    fps=wclip.fps,
+                    num_frames=wclip.num_frames,
+                    quiet=not verbose
+                )
+            else:
+                atrack = AudioFile.from_file(afile, func)
 
             atrack.container_delay = delay
 
@@ -469,6 +483,9 @@ class _AudioEncoder(_BaseEncoder):
         self, process_files: list[SPath] | None = None,
         reorder: list[int] | Literal[False] = False
     ) -> list[SPath]:
+        if process_files is None:
+            return []
+
         if reorder is False:
             return process_files
 

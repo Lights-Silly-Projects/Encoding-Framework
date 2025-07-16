@@ -6,7 +6,7 @@ from vsmuxtools.video.encoders import VideoEncoder  # type:ignore[import]
 from vstools import (ColorRange, CustomRuntimeError, CustomValueError,
                      DitherType, FileNotExistsError, FuncExceptT, SPath,
                      SPathLike, depth, finalize_clip, get_depth, get_prop, vs)
-
+from vstools import get_w
 from ..types import Zones
 from ..util.logging import Log
 from .base import _BaseEncoder
@@ -52,6 +52,7 @@ class _VideoEncoder(_BaseEncoder):
         settings: SPathLike = "_settings/{encoder}_settings",
         lossless: bool = False,
         encoder: VideoEncoders = x265,
+        track_args: dict[str, Any] = {},
         **encoder_kwargs: Any
     ) -> VideoFile:
         """
@@ -68,6 +69,10 @@ class _VideoEncoder(_BaseEncoder):
         :param settings:            Settings file. By default, tries to find a settings file using the encoder's name.
         :param lossless:            Whether to run a lossless encode prior to the regular encode.
         :param encoder:             The lossy encoder to use. Default: x265.
+        :param track_args:          Additional arguments to pass to the track.
+                                    For example, `{display-unit:3, display-width:267, display-height:200}`
+                                    to force a true 9:10 aspect ratio.
+        :param **encoder_kwargs:    Additional arguments to pass to the encoder.
 
         :return:                    VideoFile object.
         """
@@ -76,6 +81,12 @@ class _VideoEncoder(_BaseEncoder):
 
         self._remove_empty_parts()
         self._get_crop_args()
+
+        if track_args:
+            self._video_track_args = []
+
+            for k, v in track_args.items():
+                self._video_track_args.extend(['--' + k.replace('_', '-'), f'0:{v}'])
 
         if finished_encode := list(SPath(get_workdir()).glob("encoded.*")):
             Log.debug(f"Found finished encode at \"{finished_encode[0]}\"", self.encode_video)
@@ -129,7 +140,6 @@ class _VideoEncoder(_BaseEncoder):
                 self.encode_video
             )
 
-        print(zones)
         zones += self.script_info.zones
         zones = self._normalize_zones(out_clip, zones)
 
@@ -147,7 +157,7 @@ class _VideoEncoder(_BaseEncoder):
 
         self.video_track = self.video_file.to_track(
             default=True, timecode_file=self.script_info.tc_path,
-            lang=lang.strip(), crop=self.crop
+            lang=lang.strip(), crop=self.crop,
         )
 
         return self.video_file

@@ -611,7 +611,7 @@ class DiscordEmbedder(DiscordWebhook):
 
         try:
             args = [
-                "plotbitrate", "-o", out_path.to_str(), "-f", "png",
+                "python", "-m", "plotbitrate", "-o", out_path.to_str(), "-f", "png",
                 "--show-frame-types", premux_path.to_str()
             ]
 

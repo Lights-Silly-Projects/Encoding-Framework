@@ -83,7 +83,7 @@ class _Chapters(_BaseEncoder):
 
         if shift is None:
             if isinstance((shift := getattr(self, "script_info", 0)), ScriptInfo):
-                shift = shift.trim[0]
+                shift = -shift.trim[0]
 
         chapters_found = chapters and hasattr(chapters, 'chapters')
 

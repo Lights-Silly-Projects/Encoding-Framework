@@ -95,6 +95,7 @@ def splice_ncs(
         if not isinstance(nc_clip, vs.VideoNode) or not isinstance(start, int) or isinstance(start, bool):
             return clip, [], []
 
+        nc_clip = nc_clip.std.SetFrameProps(isNC=True)
         nc_clip = nc_clip + nc_clip[-1] * 12
         nc_clip = replace_ranges(nc_clip, clip[start:start + nc_clip.num_frames - 1], ignore_ranges)
 
@@ -135,7 +136,7 @@ def splice_ncs(
     return_scomp += [clip.std.SetFrameProps(Name="NCs spliced in")]
 
     diff = core.std.MakeDiff(*[depth(x, 32) for x in [clip_c, clip]])  # type:ignore
-    diff = DFTTest.denoise(diff, sigma=50)
+    # diff = DFTTest().denoise(diff, sigma=50)
 
     # For some reason there's ugly noise around the credits? Removing that here.
     # diff_brz = diff.std.BinarizeMask([0.0035, 0.0025])

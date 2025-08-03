@@ -100,7 +100,7 @@ def get_chapter_frames(
     script_info: ScriptInfo,
     ref: vs.VideoNode | None = None, log: bool = False,
     func: FuncExceptT | None = None,
-) -> tuple[int, int] | None:
+) -> list[tuple[int, int | None]] | None:
     """Get the start and end frame of a chapter obtained from a file."""
     func = func or get_chapter_frames
 

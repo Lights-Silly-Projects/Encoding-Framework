@@ -204,7 +204,7 @@ class ScriptInfo:
 
         return self.clip_cut
 
-    def update_trims(self, trim: int | tuple[int, int] | list[int] | None = None) -> tuple[int, int]:
+    def update_trims(self, trim: int | tuple[int | None, int | None] | list[int] | None = None) -> tuple[int, int]:
         """Update trims if necessary. Useful for if you adjust the trims during prefiltering."""
         if isinstance(trim, list):
             if any(isinstance(x, tuple) for x in trim):

@@ -1,17 +1,33 @@
 import os
-from typing import Literal, Sequence
+from typing import Literal, Sequence, Any
 
 from dataclasses import dataclass, field
 from fractions import Fraction
 from functools import lru_cache
 
-from vstools import PackageStorage, SPath, SPathLike, to_arr, core
-from vssource.utils import opt_ints, opt_int
+from vstools import PackageStorage, SPath, SPathLike, to_arr, core, copy_signature
 from vssource import ExternalIndexer
 
 __all__ = [
     'DGIndexNVAddFilenames',
 ]
+
+
+DVD_DEBUG = 'DVD_DEBUG' in os.environ
+
+
+@copy_signature(print)
+def debug_print(*args: Any, **kwargs: Any) -> None:
+    if DVD_DEBUG:
+        print(*args, **kwargs)
+
+
+def opt_int(val: str | int | None) -> int | None:
+    return int(val) if val is not None else None
+
+
+def opt_ints(vals: Sequence[str | int | None]) -> Sequence[int | None]:
+    return [opt_int(x) for x in vals]
 
 
 class _SetItemMeta:

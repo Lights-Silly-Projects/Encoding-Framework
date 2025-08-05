@@ -6,6 +6,9 @@ from vsmuxtools import (AudioFile, AudioTrack, Opus, Encoder, FFMpeg,
 from vstools import (CustomIndexError, CustomNotImplementedError,
                      CustomRuntimeError, CustomValueError, FileNotExistsError,
                      FileType, SPath, SPathLike, vs)
+import threading
+import time
+import os
 
 from ..util.logging import Log
 from .base import _BaseEncoder
@@ -27,6 +30,7 @@ class _AudioEncoder(_BaseEncoder):
     def find_audio_files(
         self, dgi_path: SPathLike | None = None,
         reorder: list[int] | Literal[False] = False,
+        **kwargs: Any
     ) -> list[SPath]:
         """
         Find accompanying DGIndex(NV) demuxed audio tracks.
@@ -48,20 +52,12 @@ class _AudioEncoder(_BaseEncoder):
         self.__clean_acopy(dgi_file)
 
         if not dgi_file.to_str().endswith(".dgi"):
-            Log.debug("Trying to pass a non-dgi file! Figuring out an audio source...", self.find_audio_files)
+            Log.warn("Trying to pass a non-dgi file! Extracting tracks using DGIndexNV...", self.find_audio_files)
 
-            try:
-                FileType.AUDIO.parse(dgi_file, func=self.find_audio_files)
-                audio_files = [dgi_file]
-            except (AssertionError, ValueError):
-                pass
+            self.script_info.index(self.script_info.src_file, trim=self.script_info.trim, force_dgi=True)
+            afiles = self.find_audio_files(self.script_info.src_file[0], reorder, _is_loop=True)
 
-            try:
-                FileType.VIDEO.parse(dgi_file, func=self.find_audio_files)
-
-                audio_files = [SPath(FFMpeg().Extractor().extract_audio(dgi_file).file)]  # type;ignore
-            except (AssertionError, ValueError):
-                pass
+            return afiles
         else:
             Log.debug("DGIndex(NV) input found! Trying to find audio tracks...", self.find_audio_files)
 
@@ -187,7 +183,6 @@ class _AudioEncoder(_BaseEncoder):
         :param force:           Force the audio files to be re-encoded, even if they're lossy.
                                 I'm aware I said it would never re-encode it.
         """
-        from itertools import zip_longest
 
         from vsmuxtools import (FLAC, Sox, do_audio, frames_to_samples,
                                 is_fancy_codec)
@@ -223,7 +218,6 @@ class _AudioEncoder(_BaseEncoder):
             Log.debug(f"`ref` VideoNode passed: {ref}", func)
 
         wclip = ref.src.init() if isinstance(ref, ScriptInfo) else ref or self.script_info.src.init()
-
         trims = trims or self.script_info.trim
 
         # Normalising trims.
@@ -545,3 +539,21 @@ class _AudioEncoder(_BaseEncoder):
         """
 
         return []
+
+    def _schedule_unlink(path: SPathLike, timeout: int = 60, interval: float = 2.0):
+        """
+        Try to unlink the file at `path` in a background thread until it succeeds or timeout is reached.
+        """
+        spath = SPath(path)
+
+        def _unlink_worker():
+            end_time = time.time() + timeout
+
+            while time.time() < end_time:
+                try:
+                    spath.unlink(True)
+                    break
+                except Exception:
+                    time.sleep(interval)
+
+        threading.Thread(target=_unlink_worker, daemon=True).start()

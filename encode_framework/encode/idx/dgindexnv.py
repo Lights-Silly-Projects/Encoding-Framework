@@ -1,9 +1,10 @@
 import os
 from typing import Literal, Sequence, Any
-
+import shutil
 from dataclasses import dataclass, field
 from fractions import Fraction
 from functools import lru_cache
+import tempfile
 
 from vstools import PackageStorage, SPath, SPathLike, to_arr, core, copy_signature
 from vssource import ExternalIndexer
@@ -244,24 +245,8 @@ class DGIndexNVAddFilenames(DGIndexNV):
         self, files: Sequence[SPath], force: bool = False, split_files: bool = False,
         output_folder: SPathLike | Literal[False] | None = None, *cmd_args: str
     ) -> list[SPath]:
-        files = to_arr(files)
-
-        if len(unique_folders := list(set([f.get_folder().to_str() for f in files]))) > 1:
-            return [
-                c for s in (
-                    self.index(
-                        [f for f in files if f.get_folder().to_str() == folder],
-                        force, split_files, output_folder
-                    )
-                    for folder in unique_folders
-                ) for c in s
-            ]
-
+        files, hash_str = self._create_temp_symlink(files)
         dest_folder = self.get_out_folder(output_folder, files[0])
-
-        files = list(sorted(set(files)))
-
-        hash_str = self.get_videos_hash(files)
 
         def _index(files: list[SPath], output: SPath) -> None:
             if output.is_file():
@@ -290,3 +275,44 @@ class DGIndexNVAddFilenames(DGIndexNV):
         filename = '_'.join([file_name.stem, file_hash, vid_name, current_indxer])
 
         return self.get_idx_file_path(PackageStorage(folder).get_file(filename))
+
+    def _create_temp_symlink(
+        self, files: list[SPath], force: bool = False, split_files: bool = False,
+        output_folder: SPathLike | Literal[False] | None = None
+    ) -> tuple[list[SPath], str]:
+        files = to_arr(files)
+
+        if len(unique_folders := list(set([f.get_folder().to_str() for f in files]))) > 1:
+            return [
+                c for s in (
+                    self.index(
+                        [f for f in files if f.get_folder().to_str() == folder],
+                        force, split_files, output_folder
+                    )
+                    for folder in unique_folders
+                ) for c in s
+            ], None
+
+        files = list(sorted(set(files)))
+        hash_str = self.get_videos_hash(files)
+
+        tempdir = SPath(tempfile.gettempdir())
+        symlink_paths = []
+
+        for i, file in enumerate(files):
+            symlink_name = f"{hash_str}_{i}"
+            symlink_path = tempdir / symlink_name
+            target_path = file.absolute()
+
+            if not symlink_path.is_symlink() and not symlink_path.exists():
+                try:
+                    symlink_path.symlink_to(target_path)
+                except OSError as e:
+                    if getattr(e, 'winerror', None) == 1314:
+                        shutil.copy2(target_path, symlink_path)
+                    else:
+                        raise
+
+            symlink_paths.append(symlink_path)
+
+        return symlink_paths, hash_str

@@ -139,6 +139,7 @@ class ScriptInfo:
             self.src_file += [p.resolve()]
 
         self._original_src = self.src_file
+        self._is_dgindex = force_dgi
 
         if idx_dir is not None:
             idx_dir = SPath(idx_dir)
@@ -206,6 +207,7 @@ class ScriptInfo:
 
     def update_trims(self, trim: int | tuple[int | None, int | None] | list[int] | None = None) -> tuple[int, int]:
         """Update trims if necessary. Useful for if you adjust the trims during prefiltering."""
+
         if isinstance(trim, list):
             if any(isinstance(x, tuple) for x in trim):
                 trim = trim[0]
@@ -226,7 +228,7 @@ class ScriptInfo:
                 trim[0] = 0  # type:ignore[assignment, index]
 
             if trim[1] is None:
-                trim[1] = self.src.init().num_frames + 1  # type:ignore[index]
+                trim[1] = self.src.init().num_frames  # type:ignore[index]
 
             trim = tuple(trim)
 

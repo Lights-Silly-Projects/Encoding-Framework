@@ -30,6 +30,7 @@ class _AudioEncoder(_BaseEncoder):
     def find_audio_files(
         self, dgi_path: SPathLike | None = None,
         reorder: list[int] | Literal[False] = False,
+        overwrite: bool = False,
         **kwargs: Any
     ) -> list[SPath]:
         """
@@ -39,6 +40,9 @@ class _AudioEncoder(_BaseEncoder):
         If it is, it will try to extract those audio tracks and return those.
         If input file is not a dgi file, it will throw an error.
         """
+
+        if overwrite:
+            self.audio_files = []
 
         if isinstance(dgi_path, list):
             dgi_path = dgi_path[0]

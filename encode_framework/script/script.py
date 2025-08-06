@@ -109,7 +109,7 @@ class ScriptInfo:
         self, path: SPathLike | list[SPathLike], trim: TrimAuto | list[TrimAuto] | int | None = None,
         name: str | None = None, force_dgi: bool = True, force_reindex: bool = False,
         idx_dir: SPathLike | None = None, cmd_args: tuple[str] = ("-a",),
-        replace_ffms2_clip: bool = True
+        replace_ffms2_clip: bool = False
     ) -> vs.VideoNode:
         """Index the given file. Returns a tuple containing the `src_file` object and the `init_cut` node."""
         from .trim import get_post_trim, get_pre_trim

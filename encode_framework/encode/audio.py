@@ -176,6 +176,7 @@ class _AudioEncoder(_BaseEncoder):
         track_args: list[dict[str, Any]] = [dict(lang="ja", default=True)],
         encoder: Encoder = Opus,
         trimmer: HasTrimmer | None | Literal[False] = None,
+        full_analysis: bool = True,
         force: bool = False,
         verbose: bool = False,
     ) -> list[AudioTrack]:
@@ -459,7 +460,7 @@ class _AudioEncoder(_BaseEncoder):
                 atrack = do_audio(
                     audio_file,
                     # track=i,
-                    extractor=FFMpeg.Extractor(full_analysis=True),
+                    extractor=FFMpeg.Extractor(full_analysis=full_analysis),
                     encoder=encoder,
                     trims=None if (trim == (0, wclip.num_frames)) else trim,
                     fps=wclip.fps,

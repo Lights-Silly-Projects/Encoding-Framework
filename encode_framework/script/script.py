@@ -7,12 +7,12 @@ from time import time
 from typing import Any, cast
 
 from vskernels import Hermite
-from vsmuxtools import src_file, SourceFilter  # type:ignore[import]
-from vstools import (CustomIndexError, CustomValueError, Keyframes,
-                     SceneChangeMode, SPath, SPathLike, core, get_prop,
-                     normalize_ranges, set_output, to_arr, vs)
+from vsmuxtools import SourceFilter, src_file  # type:ignore[import]
+from vstools import (CustomIndexError, CustomValueError, FuncExceptT,
+                     Keyframes, SceneChangeMode, SPath, SPathLike, core,
+                     get_prop, normalize_ranges, set_output, to_arr, vs)
 
-from ..types import TrimAuto, is_iterable, Zones
+from ..types import TrimAuto, Zones, is_iterable
 from ..util import Log, assert_truthy
 
 __all__: list[str] = [
@@ -145,7 +145,8 @@ class ScriptInfo:
             idx_dir = SPath(idx_dir)
 
         if force_dgi and not self.src_file[0].to_str().endswith(".dgi"):
-            from ..encode.idx.dgindexnv import DGIndexNVAddFilenames as DGIndexNV
+            from ..encode.idx.dgindexnv import \
+                DGIndexNVAddFilenames as DGIndexNV
 
             try:
                 self.src_file = DGIndexNV().index(self.src_file, force_reindex, False, idx_dir, *cmd_args)
@@ -327,7 +328,7 @@ class ScriptInfo:
             )
 
         # Prefiltering.
-        wclip = Hermite.scale(wclip, get_w(height, wclip), height)
+        wclip = Hermite(linear=True).scale(wclip, get_w(height, wclip), height)
         wclip = prefilter_to_full_range(wclip, range_conversion)
 
         Log.debug(f"Generating keyframes for \"{self.sc_path.name}\"...", self.generate_keyframes)

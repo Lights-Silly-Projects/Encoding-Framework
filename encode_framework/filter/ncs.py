@@ -1,7 +1,7 @@
 from typing import Literal, Sequence, overload
 
-from vstools import (CustomValueError, FrameRangesN, core, depth, expect_bits, get_depth,
-                     insert_clip, replace_ranges, vs)
+from vstools import (CustomValueError, FrameRangesN, core, depth, expect_bits,
+                     get_depth, insert_clip, replace_ranges, vs)
 
 __all__: Sequence[str] = [
     "splice_ncs",
@@ -83,7 +83,6 @@ def splice_ncs(
     """
 
     from lvsfunc import stack_compare
-    from vsdenoise import DFTTest
 
     if all(x is None for x in (ncop, nced)):
         raise CustomValueError("Both ncop and nced are None!", splice_ncs)

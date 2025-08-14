@@ -1,10 +1,10 @@
 from fractions import Fraction
+from pathlib import Path
 from typing import Any, cast
 
 # type:ignore[import]
 from vsmuxtools import Chapters, src_file, timedelta_to_frame
 from vstools import FileNotExistsError, FuncExceptT, SPath, SPathLike, vs
-from pathlib import Path
 
 from ..script import ScriptInfo
 from ..util.logging import Log
@@ -61,7 +61,7 @@ class _Chapters(_BaseEncoder):
 
         wclip = ref or self.script_info.src
 
-        if isinstance(wclip, src_file) and SPath(wclip.file).suffix not in (".m2ts", ".vob", ".iso"):
+        if isinstance(wclip, src_file) and (suffix := SPath(wclip.file).suffix.lower()) not in (".m2ts", ".vob", ".iso", ".mkv"):
             Log.debug("work clip is not a BD/DVD file, checking for \"*.chapters.txt\"...", func)
 
             file = SPath(wclip.file)
@@ -69,15 +69,19 @@ class _Chapters(_BaseEncoder):
                 f"*{file.stem}*.chapters.txt"))
 
             if files:
-                Log.debug("The following files were found:" +
-                          '\n    - '.join([f.to_str() for f in files]), func)
+                Log.debug("The following files were found:" + '\n    - '.join([f.to_str() for f in files]), func)
 
                 wclip = files[0]
             else:
                 Log.warn("No chapter files could be found.", func)
 
-        if isinstance(wclip, SPath) and wclip.suffix == '.mkv':
-            chapters = Chapters.from_mkv(wclip)
+        if suffix == '.mkv':
+            mkv_file = wclip.file if isinstance(wclip, src_file) else wclip
+
+            if isinstance(mkv_file, list):
+                mkv_file = mkv_file[0]
+
+            chapters = Chapters.from_mkv(mkv_file)
         else:
             chapters = Chapters(wclip, **kwargs)
 
@@ -118,8 +122,9 @@ def get_chapter_frames(
         ref = cast(vs.VideoNode, ref)
 
     wclip = ref or script_info.src
+    src_suffix = SPath(wclip.file[0] if isinstance(wclip.file, list) else wclip.file).suffix.lower()
 
-    if isinstance(wclip, src_file) and SPath(wclip.file).suffix not in (".m2ts", ".vob", ".iso"):
+    if isinstance(wclip, src_file) and src_suffix not in (".m2ts", ".vob", ".iso", ".mkv"):
         Log.debug("work clip is not a BD/DVD file, checking for \"*.chapters.txt\"...", func)
 
         file = SPath(wclip.file)
@@ -132,7 +137,10 @@ def get_chapter_frames(
         else:
             Log.warn("No chapter files could be found.", func)
 
-    chs = Chapters(wclip)
+    if src_suffix == '.mkv':
+        chs = Chapters.from_mkv(wclip.file, wclip.src.fps)
+    else:
+        chs = Chapters(wclip)
 
     if chs.chapters is None:
         Log.warn("No chapters could be found.", func)

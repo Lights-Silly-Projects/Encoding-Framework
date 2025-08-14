@@ -1,14 +1,13 @@
 import shutil
-from typing import Any, Literal, cast
-
-from vsmuxtools import (AudioFile, AudioTrack, Opus, Encoder, FFMpeg,
-                        HasTrimmer, frame_to_ms, get_workdir)
-from vstools import (CustomIndexError, CustomNotImplementedError,
-                     CustomRuntimeError, CustomValueError, FileNotExistsError,
-                     FileType, SPath, SPathLike, vs)
 import threading
 import time
-import os
+from typing import Any, Literal
+
+from vsmuxtools import (AudioFile, AudioTrack, Encoder, FFMpeg, HasTrimmer,
+                        Opus, frame_to_ms, get_workdir)
+from vstools import (CustomIndexError, CustomNotImplementedError,
+                     CustomRuntimeError, CustomValueError, FileNotExistsError,
+                     FileType, SPath, SPathLike, to_arr, vs)
 
 from ..util.logging import Log
 from .base import _BaseEncoder
@@ -55,11 +54,26 @@ class _AudioEncoder(_BaseEncoder):
         # Pre-clean acopy files because it's a pain if you ran this after updating...
         self.__clean_acopy(dgi_file)
 
-        if not dgi_file.to_str().endswith(".dgi"):
-            Log.warn("Trying to pass a non-dgi file! Extracting tracks using DGIndexNV...", self.find_audio_files)
+        if not dgi_file.to_str().endswith(".dgi") and not kwargs.get('_is_loop', False):
+            Log.warn(
+                "Trying to pass a non-dgi file! "
+                "Extracting tracks using DGIndexNV in %TEMP% (this may take some time)...",
+                self.find_audio_files
+            )
 
-            self.script_info.index(self.script_info.src_file, trim=self.script_info.trim, force_dgi=True)
-            afiles = self.find_audio_files(self.script_info.src_file[0], reorder, _is_loop=True)
+            old_script_info_src = self.script_info.src_file
+            old_script_info_trim = self.script_info.trim
+
+            self.script_info.src_file = []
+            self.script_info.index(dgi_file, force_dgi=True)
+
+            afiles = self.find_audio_files(None, reorder, overwrite, _is_loop=True)
+
+            # Delete files from tempdir
+            (f.unlink(True) for f in to_arr(self.script_info.src_file))
+
+            self.script_info.src_file = old_script_info_src
+            self.script_info.update_trims(old_script_info_trim)
 
             return afiles
         else:

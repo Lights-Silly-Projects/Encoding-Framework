@@ -1,13 +1,14 @@
 import os
-from typing import Literal, Sequence, Any
 import shutil
+import tempfile
 from dataclasses import dataclass, field
 from fractions import Fraction
 from functools import lru_cache
-import tempfile
+from typing import Any, Literal, Sequence
 
-from vstools import PackageStorage, SPath, SPathLike, to_arr, core, copy_signature
 from vssource import ExternalIndexer
+from vstools import (PackageStorage, SPath, SPathLike, copy_signature, core,
+                     to_arr)
 
 __all__ = [
     'DGIndexNVAddFilenames',

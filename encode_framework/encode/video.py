@@ -6,7 +6,7 @@ from vsmuxtools.video.encoders import VideoEncoder  # type:ignore[import]
 from vstools import (ColorRange, CustomRuntimeError, CustomValueError,
                      DitherType, FileNotExistsError, FuncExceptT, SPath,
                      SPathLike, depth, finalize_clip, get_depth, get_prop, vs)
-from vstools import get_w
+
 from ..types import Zones
 from ..util.logging import Log
 from .base import _BaseEncoder

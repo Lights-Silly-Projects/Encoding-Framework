@@ -77,7 +77,10 @@ class _AudioEncoder(_BaseEncoder):
 
             return afiles
         else:
-            Log.debug("DGIndex(NV) input found! Trying to find audio tracks...", self.find_audio_files)
+            Log.debug(
+                f"DGIndex(NV) input found! Trying to find audio tracks in \"{dgi_file.get_folder()}\"...",
+                self.find_audio_files
+            )
 
             audio_files: list[SPath] = []  # type:ignore[no-redef]
 

@@ -1,4 +1,5 @@
 import re
+import shutil
 from typing import Any, cast
 
 from muxtools import get_setup_attr
@@ -271,6 +272,27 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         self._warn_if_path_too_long(self.fix_filename)
 
         return self.premux_path
+
+    def delete_temp_files(self) -> None:
+        """
+        Delete temporary files created during the encoding process.
+        This includes intermediate video files, audio files, and any other temporary data.
+        """
+
+        from vsmuxtools import clean_temp_files
+
+        clean_temp_files()
+
+        for f in self._temp_files:
+            if f.is_file():
+                if "lossless" in f.name:
+                    Log.info(f"Lossless file found: \"{f}\". Not deleting.", self.delete_temp_files)  # type:ignore[arg-type]
+                else:
+                    f.unlink(True)
+            elif f.is_dir():
+                shutil.rmtree(f, True)
+            else:
+                Log.warn(f"Unknown file type: \"{f}\"", self.delete_temp_files)  # type:ignore[arg-type]
 
     @property
     def __name__(self) -> str:

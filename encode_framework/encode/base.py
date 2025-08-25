@@ -21,6 +21,9 @@ class _BaseEncoder:
     out_clip: vs.VideoNode
     """Clip to output."""
 
+    _temp_files: list[SPath] = []
+    """A list of all temporary files created during the encoding process."""
+
     def __init__(self, script_info: ScriptInfo, out_clip: vs.VideoNode | None = None, **kwargs: Any) -> None:
         self.script_info = script_info
 

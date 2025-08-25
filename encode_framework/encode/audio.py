@@ -70,7 +70,10 @@ class _AudioEncoder(_BaseEncoder):
             afiles = self.find_audio_files(None, reorder, overwrite, _is_loop=True)
 
             # Delete files from tempdir
-            (f.unlink(True) for f in to_arr(self.script_info.src_file))
+            self._temp_files += to_arr(self.script_info.src_file)
+
+            for f in self._temp_files:
+                f.unlink(True)
 
             self.script_info.src_file = old_script_info_src
             self.script_info.update_trims(old_script_info_trim)

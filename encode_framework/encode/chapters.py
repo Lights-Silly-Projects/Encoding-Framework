@@ -3,11 +3,11 @@ from pathlib import Path
 from typing import Any, cast
 
 # type:ignore[import]
-from vsmuxtools import Chapters, src_file, timedelta_to_frame
+from vsmuxtools import Chapters, src_file
 from vstools import FileNotExistsError, FuncExceptT, SPath, SPathLike, vs
 
 from ..script import ScriptInfo
-from ..util.logging import Log
+from ..util import Log, timedelta_to_frame
 from .base import _BaseEncoder
 
 __all__: list[str] = [

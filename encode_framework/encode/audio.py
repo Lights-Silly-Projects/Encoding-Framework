@@ -11,6 +11,7 @@ from vsmuxtools import (
     HasTrimmer,
     Opus,
     get_workdir,
+    ParsedFile
 )
 from vstools import (
     CustomIndexError,
@@ -245,7 +246,7 @@ class _AudioEncoder(_BaseEncoder):
                                 I'm aware I said it would never re-encode it.
         """
 
-        from vsmuxtools import FLAC, Sox, do_audio, frames_to_samples, is_fancy_codec
+        from vsmuxtools import FLAC, Sox, do_audio, frames_to_samples, AudioFormat
 
         from ..script import ScriptInfo
 
@@ -310,7 +311,7 @@ class _AudioEncoder(_BaseEncoder):
         # codec = self._get_audio_codec(encoder)
         encoder = encoder() if callable(encoder) else encoder
 
-        trimmer_kwargs = dict(fps=wclip.fps, num_frames=wclip.num_frames)
+        trimmer_kwargs = dict(num_frames=wclip.num_frames)
 
         # TODO: Figure out how much I can move out of this for loop.
         for i, audio_file in enumerate(process_files):
@@ -392,8 +393,6 @@ class _AudioEncoder(_BaseEncoder):
                 atrack = do_audio(
                     audio_file,
                     encoder=encoder,
-                    fps=wclip.fps,
-                    num_frames=wclip.num_frames,
                 )
 
                 atrack.container_delay = delay
@@ -433,6 +432,9 @@ class _AudioEncoder(_BaseEncoder):
             afile_copy = afile.file.with_suffix(".acopy")
             afile_old = afile.file
 
+            aformat = ParsedFile.from_file(afile).tracks[0].get_audio_format()
+            is_fancy = aformat.should_not_transcode() if aformat else False
+
             try:
                 FileType.AUDIO.parse(afile_old, func=self.encode_audio)
                 is_audio_file = True
@@ -450,7 +452,7 @@ class _AudioEncoder(_BaseEncoder):
                 afile_copy = shutil.copy(afile.file, afile_copy)
 
             try:
-                is_lossy = force or afile.is_lossy()
+                is_lossy = force or aformat.is_lossy
             except IndexError:
                 raise Log.error(
                     f'Could not get the mediainfo for "{afile.file}"!', CustomIndexError
@@ -505,9 +507,6 @@ class _AudioEncoder(_BaseEncoder):
                 )
                 # afile = trimmer_obj.trim_audio(afile)
 
-            # Unset the encoder if force=False and it's a specific kind of audio track.
-            is_fancy = is_fancy_codec(afile.get_mediainfo())
-
             if is_lossy and force:
                 Log.warn(
                     'Input audio is lossy, but "force=True"...', self.encode_audio, 1
@@ -523,7 +522,7 @@ class _AudioEncoder(_BaseEncoder):
                     "Input audio is lossy. Not re-encoding...", self.encode_audio, 1
                 )
                 encoder = None
-            elif is_fancy_codec(afile.get_mediainfo()) and not force:
+            elif is_fancy and not force:
                 Log.warn(
                     "Audio contain Atmos or special DTS features. Not re-encoding...",
                     self.encode_audio,
@@ -546,10 +545,9 @@ class _AudioEncoder(_BaseEncoder):
                 atrack = do_audio(
                     audio_file,
                     # track=i,
-                    extractor=FFMpeg.Extractor(full_analysis=full_analysis),
+                    extractor=FFMpeg.Extractor(skip_analysis=not full_analysis),
                     encoder=encoder,
                     trims=None if (trim == (0, wclip.num_frames)) else trim,
-                    fps=wclip.fps,
                     num_frames=wclip.num_frames,
                     quiet=not verbose,
                 )

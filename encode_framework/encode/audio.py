@@ -73,7 +73,10 @@ class _AudioEncoder(_BaseEncoder):
             self._temp_files += to_arr(self.script_info.src_file)
 
             for f in self._temp_files:
-                f.unlink(True)
+                try:
+                    f.unlink(missing_ok=True)
+                except PermissionError:
+                    Log.warn(f"Failed to unlink file, \"{f}\"! Skipping...", self.find_audio_files)
 
             self.script_info.src_file = old_script_info_src
             self.script_info.update_trims(old_script_info_trim)
@@ -576,7 +579,7 @@ class _AudioEncoder(_BaseEncoder):
 
             while time.time() < end_time:
                 try:
-                    spath.unlink(True)
+                    spath.unlink(missing_ok=True)
                     break
                 except Exception:
                     time.sleep(interval)

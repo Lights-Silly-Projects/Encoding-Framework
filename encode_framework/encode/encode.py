@@ -74,12 +74,18 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
 
         self._mux_logs()
 
-        muxed = vsmux(
-            self.video_track, *self.audio_tracks, *self.subtitle_tracks, *self.font_files, self.chapters,
-            outfile=out_path, print_cli=True
-        )
+        try:
+            muxed = vsmux(
+                self.video_track, *self.audio_tracks, *self.subtitle_tracks, *self.font_files, self.chapters,
+                outfile=out_path, print_cli=True
+            )
+        except PermissionError as e:
+            Log.warn(e, self.mux)
 
-        assert muxed is not None
+            if out_path.exists():
+                muxed = out_path
+
+        assert muxed is not None, "Could not find the muxed file!"
 
         self.premux_path = SPath(muxed)
 

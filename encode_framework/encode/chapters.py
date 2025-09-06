@@ -2,12 +2,11 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Any, cast
 
-# type:ignore[import]
 from vsmuxtools import Chapters, src_file
 from vstools import FileNotExistsError, FuncExceptT, SPath, SPathLike, vs
 
 from ..script import ScriptInfo
-from ..util import Log, timedelta_to_frame
+from ..util import Log, frame_to_timedelta, timedelta_to_frame
 from .base import _BaseEncoder
 
 __all__: list[str] = [
@@ -44,7 +43,6 @@ class _Chapters(_BaseEncoder):
         :param func:    Function to log messages to.
         :param force:   Force chapter creation, even for videos such as NCs or MVs.
         """
-        from vsmuxtools import frame_to_timedelta
 
         func = func or self.get_chapters
 

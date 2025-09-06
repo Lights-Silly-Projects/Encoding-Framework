@@ -2,6 +2,7 @@ import re
 from fractions import Fraction
 
 from jetpytools import SPathLike
+from ..util import frame_to_timedelta
 
 __all__: list[str] = ["markdownify", "get_opus_bitrate_from_channels"]
 
@@ -19,6 +20,7 @@ def frame_to_ms(
 
     :return:            The resulting ms
     """
+
     td = frame_to_timedelta(f, fps, compensate)
     return td.total_seconds() * 1000
 

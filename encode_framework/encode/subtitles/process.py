@@ -3,24 +3,30 @@ import subprocess as sp
 from itertools import zip_longest
 from typing import Any, Literal
 
-from vsmuxtools import (GJM_GANDHI_PRESET, SubFile, SubTrack, frame_to_ms,
-                        get_setup_attr, get_workdir, uniquify_path)
+from vsmuxtools import (
+    GJM_GANDHI_PRESET,
+    SubFile,
+    SubTrack,
+    get_setup_attr,
+    get_workdir,
+    uniquify_path,
+)
 from vstools import DependencyNotFoundError, SPath, SPathLike, vs
 
 from ...types import BitmapSubExt, TextSubExt
-from ...util import Log
+from ...util import Log, frame_to_ms
 from .base import _BaseSubtitles
 from .enum import OcrProgram
 
-__all__: list[str] = [
-    "_ProcessSubtitles"
-]
+__all__: list[str] = ["_ProcessSubtitles"]
+
 
 class _ProcessSubtitles(_BaseSubtitles):
     """Class containing methods pertaining to processing subtitle( file)s."""
 
     def process_subs(
-        self, subtitle_files: SPathLike | list[SPath] | None = None,
+        self,
+        subtitle_files: SPathLike | list[SPath] | None = None,
         ref: vs.VideoNode | None = None,
         ocr_program: OcrProgram | None = OcrProgram.SUBTITLEEDIT,
         reorder: list[int] | Literal[False] = False,
@@ -59,7 +65,7 @@ class _ProcessSubtitles(_BaseSubtitles):
         # Normalising reordering of tracks.
         if reorder:
             if len(reorder) > len(sub_files):  # type:ignore[arg-type]
-                reorder = reorder[:len(sub_files)]  # type:ignore[arg-type]
+                reorder = reorder[: len(sub_files)]  # type:ignore[arg-type]
 
             sub_files = [sub_files[i] for i in reorder]  # type:ignore[index, misc]
 
@@ -73,7 +79,10 @@ class _ProcessSubtitles(_BaseSubtitles):
         proc_set = set(proc_files)
 
         if len(proc_files) != len(proc_set):
-            Log.debug(f"Removed duplicate tracks ({len(proc_files)} -> {len(proc_set)})", self.process_subs)
+            Log.debug(
+                f"Removed duplicate tracks ({len(proc_files)} -> {len(proc_set)})",
+                self.process_subs,
+            )
 
         # Fixing a handful of very common OCR errors I encountered myself and other minor adjustments...
         for ocrd_file in ocrd_files:
@@ -83,7 +92,14 @@ class _ProcessSubtitles(_BaseSubtitles):
         if trim is None and ref:
             trim = (ref.num_frames * 1.333) > self.out_clip.num_frames
 
-        self._trackify(proc_set, ocrd_files, wclip, frame_to_ms(sub_delay or 0, wclip.fps), trim, restyle)
+        self._trackify(
+            proc_set,
+            ocrd_files,
+            wclip,
+            frame_to_ms(sub_delay or 0, wclip.fps),
+            trim,
+            restyle,
+        )
         self._clean_ocr(ocrd_files)
 
         if save:
@@ -92,7 +108,8 @@ class _ProcessSubtitles(_BaseSubtitles):
         return self.subtitle_tracks
 
     def sub_passthrough(
-        self, subtitle_files: SPathLike | list[SPath] | None = None,
+        self,
+        subtitle_files: SPathLike | list[SPath] | None = None,
         track_args: list[dict[str, Any]] = [dict(lang="en", default=True)],
         reorder: list[int] | Literal[False] = False,
         sub_delay: int | None = None,
@@ -128,7 +145,7 @@ class _ProcessSubtitles(_BaseSubtitles):
         # Normalising reordering of tracks.
         if reorder:
             if len(reorder) > len(sub_files):  # type:ignore[arg-type]
-                reorder = reorder[:len(sub_files)]  # type:ignore[arg-type]
+                reorder = reorder[: len(sub_files)]  # type:ignore[arg-type]
 
             sub_files = [sub_files[i] for i in reorder]  # type:ignore[index, misc]
 
@@ -151,7 +168,9 @@ class _ProcessSubtitles(_BaseSubtitles):
             Log.info(f"[{i + 1}/{len(sub_files)}] {track_arg=}", self.sub_passthrough)
 
             if self.check_is_empty(sub):
-                Log.debug(f"\"{sub.name}\" is an empty file! Ignoring...", self.sub_passthrough)
+                Log.debug(
+                    f'"{sub.name}" is an empty file! Ignoring...', self.sub_passthrough
+                )
                 continue
 
             if not isinstance(track_arg, dict):
@@ -167,26 +186,43 @@ class _ProcessSubtitles(_BaseSubtitles):
 
         return self.subtitle_tracks
 
-    def _shift_pgs(self, subfile: SPath, delay: int = 0, cmd_args: list[str] = []) -> SPath:
+    def _shift_pgs(
+        self, subfile: SPath, delay: int = 0, cmd_args: list[str] = []
+    ) -> SPath:
         """Muxtools does not touch PGS files, so we have to delay it ourselves."""
 
-        Log.info("Delay set or SupMover args passed, trying to modify PGS...", self.sub_passthrough)
+        Log.info(
+            "Delay set or SupMover args passed, trying to modify PGS...",
+            self.sub_passthrough,
+        )
 
         if not shutil.which("SupMover-win.exe"):
-            raise Log.error(DependencyNotFoundError(self.sub_passthrough, "SupMover-win.exe"), self.sub_passthrough)
+            raise Log.error(
+                DependencyNotFoundError(self.sub_passthrough, "SupMover-win.exe"),
+                self.sub_passthrough,
+            )
 
         out_subfile = SPath(get_workdir() / subfile.name)
-        Log.debug(f"SUP output location: \"{out_subfile.absolute()}\"", self.sub_passthrough)
+        Log.debug(
+            f'SUP output location: "{out_subfile.absolute()}"', self.sub_passthrough
+        )
 
         if out_subfile.exists():
             out_subfile.unlink(True)
 
         cmd = [
-            "SupMover-win.exe", subfile.to_str(), out_subfile.to_str(), "--delay", str(delay),
+            "SupMover-win.exe",
+            subfile.to_str(),
+            out_subfile.to_str(),
+            "--delay",
+            str(delay),
         ] + [str(arg) for arg in cmd_args]
 
         try:
-            Log.info(sp.run(cmd, check=True, stdout=sp.PIPE, stderr=sp.PIPE, text=True), self.sub_passthrough)
+            Log.info(
+                sp.run(cmd, check=True, stdout=sp.PIPE, stderr=sp.PIPE, text=True),
+                self.sub_passthrough,
+            )
         except sp.CalledProcessError as e:
             Log.error(f"Error executing command: {e}", self.sub_passthrough)
             Log.error(f"Output: {e.output}", self.sub_passthrough)
@@ -204,19 +240,24 @@ class _ProcessSubtitles(_BaseSubtitles):
             sub = file.file
 
             if self.check_is_empty(sub):
-                Log.debug(f"\"{SPath(sub).name}\" is an empty file! Ignoring...", self._save)
+                Log.debug(
+                    f'"{SPath(sub).name}" is an empty file! Ignoring...', self._save
+                )
                 continue
 
             out = SPath.cwd() / "_subs" / f"{show_name} - {episode}.ass"
 
             if out.exists() and self.check_identical(sub, out, caller=self._save):
-                Log.debug(f"\"{sub.name}\" already exists in the out dir. Skipping...", self._save)
+                Log.debug(
+                    f'"{sub.name}" already exists in the out dir. Skipping...',
+                    self._save,
+                )
                 new_files += [out]
                 continue
 
             (SPath.cwd() / "_subs").mkdir(exist_ok=True)
 
-            Log.info(f"Saving subtitle file to \"{out}\"!", self.process_subs)
+            Log.info(f'Saving subtitle file to "{out}"!', self.process_subs)
 
             new_files += [SPath(shutil.copy(sub, uniquify_path(out)))]
 
@@ -239,7 +280,10 @@ class _ProcessSubtitles(_BaseSubtitles):
 
                         fout.write(line)
         except Exception as e:
-            Log.debug(f"An error occurred while trying to clean \"{file}\"!\n{e}", self._process_ocr_file)
+            Log.debug(
+                f'An error occurred while trying to clean "{file}"!\n{e}',
+                self._process_ocr_file,
+            )
 
         if self.check_is_empty(clean):
             clean.unlink()
@@ -249,8 +293,12 @@ class _ProcessSubtitles(_BaseSubtitles):
         clean.rename(file)
 
     def _prepare_subfile(
-        self, file: SPath, ref: vs.VideoNode | None = None,
-        sub_delay: int = 0, trim: bool = True, restyle: bool = False
+        self,
+        file: SPath,
+        ref: vs.VideoNode | None = None,
+        sub_delay: int = 0,
+        trim: bool = True,
+        restyle: bool = False,
     ) -> SubFile:
         if file.to_str().endswith(".srt"):
             sub_file = SubFile.from_srt(file)
@@ -261,7 +309,9 @@ class _ProcessSubtitles(_BaseSubtitles):
         else:
             sub_file = SubFile(file, container_delay=int(sub_delay))
 
-        sub_file = sub_file.shift(-self.script_info.trim[0], self.script_info.clip_cut.fps)
+        sub_file = sub_file.shift(
+            -self.script_info.trim[0], self.script_info.clip_cut.fps
+        )
 
         if ref and trim:
             sub_file = sub_file.truncate_by_video(ref)
@@ -275,13 +325,17 @@ class _ProcessSubtitles(_BaseSubtitles):
         for f in files:
             for s in f.parent.glob(f.stem):
                 if s.to_str().endswith(BitmapSubExt):
-                    Log.debug(f"Cleaning up \"{s}\"...", self.process_subs)
+                    Log.debug(f'Cleaning up "{s}"...', self.process_subs)
                     s.unlink()
 
     def _trackify(
-        self, processed_files: list[SPath], ocrd_files: list[SPath],
-        ref: vs.VideoNode | None = None, sub_delay: int = 0,
-        trim: bool = True, restyle: bool = False
+        self,
+        processed_files: list[SPath],
+        ocrd_files: list[SPath],
+        ref: vs.VideoNode | None = None,
+        sub_delay: int = 0,
+        trim: bool = True,
+        restyle: bool = False,
     ) -> None:
         first_track_removed = False
 
@@ -289,7 +343,9 @@ class _ProcessSubtitles(_BaseSubtitles):
             sub = SPath(sub)
 
             if self.check_is_empty(sub):
-                Log.debug(f"\"{SPath(sub).name}\" is an empty file! Ignoring...", self._trackify)
+                Log.debug(
+                    f'"{SPath(sub).name}" is an empty file! Ignoring...', self._trackify
+                )
                 first_track_removed = True
                 continue
 
@@ -300,13 +356,16 @@ class _ProcessSubtitles(_BaseSubtitles):
                 self.subtitle_tracks += [SubTrack(sub, name, default, delay=sub_delay)]
             else:
                 sub_file = self._prepare_subfile(sub, ref, sub_delay, trim, restyle)
-                self.subtitle_tracks += [sub_file.to_track(name, default=first_track_removed or not bool(i))]
+                self.subtitle_tracks += [
+                    sub_file.to_track(name, default=first_track_removed or not bool(i))
+                ]
                 self.font_files = sub_file.collect_fonts(search_current_dir=False)
 
     def _process_files(
-        self, sub_files: list[SPath],
+        self,
+        sub_files: list[SPath],
         ocr_program: OcrProgram | None = OcrProgram.SUBTITLEEDIT,
-        ref: vs.VideoNode | None = None
+        ref: vs.VideoNode | None = None,
     ) -> tuple[list[SPath], list[SPath]]:
         if ocr_program is None:
             ocr_program = OcrProgram.PASSTHROUGH
@@ -325,11 +384,17 @@ class _ProcessSubtitles(_BaseSubtitles):
 
                 for y in x:
                     if self.check_is_empty(y):
-                        Log.debug(f"\"{y.name}\" is an empty file! Ignoring...", self.process_subs)
+                        Log.debug(
+                            f'"{y.name}" is an empty file! Ignoring...',
+                            self.process_subs,
+                        )
                         y.unlink()
                         continue
 
-                    Log.info(f"{num} \"{y.name}\" found! Skipping processing...", self.process_subs)
+                    Log.info(
+                        f'{num} "{y.name}" found! Skipping processing...',
+                        self.process_subs,
+                    )
                     proc_files = [y]
                     found += [y]
 
@@ -339,8 +404,9 @@ class _ProcessSubtitles(_BaseSubtitles):
             # Softsubs found, do not do anything special.
             if sub_spath.to_str().endswith(TextSubExt):
                 Log.info(
-                    f"{num} \"{sub_spath.name}\" is a text-based subtitle format. "
-                    "Skipping OCR!", self.process_subs
+                    f'{num} "{sub_spath.name}" is a text-based subtitle format. '
+                    "Skipping OCR!",
+                    self.process_subs,
                 )
 
                 proc_files += [sub_spath]
@@ -350,8 +416,9 @@ class _ProcessSubtitles(_BaseSubtitles):
             # Try to run the OCR tool
             if not (proc := ocr_program.ocr(sub_spath, ref=ref)):
                 Log.warn(
-                    f"{num} \"{sub_spath.name}\" is likely not a text-based subtitle format, "
-                    "but could not process it. Leaving it untouched!", self.process_subs
+                    f'{num} "{sub_spath.name}" is likely not a text-based subtitle format, '
+                    "but could not process it. Leaving it untouched!",
+                    self.process_subs,
                 )
 
                 proc_files += [sub_spath]

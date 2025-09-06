@@ -4,17 +4,16 @@ import time
 from typing import Any, Literal
 
 from vsmuxtools import (AudioFile, AudioTrack, Encoder, FFMpeg, HasTrimmer,
-                        Opus, frame_to_ms, get_workdir)
+                        Opus, get_workdir)
 from vstools import (CustomIndexError, CustomNotImplementedError,
                      CustomRuntimeError, CustomValueError, FileNotExistsError,
                      FileType, SPath, SPathLike, to_arr, vs)
 
+from ..util.convert import frame_to_ms
 from ..util.logging import Log
 from .base import _BaseEncoder
 
-__all__: list[str] = [
-    "_AudioEncoder"
-]
+__all__: list[str] = ["_AudioEncoder"]
 
 
 class _AudioEncoder(_BaseEncoder):
@@ -27,10 +26,11 @@ class _AudioEncoder(_BaseEncoder):
     """A list of all audio tracks."""
 
     def find_audio_files(
-        self, dgi_path: SPathLike | None = None,
+        self,
+        dgi_path: SPathLike | None = None,
         reorder: list[int] | Literal[False] = False,
         overwrite: bool = False,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> list[SPath]:
         """
         Find accompanying DGIndex(NV) demuxed audio tracks.
@@ -54,11 +54,11 @@ class _AudioEncoder(_BaseEncoder):
         # Pre-clean acopy files because it's a pain if you ran this after updating...
         self.__clean_acopy(dgi_file)
 
-        if not dgi_file.to_str().endswith(".dgi") and not kwargs.get('_is_loop', False):
+        if not dgi_file.to_str().endswith(".dgi") and not kwargs.get("_is_loop", False):
             Log.warn(
                 "Trying to pass a non-dgi file! "
                 "Extracting tracks using DGIndexNV in %TEMP% (this may take some time)...",
-                self.find_audio_files
+                self.find_audio_files,
             )
 
             old_script_info_src = self.script_info.src_file
@@ -76,7 +76,10 @@ class _AudioEncoder(_BaseEncoder):
                 try:
                     f.unlink(missing_ok=True)
                 except PermissionError:
-                    Log.warn(f"Failed to unlink file, \"{f}\"! Skipping...", self.find_audio_files)
+                    Log.warn(
+                        f'Failed to unlink file, "{f}"! Skipping...',
+                        self.find_audio_files,
+                    )
 
             self.script_info.src_file = old_script_info_src
             self.script_info.update_trims(old_script_info_trim)
@@ -84,21 +87,25 @@ class _AudioEncoder(_BaseEncoder):
             return afiles
         else:
             Log.debug(
-                f"DGIndex(NV) input found! Trying to find audio tracks in \"{dgi_file.get_folder()}\"...",
-                self.find_audio_files
+                f'DGIndex(NV) input found! Trying to find audio tracks in "{dgi_file.get_folder()}"...',
+                self.find_audio_files,
             )
 
             audio_files: list[SPath] = []  # type:ignore[no-redef]
 
             # [] and () characters mess up the glob, so replacing them
-            search_string = f'*{dgi_file.stem}*.*'.translate(str.maketrans('[]()', '????')).replace('**', '*')
+            search_string = f"*{dgi_file.stem}*.*".translate(
+                str.maketrans("[]()", "????")
+            ).replace("**", "*")
 
             for f in dgi_file.get_folder().glob(search_string):
                 # explicitly ignore certain files; audio.parse seems to count these for some reason?
                 if f.suffix.lower() in (".log", ".sup", ".ttf", ".otf", ".ttc", ".wob"):
                     continue
 
-                Log.debug(f"Checking the following file: \"{f.name}\"...", self.find_audio_files)
+                Log.debug(
+                    f'Checking the following file: "{f.name}"...', self.find_audio_files
+                )
 
                 try:
                     FileType.AUDIO.parse(f, func=self.find_audio_files)
@@ -122,7 +129,7 @@ class _AudioEncoder(_BaseEncoder):
 
         for f in audio_files:
             try:
-                Log.info(f"    - \"{f.name if isinstance(f, SPath) else f.file}\"")  # type:ignore[attr-defined]
+                Log.info(f'    - "{f.name if isinstance(f, SPath) else f.file}"')  # type:ignore[attr-defined]
             except (AttributeError, ValueError) as e:
                 Log.warn(f"    - Unknown track!\n{e}")
 
@@ -133,16 +140,21 @@ class _AudioEncoder(_BaseEncoder):
     def _find_m2ts_audio(self, dgi_file: SPath) -> list[SPath]:
         from vsmuxtools import parse_m2ts_path
 
-        Log.debug("No audio tracks could be found! Trying to find the source file...", self.find_audio_files)
+        Log.debug(
+            "No audio tracks could be found! Trying to find the source file...",
+            self.find_audio_files,
+        )
 
         m2ts = parse_m2ts_path(dgi_file)
 
-        if str(m2ts).endswith('.dgi'):
-            Log.debug("No m2ts file found! Not encoding any audio...", self.find_audio_files)
+        if str(m2ts).endswith(".dgi"):
+            Log.debug(
+                "No m2ts file found! Not encoding any audio...", self.find_audio_files
+            )
 
             return []
 
-        Log.debug(f"Source file found at \"{str(m2ts)}\"", self.find_audio_files)
+        Log.debug(f'Source file found at "{str(m2ts)}"', self.find_audio_files)
 
         return self._extract_tracks(m2ts)
 
@@ -154,8 +166,10 @@ class _AudioEncoder(_BaseEncoder):
 
         if not video_file.exists():
             Log.error(
-                "The given file could not be found!", self._extract_tracks,
-                FileNotExistsError, reason=video_file.to_str()  # type:ignore[arg-type]
+                "The given file could not be found!",
+                self._extract_tracks,
+                FileNotExistsError,
+                reason=video_file.to_str(),  # type:ignore[arg-type]
             )
 
         mi = MediaInfo.parse(video_file)
@@ -166,12 +180,15 @@ class _AudioEncoder(_BaseEncoder):
         for track in mi.tracks:
             assert isinstance(track, Track)
 
-            if track.track_type == 'Audio':
+            if track.track_type == "Audio":
                 _track += 1
 
                 atracks += [
-                    FFMpeg.Extractor(_track if track is None else int(track.to_data().get("stream_identifier", _track)))
-                    .extract_audio(video_file)
+                    FFMpeg.Extractor(
+                        _track
+                        if track is None
+                        else int(track.to_data().get("stream_identifier", _track))
+                    ).extract_audio(video_file)
                 ]
 
         return atracks
@@ -245,7 +262,11 @@ class _AudioEncoder(_BaseEncoder):
         if ref is not None:
             Log.debug(f"`ref` VideoNode passed: {ref}", func)
 
-        wclip = ref.src.init() if isinstance(ref, ScriptInfo) else ref or self.script_info.src.init()
+        wclip = (
+            ref.src.init()
+            if isinstance(ref, ScriptInfo)
+            else ref or self.script_info.src.init()
+        )
         trims = trims or self.script_info.trim
 
         # Normalising trims.
@@ -274,22 +295,25 @@ class _AudioEncoder(_BaseEncoder):
         # codec = self._get_audio_codec(encoder)
         encoder = encoder() if callable(encoder) else encoder
 
-        trimmer_kwargs = dict(
-            fps=wclip.fps,
-            num_frames=wclip.num_frames
-        )
+        trimmer_kwargs = dict(fps=wclip.fps, num_frames=wclip.num_frames)
 
         # TODO: Figure out how much I can move out of this for loop.
         for i, audio_file in enumerate(process_files):
             # Get corresponding trim and track_arg if available.
             trim = trims[i] if i < len(trims) else (trims[-1] if trims else None)
-            track_arg = track_args[i] if i < len(track_args) else (track_args[-1] if track_args else None)
+            track_arg = (
+                track_args[i]
+                if i < len(track_args)
+                else (track_args[-1] if track_args else None)
+            )
 
             Log.debug(f"Processing audio file {i + 1}/{len(process_files)}...", func)
             Log.debug(f"{audio_file=}, {trim=}, {track_arg=}", func)
 
             if not isinstance(trim, tuple):
-                Log.warn(f"Trim is not a tuple: {trim} ({type(trim)})", self.encode_audio)
+                Log.warn(
+                    f"Trim is not a tuple: {trim} ({type(trim)})", self.encode_audio
+                )
                 trim = tuple(trim)
 
             # I guess this is something to worry about now?
@@ -297,21 +321,25 @@ class _AudioEncoder(_BaseEncoder):
                 track_arg = track_args[-1]
 
             if any(x < 0 for x in trim):
-                old_trim, trim = trim, (
-                    max(0, trim[0]),
-                    wclip.num_frames - abs(trim[1]) if trim[1] < 0 else trim[1]
+                old_trim, trim = (
+                    trim,
+                    (
+                        max(0, trim[0]),
+                        wclip.num_frames - abs(trim[1]) if trim[1] < 0 else trim[1],
+                    ),
                 )
 
                 Log.warn(
                     f"Invalid trim values fixed: {trim}. Original trim: {old_trim}",
-                    self.encode_audio
+                    self.encode_audio,
                 )
 
             if any(x > wclip.num_frames for x in trim):
                 old_trim, trim = trim, tuple(min(wclip.num_frames, x) for x in trim)
                 Log.warn(
                     f"Trim values greater than the number of frames set to the number of frames: {trim}. "
-                    f"Original trim: {old_trim}", self.encode_audio
+                    f"Original trim: {old_trim}",
+                    self.encode_audio,
                 )
 
             if track_arg:
@@ -322,26 +350,35 @@ class _AudioEncoder(_BaseEncoder):
             try:
                 delay = int(delay)
             except (ValueError, TypeError):
-                raise Log.error(f"Invalid delay value: {delay} ({type(delay)})", self.encode_audio)
+                raise Log.error(
+                    f"Invalid delay value: {delay} ({type(delay)})", self.encode_audio
+                )
 
             Log.debug(
-                f"Processing audio track {i + 1}/{len(process_files)}...",  self.encode_audio  # type:ignore[arg-type]
+                f"Processing audio track {i + 1}/{len(process_files)}...",
+                self.encode_audio,  # type:ignore[arg-type]
             )
-            Log.debug(f"Processing audio file \"{audio_file}\"...", func)
+            Log.debug(f'Processing audio file "{audio_file}"...', func)
             Log.info(f"{trim=}, {track_arg=}", func)
 
             if delay:
-                Log.info(f"Delay passed ({delay}ms), applying to source audio file...", func)
+                Log.info(
+                    f"Delay passed ({delay}ms), applying to source audio file...", func
+                )
 
             # This is mainly meant to support weird trims we don't typically support and should not be used otherwise!
             if isinstance(audio_file, vs.AudioNode):
                 Log.warn(
-                    "Not properly supported yet! This may fail!", self.encode_audio,
-                    CustomNotImplementedError
+                    "Not properly supported yet! This may fail!",
+                    self.encode_audio,
+                    CustomNotImplementedError,
                 )  # type:ignore[arg-type]
 
                 atrack = do_audio(
-                    audio_file, encoder=encoder, fps=wclip.fps, num_frames=wclip.num_frames
+                    audio_file,
+                    encoder=encoder,
+                    fps=wclip.fps,
+                    num_frames=wclip.num_frames,
                 )
 
                 atrack.container_delay = delay
@@ -350,7 +387,9 @@ class _AudioEncoder(_BaseEncoder):
 
                 continue
 
-            trimmed_files = list(SPath(get_workdir()).glob(f"{audio_file.stem}_*_trimmed_*.*"))
+            trimmed_files = list(
+                SPath(get_workdir()).glob(f"{audio_file.stem}_*_trimmed_*.*")
+            )
 
             if trimmed_files:
                 # Delete temp dir to minimise random errors.
@@ -359,12 +398,17 @@ class _AudioEncoder(_BaseEncoder):
 
                 # If a trimmed audio file already exists, this means it was likely already encoded.
                 if trim:
-                    Log.debug(f"Trimmed file found at \"{trimmed_files[0]}\"! Skipping encoding...", func)
+                    Log.debug(
+                        f'Trimmed file found at "{trimmed_files[0]}"! Skipping encoding...',
+                        func,
+                    )
 
                     afile = AudioFile.from_file(trimmed_files[0], func)
                     afile.container_delay = delay
 
-                    self.audio_tracks += [afile.to_track(**(track_arg | dict(default=not bool(i))))]
+                    self.audio_tracks += [
+                        afile.to_track(**(track_arg | dict(default=not bool(i))))
+                    ]
 
                     continue
 
@@ -383,8 +427,9 @@ class _AudioEncoder(_BaseEncoder):
             # vsmuxtools, at the time of writing, deletes the original audio files if you pass an external file.
             if is_audio_file and not afile_copy.exists():
                 Log.debug(
-                    f"Copying audio file \"{afile.file.name}\" "
-                    "(this is a temporary workaround)!", self.encode_audio
+                    f'Copying audio file "{afile.file.name}" '
+                    "(this is a temporary workaround)!",
+                    self.encode_audio,
                 )
 
                 afile_copy = shutil.copy(afile.file, afile_copy)
@@ -392,7 +437,9 @@ class _AudioEncoder(_BaseEncoder):
             try:
                 is_lossy = force or afile.is_lossy()
             except IndexError:
-                raise Log.error(f"Could not get the mediainfo for \"{afile.file}\"!", CustomIndexError)
+                raise Log.error(
+                    f'Could not get the mediainfo for "{afile.file}"!', CustomIndexError
+                )
 
             # Trim the audio file if applicable.
             if trim and trimmer is not False:
@@ -407,7 +454,7 @@ class _AudioEncoder(_BaseEncoder):
 
                     Log.warn(
                         f"Start trim value is negative ({trim[0]})! Calculating additional delay of {new_delay}ms!",
-                        self.encode_audio
+                        self.encode_audio,
                     )
 
                     delay -= new_delay
@@ -420,7 +467,7 @@ class _AudioEncoder(_BaseEncoder):
                     if trim_into_ep < 0:
                         Log.warn(
                             f"End trim is before the start trim ({trim[1]} < {trim[0]} ({trim_into_ep} frames))!",
-                            self.encode_audio
+                            self.encode_audio,
                         )
 
                         trim = (0, 0)
@@ -431,27 +478,42 @@ class _AudioEncoder(_BaseEncoder):
 
                 if force and is_lossy:
                     Log.debug(
-                        "\"force\" is set to True and the file is lossy! Creating an intermediary file...",
-                        self.encode_audio
+                        '"force" is set to True and the file is lossy! Creating an intermediary file...',
+                        self.encode_audio,
                     )
 
                     afile = FLAC(compression_level=0).encode_audio(afile)
 
-                Log.info(f"Trimming audio file \"{afile.file}\" with trims {trim}...", self.encode_audio)
+                Log.info(
+                    f'Trimming audio file "{afile.file}" with trims {trim}...',
+                    self.encode_audio,
+                )
                 # afile = trimmer_obj.trim_audio(afile)
 
             # Unset the encoder if force=False and it's a specific kind of audio track.
             is_fancy = is_fancy_codec(afile.get_mediainfo())
 
             if is_lossy and force:
-                Log.warn("Input audio is lossy, but \"force=True\"...", self.encode_audio, 1)
+                Log.warn(
+                    'Input audio is lossy, but "force=True"...', self.encode_audio, 1
+                )
             elif is_fancy and force:
-                Log.warn("Audio contain Atmos or special DTS features, but \"force=True\"...", self.encode_audio, 1)
+                Log.warn(
+                    'Audio contain Atmos or special DTS features, but "force=True"...',
+                    self.encode_audio,
+                    1,
+                )
             elif is_lossy and not force:
-                Log.warn("Input audio is lossy. Not re-encoding...", self.encode_audio, 1)
+                Log.warn(
+                    "Input audio is lossy. Not re-encoding...", self.encode_audio, 1
+                )
                 encoder = None
             elif is_fancy_codec(afile.get_mediainfo()) and not force:
-                Log.warn("Audio contain Atmos or special DTS features. Not re-encoding...", self.encode_audio, 1)
+                Log.warn(
+                    "Audio contain Atmos or special DTS features. Not re-encoding...",
+                    self.encode_audio,
+                    1,
+                )
                 encoder = None
 
             if encoder:
@@ -474,7 +536,7 @@ class _AudioEncoder(_BaseEncoder):
                     trims=None if (trim == (0, wclip.num_frames)) else trim,
                     fps=wclip.fps,
                     num_frames=wclip.num_frames,
-                    quiet=not verbose
+                    quiet=not verbose,
                 )
             else:
                 atrack = AudioFile.from_file(afile, func)
@@ -485,7 +547,7 @@ class _AudioEncoder(_BaseEncoder):
                 Log.warn(
                     f"Container delay is greater than 1001ms ({atrack.container_delay}ms)! "
                     "This is likely to cause syncing issues! Consider trimming the audio file further.",
-                    self.encode_audio
+                    self.encode_audio,
                 )
 
             atrack = atrack.to_track(**track_arg)
@@ -502,8 +564,9 @@ class _AudioEncoder(_BaseEncoder):
         return self.audio_tracks
 
     def _reorder(
-        self, process_files: list[SPath] | None = None,
-        reorder: list[int] | Literal[False] = False
+        self,
+        process_files: list[SPath] | None = None,
+        reorder: list[int] | Literal[False] = False,
     ) -> list[SPath]:
         if process_files is None:
             return []
@@ -517,7 +580,7 @@ class _AudioEncoder(_BaseEncoder):
         process_files = process_files or self.audio_files
 
         if len(reorder) > len(process_files):  # type:ignore[arg-type]
-            reorder = reorder[:len(process_files)]  # type:ignore[arg-type]
+            reorder = reorder[: len(process_files)]  # type:ignore[arg-type]
 
         return [process_files[i] for i in reorder]
 
@@ -537,24 +600,22 @@ class _AudioEncoder(_BaseEncoder):
 
         try:
             for acopy in SPath(file).parent.glob("*.acopy"):
-                Log.debug(f"Unlinking file \"{acopy}\"...", self.encode_audio)
+                Log.debug(f'Unlinking file "{acopy}"...', self.encode_audio)
                 SPath(acopy).unlink(missing_ok=True)
         except Exception as e:
             Log.error(str(e), self.__clean_acopy, CustomValueError)  # type:ignore[arg-type]
 
     def _get_audio_codec(self, encoder: Encoder) -> str:
-        encoder_map = {
-            "qaac": "qaac",
-            "flac": "libflac",
-            "opus": "libopus"
-        }
+        encoder_map = {"qaac": "qaac", "flac": "libflac", "opus": "libopus"}
 
         codec = encoder_map.get(str(encoder.__name__).lower())
 
         if not codec:
             Log.error(
-                "Unknown codec. Please expand the if/else statement!", self.encode_audio,
-                CustomRuntimeError, reason=encoder.__name__  # type:ignore[arg-type]
+                "Unknown codec. Please expand the if/else statement!",
+                self.encode_audio,
+                CustomRuntimeError,
+                reason=encoder.__name__,  # type:ignore[arg-type]
             )
 
         return str(codec)

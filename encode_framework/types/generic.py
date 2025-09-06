@@ -9,12 +9,9 @@ except AttributeError:
 __all__: list[str] = [
     "SystemName",
     "IsWindows",
-
     "TruthyInput",
-
     "TextSubExt",
     "BitmapSubExt",
-
     "is_iterable",
 ]
 

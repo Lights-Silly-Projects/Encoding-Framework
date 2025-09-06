@@ -3,17 +3,27 @@ from typing import Any, cast
 from muxtools import get_workdir
 from vsmuxtools import VideoFile, VideoTrack, x265  # type:ignore[import]
 from vsmuxtools.video.encoders import VideoEncoder  # type:ignore[import]
-from vstools import (ColorRange, CustomRuntimeError, CustomValueError,
-                     DitherType, FileNotExistsError, FuncExceptT, SPath,
-                     SPathLike, depth, finalize_clip, get_depth, get_prop, vs)
+from vstools import (
+    ColorRange,
+    CustomRuntimeError,
+    CustomValueError,
+    DitherType,
+    FileNotExistsError,
+    FuncExceptT,
+    SPath,
+    SPathLike,
+    depth,
+    finalize_clip,
+    get_depth,
+    get_prop,
+    vs,
+)
 
 from ..types import Zones
 from ..util.logging import Log
 from .base import _BaseEncoder
 
-__all__: list[str] = [
-    "_VideoEncoder"
-]
+__all__: list[str] = ["_VideoEncoder"]
 
 
 VideoEncoders = type[VideoEncoder]  # type:ignore[misc,valid-type]
@@ -53,7 +63,7 @@ class _VideoEncoder(_BaseEncoder):
         lossless: bool = False,
         encoder: VideoEncoders = x265,
         track_args: dict[str, Any] = {},
-        **encoder_kwargs: Any
+        **encoder_kwargs: Any,
     ) -> VideoFile:
         """
         Encode the video node.
@@ -86,16 +96,20 @@ class _VideoEncoder(_BaseEncoder):
             self._video_track_args = []
 
             for k, v in track_args.items():
-                self._video_track_args.extend(['--' + k.replace('_', '-'), f'0:{v}'])
+                self._video_track_args.extend(["--" + k.replace("_", "-"), f"0:{v}"])
 
         if finished_encode := list(SPath(get_workdir()).glob("encoded.*")):
-            Log.debug(f"Found finished encode at \"{finished_encode[0]}\"", self.encode_video)
+            Log.debug(
+                f'Found finished encode at "{finished_encode[0]}"', self.encode_video
+            )
 
             self.video_file = VideoFile(finished_encode[0])
 
             self.video_track = self.video_file.to_track(
-                default=True, timecode_file=self.script_info.tc_path,
-                lang=lang.strip(), crop=self.crop
+                default=True,
+                timecode_file=self.script_info.tc_path,
+                lang=lang.strip(),
+                crop=self.crop,
             )
 
             return self.video_file
@@ -112,8 +126,9 @@ class _VideoEncoder(_BaseEncoder):
         if not isinstance(out_clip, vs.VideoNode):
             raise Log.error(
                 "Too many output nodes in filterchain function! Please only output one node!",
-                self.encode_video, CustomRuntimeError,  # type:ignore[arg-type]
-                reason=f"Output nodes: {len(out_clip)}"  # type:ignore[arg-type]
+                self.encode_video,
+                CustomRuntimeError,  # type:ignore[arg-type]
+                reason=f"Output nodes: {len(out_clip)}",  # type:ignore[arg-type]
             )
 
         if lossless:
@@ -121,14 +136,17 @@ class _VideoEncoder(_BaseEncoder):
             in_clip, out_clip = lossless_clip, lossless_clip
 
         if qpfile is True and self.script_info.sc_path.exists():
-            Log.debug(f"QP file found at \"{self.script_info.sc_path}\"", self.encode_video)
+            Log.debug(
+                f'QP file found at "{self.script_info.sc_path}"', self.encode_video
+            )
 
             qpfile = self.script_info.sc_path
 
         if not settings_file.exists():
             Log.error(
-                f"No settings file found at \"{settings_file}\"! Falling back to defaults...",
-                self.encode_video, FileNotExistsError  # type:ignore[arg-type]
+                f'No settings file found at "{settings_file}"! Falling back to defaults...',
+                self.encode_video,
+                FileNotExistsError,  # type:ignore[arg-type]
             )
         else:
             self._set_container_args(encoder, settings_file)
@@ -137,7 +155,7 @@ class _VideoEncoder(_BaseEncoder):
             Log.info(
                 "Applying the following container settings:\n"
                 f"\"{' '.join(self.video_container_args)}\"",
-                self.encode_video
+                self.encode_video,
             )
 
         zones += self.script_info.zones
@@ -147,7 +165,9 @@ class _VideoEncoder(_BaseEncoder):
 
         # Args for finalizing the clip.
         if get_depth(out_clip) != out_bit_depth:
-            out_clip = self._finalize_clip(out_clip, out_bit_depth, dither_type, self.encode_video)
+            out_clip = self._finalize_clip(
+                out_clip, out_bit_depth, dither_type, self.encode_video
+            )
 
         video_file = self.encoder(
             settings_file, zones, qpfile, in_clip, **encoder_kwargs
@@ -156,17 +176,20 @@ class _VideoEncoder(_BaseEncoder):
         self.video_file = cast(VideoFile, video_file)
 
         self.video_track = self.video_file.to_track(
-            default=True, timecode_file=self.script_info.tc_path,
-            lang=lang.strip(), crop=self.crop,
+            default=True,
+            timecode_file=self.script_info.tc_path,
+            lang=lang.strip(),
+            crop=self.crop,
         )
 
         return self.video_file
 
     def _finalize_clip(
-        self, clip: vs.VideoNode,
+        self,
+        clip: vs.VideoNode,
         out_bit_depth: int = 10,
         dither_type: DitherType = DitherType.AUTO,
-        func: Any | None = None
+        func: Any | None = None,
     ) -> vs.VideoNode:
         clip = depth(clip, out_bit_depth, dither_type=dither_type)
 
@@ -176,7 +199,9 @@ class _VideoEncoder(_BaseEncoder):
 
         return self.out_clip
 
-    def _set_container_args(self, encoder: VideoEncoders, settings_file: SPath) -> list[str]:
+    def _set_container_args(
+        self, encoder: VideoEncoders, settings_file: SPath
+    ) -> list[str]:
         """Set additional container arguments if relevant."""
         psets = str(encoder(settings_file).settings).split(" ")  # type:ignore[arg-type, attr-defined, call-arg]
 
@@ -185,7 +210,10 @@ class _VideoEncoder(_BaseEncoder):
             display_window_idx = psets.index("--display-window")
 
             if psets[overscan_idx + 1] == "crop":
-                self.video_container_args += ["--cropping", f"0:{psets[display_window_idx + 1]}"]
+                self.video_container_args += [
+                    "--cropping",
+                    f"0:{psets[display_window_idx + 1]}",
+                ]
 
         return self.video_container_args
 
@@ -214,22 +242,27 @@ class _VideoEncoder(_BaseEncoder):
 
         return crop
 
-    def _encode_lossless(self, clip_to_process: vs.VideoNode, caller: str | None = None) -> vs.VideoNode:
+    def _encode_lossless(
+        self, clip_to_process: vs.VideoNode, caller: str | None = None
+    ) -> vs.VideoNode:
         from vsmuxtools import FFV1, get_workdir
         from vssource import BestSource
 
         self.lossless_path = SPath(
-            get_workdir() / f"{self.script_info.show_title}_{self.script_info.ep_num}_lossless.mkv"
+            get_workdir()
+            / f"{self.script_info.show_title}_{self.script_info.ep_num}_lossless.mkv"
         )
 
         if self.lossless_path.exists():
             Log.info(
                 f"Lossless intermediary located at {self.lossless_path}! "
                 "If this encode is outdated, please delete the lossless render!",
-                caller or self._encode_lossless
+                caller or self._encode_lossless,
             )
         else:
-            Log.info("Creating a lossless intermediary...", caller or self._encode_lossless)
+            Log.info(
+                "Creating a lossless intermediary...", caller or self._encode_lossless
+            )
 
             FFV1().encode(clip_to_process, self.lossless_path)
 
@@ -246,8 +279,10 @@ class _VideoEncoder(_BaseEncoder):
         for zone in zones:
             if len(zone) != 3:
                 raise Log.error(
-                    f"The zone \"{zone}\" must contain 3 values! "
-                    "(start frame, end frame, bitrate modifier)", self.encode_video, CustomValueError  # type:ignore
+                    f'The zone "{zone}" must contain 3 values! '
+                    "(start frame, end frame, bitrate modifier)",
+                    self.encode_video,
+                    CustomValueError,  # type:ignore
                 )
 
             if any(map(lambda x: x is None, zone)):
@@ -265,8 +300,9 @@ class _VideoEncoder(_BaseEncoder):
 
                 if bitrate is None:
                     raise Log.error(
-                        f"The value of \"bitrate modifier\" can't be None ({zone})!",
-                        self.encode_video, CustomValueError
+                        f'The value of "bitrate modifier" can\'t be None ({zone})!',
+                        self.encode_video,
+                        CustomValueError,
                     )
                 elif bitrate <= 0:
                     continue

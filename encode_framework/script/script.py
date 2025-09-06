@@ -8,17 +8,26 @@ from typing import Any, cast
 
 from vskernels import Hermite
 from vsmuxtools import SourceFilter, src_file  # type:ignore[import]
-from vstools import (CustomIndexError, CustomValueError, FuncExceptT,
-                     Keyframes, SceneChangeMode, SPath, SPathLike, core,
-                     get_prop, normalize_ranges, set_output, to_arr, vs)
+from vstools import (
+    CustomIndexError,
+    CustomValueError,
+    FuncExceptT,
+    Keyframes,
+    SceneChangeMode,
+    SPath,
+    SPathLike,
+    core,
+    get_prop,
+    normalize_ranges,
+    set_output,
+    to_arr,
+    vs,
+)
 
 from ..types import TrimAuto, Zones, is_iterable
 from ..util import Log, assert_truthy
 
-__all__: list[str] = [
-    "ScriptInfo",
-    "Preview"
-]
+__all__: list[str] = ["ScriptInfo", "Preview"]
 
 
 class ScriptInfo:
@@ -67,10 +76,11 @@ class ScriptInfo:
     """Whether the clip was trimmed or not."""
 
     def __init__(
-        self, caller: str | None = None,
+        self,
+        caller: str | None = None,
         show_title: str | None = None,
         ep_num: str | int | None = None,
-        dryrun: bool = False
+        dryrun: bool = False,
     ) -> None:
         from vspreview import is_preview
 
@@ -89,7 +99,11 @@ class ScriptInfo:
 
         self._append_cwd()
 
-        split = SPath(self.file).stem.split('_') if '_' in caller else (SPath(caller).stem, '')
+        split = (
+            SPath(self.file).stem.split("_")
+            if "_" in caller
+            else (SPath(caller).stem, "")
+        )
 
         self.show_title = show_title or split[0]
         # self.ep_num = ep_num or self._get_SxxExx_epnum(split[1])
@@ -106,10 +120,15 @@ class ScriptInfo:
         sys.path.append(self.file.parent.to_str())
 
     def index(
-        self, path: SPathLike | list[SPathLike], trim: TrimAuto | list[TrimAuto] | int | None = None,
-        name: str | None = None, force_dgi: bool = True, force_reindex: bool = False,
-        idx_dir: SPathLike | None = None, cmd_args: tuple[str] = ("-a",),
-        replace_ffms2_clip: bool = False
+        self,
+        path: SPathLike | list[SPathLike],
+        trim: TrimAuto | list[TrimAuto] | int | None = None,
+        name: str | None = None,
+        force_dgi: bool = True,
+        force_reindex: bool = False,
+        idx_dir: SPathLike | None = None,
+        cmd_args: tuple[str] = ("-a",),
+        replace_ffms2_clip: bool = False,
     ) -> vs.VideoNode:
         """Index the given file. Returns a tuple containing the `src_file` object and the `init_cut` node."""
         from .trim import get_post_trim, get_pre_trim
@@ -119,14 +138,19 @@ class ScriptInfo:
 
         if trim and isinstance(trim, list) and all(isinstance(x, tuple) for x in trim):
             if len(trim) > 1:
-                Log.warn(f"Multiple trims found! Only grabbing the first ({trim[0][0]} => {trim[0][1]})...")
+                Log.warn(
+                    f"Multiple trims found! Only grabbing the first ({trim[0][0]} => {trim[0][1]})..."
+                )
 
             trim = trim[0]
 
         path_is_iterable = is_iterable(path)
 
         if path_is_iterable and not force_dgi:
-            raise CustomValueError("You may only pass a list of files if you set \"force_dgi=True\"!", self.index)
+            raise CustomValueError(
+                'You may only pass a list of files if you set "force_dgi=True"!',
+                self.index,
+            )
         elif force_dgi:
             path = list(path) if path_is_iterable else [path]
         elif not path_is_iterable:
@@ -134,7 +158,7 @@ class ScriptInfo:
 
         for p in path:
             if not (p := SPath(p)).exists():
-                raise FileNotFoundError(f"Could not find the file, \"{p}\"!", self.index)
+                raise FileNotFoundError(f'Could not find the file, "{p}"!', self.index)
 
             self.src_file += [p.resolve()]
 
@@ -145,18 +169,20 @@ class ScriptInfo:
             idx_dir = SPath(idx_dir)
 
         if force_dgi and not self.src_file[0].to_str().endswith(".dgi"):
-            from ..encode.idx.dgindexnv import \
-                DGIndexNVAddFilenames as DGIndexNV
+            from ..encode.idx.dgindexnv import DGIndexNVAddFilenames as DGIndexNV
 
             try:
-                self.src_file = DGIndexNV().index(self.src_file, force_reindex, False, idx_dir, *cmd_args)
+                self.src_file = DGIndexNV().index(
+                    self.src_file, force_reindex, False, idx_dir, *cmd_args
+                )
             except (Exception, vs.Error) as e:
                 if any(any(ch in p.to_str() for ch in "[]") for p in self.src_file):
                     raise Log.error(
                         "DGIndexNV sometimes has issues with square brackets in the path! "
                         "Remove all brackets inside directories or filenames and try again. "
                         f"Original error: {e}",
-                        self.index, CustomIndexError
+                        self.index,
+                        CustomIndexError,
                     )
 
                 raise Log.error(e, self.index, CustomIndexError)
@@ -173,7 +199,9 @@ class ScriptInfo:
 
                 self.sc_lock_file.touch(exist_ok=True)
             if str(trim_post).lower() == "auto":
-                trim_post = get_post_trim(self.src_file, self.sc_path, self.sc_lock_file)
+                trim_post = get_post_trim(
+                    self.src_file, self.sc_path, self.sc_lock_file
+                )
 
                 self.sc_lock_file.touch(exist_ok=True)
 
@@ -191,8 +219,10 @@ class ScriptInfo:
         src_idx = SourceFilter.FFMS2 if replace_ffms2_clip else SourceFilter.BESTSOURCE
 
         self.src = src_file(
-            self.src_file[0].to_str(), trim=trim,
-            sourcefilter=src_idx, preview_sourcefilter=src_idx
+            self.src_file[0].to_str(),
+            trim=trim,
+            sourcefilter=src_idx,
+            preview_sourcefilter=src_idx,
         )
 
         self.clip_cut = cast(vs.VideoNode, self.src.init_cut()).std.SetFrameProps(
@@ -206,7 +236,9 @@ class ScriptInfo:
 
         return self.clip_cut
 
-    def update_trims(self, trim: int | tuple[int | None, int | None] | list[int] | None = None) -> tuple[int, int]:
+    def update_trims(
+        self, trim: int | tuple[int | None, int | None] | list[int] | None = None
+    ) -> tuple[int, int]:
         """Update trims if necessary. Useful for if you adjust the trims during prefiltering."""
 
         if isinstance(trim, list):
@@ -272,7 +304,7 @@ class ScriptInfo:
         tc_loc = SPath(tc_path)
 
         if not tc_loc.exists():
-            Log.warn(f"The file \"{tc_loc}\" could not be found!", self.update_tc)
+            Log.warn(f'The file "{tc_loc}" could not be found!', self.update_tc)
 
             return self.tc_path
 
@@ -287,23 +319,25 @@ class ScriptInfo:
         # TODO: Fix all this
         adjustable_kwargs = dict(
             mkv_title_naming="",  # The mkv title metadata property.
-            out_name="$show$ - $ep$ (Premux) [$crc32$]"  # Output filename
+            out_name="$show$ - $ep$ (Premux) [$crc32$]",  # Output filename
         )
         adjustable_kwargs |= setup_kwargs
 
         ini = Setup(
             self.ep_num,  # The episode value.
             show_name=self.show_title,  # The name of the show.
-            **adjustable_kwargs  # Optional kwargs.
+            **adjustable_kwargs,  # Optional kwargs.
         )
 
         ini.edit("show", self.show_title)  # Don't remember why I did this ngl.
 
     def generate_keyframes(
-        self, clip: vs.VideoNode | None = None,
+        self,
+        clip: vs.VideoNode | None = None,
         mode: SceneChangeMode = SceneChangeMode.WWXD,
         force: bool = False,
-        height: int = 288, range_conversion: float = 4.0
+        height: int = 288,
+        range_conversion: float = 4.0,
     ) -> Keyframes:
         """Generate keyframes for the trimmed clip. Returns a Keyframes object."""
         from vsdenoise import prefilter_to_full_range
@@ -324,14 +358,17 @@ class ScriptInfo:
                 f"Scenechanges don't match up with the input clip "
                 f"(scenechange file last frame ({kf[-1]}) != work clip last frame ({wclip.num_frames - 1}))! "
                 "Regenerating...",
-                self.generate_keyframes
+                self.generate_keyframes,
             )
 
         # Prefiltering.
         wclip = Hermite(linear=True).scale(wclip, get_w(height, wclip), height)
         wclip = prefilter_to_full_range(wclip, range_conversion)
 
-        Log.debug(f"Generating keyframes for \"{self.sc_path.name}\"...", self.generate_keyframes)
+        Log.debug(
+            f'Generating keyframes for "{self.sc_path.name}"...',
+            self.generate_keyframes,
+        )
         kf = Keyframes.from_clip(wclip, mode)
         kf.append(wclip.num_frames - 1)
 
@@ -341,7 +378,9 @@ class ScriptInfo:
 
         return kf
 
-    def set_keyframes(self, kf: Keyframes, func_except: FuncExceptT | None = None) -> None:
+    def set_keyframes(
+        self, kf: Keyframes, func_except: FuncExceptT | None = None
+    ) -> None:
         """Set the keyframes for the script."""
 
         func_except = func_except or self.set_keyframes
@@ -351,9 +390,11 @@ class ScriptInfo:
         kf.to_file(self.sc_path, force=True, func=func_except)
 
     def replace_prefilter(
-        self, prefilter: vs.VideoNode | tuple[vs.VideoNode],
-        sc: bool = True, sc_ref: vs.VideoNode | None = None,
-        force: bool = False
+        self,
+        prefilter: vs.VideoNode | tuple[vs.VideoNode],
+        sc: bool = True,
+        sc_ref: vs.VideoNode | None = None,
+        force: bool = False,
     ) -> vs.VideoNode:
         """Replace the clip_cut attribute with a prefiltered clip. Useful for telecined clips."""
         if isinstance(prefilter, (tuple, list)):
@@ -369,11 +410,19 @@ class ScriptInfo:
         sc_ref = sc_ref or prefilter
 
         # Check whether sc_path exists, and remove if the last keyframe exceeds the prefiltered clip's total frames.
-        if sc and self.sc_path.exists() and isinstance(self.clip_cut, vs.VideoNode) and not self.sc_lock_file.exists():
+        if (
+            sc
+            and self.sc_path.exists()
+            and isinstance(self.clip_cut, vs.VideoNode)
+            and not self.sc_lock_file.exists()
+        ):
             assert isinstance(self.clip_cut, vs.VideoNode)  # typing
 
             if Keyframes.from_file(self.sc_path)[-1] > prefilter.num_frames:  # type:ignore[union-attr]
-                Log.warn("Prefilter passed but keyframes don't match! Regenerating...", self.replace_prefilter)
+                Log.warn(
+                    "Prefilter passed but keyframes don't match! Regenerating...",
+                    self.replace_prefilter,
+                )
                 self.sc_path.unlink(missing_ok=True)
 
             self.generate_keyframes(sc_ref)
@@ -393,7 +442,7 @@ class ScriptInfo:
 
         with open(self.sc_lock_file, "w") as f:
             f.write(
-                f"This is a lock file for \"{self.sc_path.name}\".\n"
+                f'This is a lock file for "{self.sc_path.name}".\n'
                 "To regenerate the scenechange file, delete this lock file!\n"
             )
 
@@ -416,7 +465,8 @@ class ScriptInfo:
 
         Log.error(
             "You are trying to run this script in a way that is currently not supported! Aborting...",
-            caller or self.unsupported_call, CustomRuntimeError  # type:ignore[arg-type]
+            caller or self.unsupported_call,
+            CustomRuntimeError,  # type:ignore[arg-type]
         )
 
         Log.debug(f"{caller=}", caller or self.unsupported_call)
@@ -427,7 +477,7 @@ class ScriptInfo:
     def _get_SxxExx_epnum(epnum: str) -> str:
         pattern = r"S\d+E(\d+)"
 
-        if (match := re.search(pattern, epnum)):
+        if match := re.search(pattern, epnum):
             return str(match.group(1))
 
         return str(epnum)
@@ -454,25 +504,33 @@ class Preview:
             try:
                 assert isinstance(clip, vs.VideoNode)
             except AssertionError:
-                Log.warn(f"Clip {i} was not a VideoNode ({type(i)})! Skipping...", self.set_video_outputs)
+                Log.warn(
+                    f"Clip {i} was not a VideoNode ({type(i)})! Skipping...",
+                    self.set_video_outputs,
+                )
 
                 continue
 
             t = str if vs.__version__.release_major >= 65 else bytes
 
             name = get_prop(
-                clip, "Name", t, func=self.set_video_outputs,
-                default=get_prop(clip, "OutNode", t, None, False, self.set_video_outputs)
+                clip,
+                "Name",
+                t,
+                func=self.set_video_outputs,
+                default=get_prop(
+                    clip, "OutNode", t, None, False, self.set_video_outputs
+                ),
             )
 
             if isinstance(name, bytes):
-                name = name.decode('utf-8')
+                name = name.decode("utf-8")
 
             assert isinstance(name, (str, bool))
 
             Log.debug(
-                f"Clip {i} - Name: " + (f'\"{name}\"' if name else "no name set"),
-                self.set_video_outputs
+                f"Clip {i} - Name: " + (f'"{name}"' if name else "no name set"),
+                self.set_video_outputs,
             )
 
             clip = clip.std.PlaneStats()

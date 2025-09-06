@@ -14,8 +14,7 @@ __all__: list[str] = [
     "AniList",
     "AniListAnime",
     "AiringSchedule",
-
-    "create_anilist_section"
+    "create_anilist_section",
 ]
 
 
@@ -71,19 +70,24 @@ class AniListAnime:
 
     def __init__(self, **kwargs: dict[str, Any]) -> None:
         self.id = int(kwargs.pop("id", -1))  # type:ignore[assignment, arg-type]
-        self.name = kwargs.pop("title", {'english': '???'})
+        self.name = kwargs.pop("title", {"english": "???"})
 
         self.format = str(kwargs.pop("format", "TV"))
-        self.status = str(kwargs.pop("status", "Unknown")).replace("_", "-").capitalize()
+        self.status = (
+            str(kwargs.pop("status", "Unknown")).replace("_", "-").capitalize()
+        )
 
-        self.tv_season = " ".join([
-            str(kwargs.pop("season", "")).capitalize(), str(kwargs.pop("seasonYear", ""))
-        ]).strip()
+        self.tv_season = " ".join(
+            [
+                str(kwargs.pop("season", "")).capitalize(),
+                str(kwargs.pop("seasonYear", "")),
+            ]
+        ).strip()
 
         self.url = str(kwargs.pop("siteUrl", "https://anilist.co/"))  # type:ignore[assignment]
         self.img = self._handle_img(
             kwargs.pop("bannerImage", ""),  # type:ignore[arg-type]
-            kwargs.pop("coverImage", {})  # type:ignore[arg-type]
+            kwargs.pop("coverImage", {}),  # type:ignore[arg-type]
         )
 
         if (airing_schedule := kwargs.pop("nextAiringEpisode", None)) is None:
@@ -93,7 +97,7 @@ class AniListAnime:
             self.next_airing_episode = AiringSchedule(
                 airing_schedule.pop("airingAt"),
                 airing_schedule.pop("timeUntilAiring"),
-                airing_schedule.pop("episode")
+                airing_schedule.pop("episode"),
             )
 
         self.etc = kwargs  # type:ignore[assignment]
@@ -118,7 +122,7 @@ class AniList:
             Log.error(
                 "Can't query without a valid AniList id! "
                 "Please set one in your project config file!",
-                self.get_anime_by_id
+                self.get_anime_by_id,
             )
 
             return None
@@ -150,20 +154,24 @@ class AniList:
             }
         """
 
-        results = AniListAnime(**self._send_payload(query, {'id': anime_id}))
+        results = AniListAnime(**self._send_payload(query, {"id": anime_id}))
 
         self.history += [(datetime.now(), results)]
 
         return results
 
-    def _send_payload(self, query: str, variables: dict[str, Any] = {}) -> dict[str, Any]:
-        r = requests.post(self._url, json={'query': query, 'variables': variables})
+    def _send_payload(
+        self, query: str, variables: dict[str, Any] = {}
+    ) -> dict[str, Any]:
+        r = requests.post(self._url, json={"query": query, "variables": variables})
 
         if not r.ok:
             errs = []
 
-            for err in dict(json.loads(r.content)).get('errors', list()):
-                errs += [f"{r.status_code} ({r.reason}): {err or 'No error message given...'}"]
+            for err in dict(json.loads(r.content)).get("errors", list()):
+                errs += [
+                    f"{r.status_code} ({r.reason}): {err or 'No error message given...'}"
+                ]
 
             msg = "An error was thrown while getting the anime details:"
 
@@ -171,20 +179,26 @@ class AniList:
                 msg = f"{len(errs)} errors were thrown while getting the anime details:"
 
             Log.error(
-                "\n".join([msg] + (errs or [f"{r.status_code} ({r.reason}): No error message given..."])),
-                self.get_anime_by_id
+                "\n".join(
+                    [msg]
+                    + (
+                        errs
+                        or [f"{r.status_code} ({r.reason}): No error message given..."]
+                    )
+                ),
+                self.get_anime_by_id,
             )
 
             return {}
 
-        return dict(json.loads(r.content)).get('data', dict()).get('Media', dict())
+        return dict(json.loads(r.content)).get("data", dict()).get("Media", dict())
 
     def ping(self) -> None:
         """Ping the AniList API point to check whether it's currently alive."""
         try:
             r = requests.post(self._url)
             Log.info(f"Pong! (Time: {r.elapsed})", self.ping)  # type:ignore[arg-type]
-        except (ConnectionError) as e:
+        except ConnectionError as e:
             Log.error(str(e), self.ping)  # type:ignore[arg-type]
 
     def _get_config_anime_id(self, filename: str | Path = "config.ini") -> int:
@@ -197,4 +211,6 @@ class AniList:
 
 def create_anilist_section(filename: str | Path = "config.ini") -> ConfigParser:
     """Create the anilist section in the config file."""
-    return add_section(filename, "ANILIST", [{"anime_id": "", "title_language": "romaji"}])
+    return add_section(
+        filename, "ANILIST", [{"anime_id": "", "title_language": "romaji"}]
+    )

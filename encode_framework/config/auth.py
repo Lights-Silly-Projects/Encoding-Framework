@@ -7,9 +7,7 @@ from vstools import SPath
 from ..git import append_gitignore
 from .base import add_section, touch_ini
 
-__all__: list[str] = [
-    "setup_auth"
-]
+__all__: list[str] = ["setup_auth"]
 
 
 def setup_auth() -> ConfigParser:
@@ -39,10 +37,14 @@ def __auth__add_discord(file_path: SPath, caller: str | None = None) -> ConfigPa
     if not caller:
         caller = get_caller_module()
 
-    return add_section(file_path, "DISCORD", {
-        "system_name": getpass.getuser(),
-        "webhook_url": "https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks"
-    })
+    return add_section(
+        file_path,
+        "DISCORD",
+        {
+            "system_name": getpass.getuser(),
+            "webhook_url": "https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks",
+        },
+    )
 
 
 def __auth__add_ftp(file_path: SPath, caller: str | None = None) -> ConfigParser:
@@ -50,8 +52,15 @@ def __auth__add_ftp(file_path: SPath, caller: str | None = None) -> ConfigParser
     if not caller:
         caller = get_caller_module()
 
-    return add_section(file_path, "FTP", {
-        "host": "", "port": "", "sftp": False,
-        "username": "", "password": "",
-        "upload_dir": "/"
-    })
+    return add_section(
+        file_path,
+        "FTP",
+        {
+            "host": "",
+            "port": "",
+            "sftp": False,
+            "username": "",
+            "password": "",
+            "upload_dir": "/",
+        },
+    )

@@ -1,6 +1,7 @@
 """
-    Misc functions that don't have a place in any other module.
+Misc functions that don't have a place in any other module.
 """
+
 import linecache
 import os
 from typing import cast
@@ -17,7 +18,9 @@ __all__: list[str] = [
 ]
 
 
-def get_pre_trim(clip: vs.VideoNode | SPathLike, kf_file: SPathLike, lock_file: SPathLike) -> int | None:
+def get_pre_trim(
+    clip: vs.VideoNode | SPathLike, kf_file: SPathLike, lock_file: SPathLike
+) -> int | None:
     """
     Simple naive function that checks an existing keyframe file to trim the start of the clip.
 
@@ -38,20 +41,27 @@ def get_pre_trim(clip: vs.VideoNode | SPathLike, kf_file: SPathLike, lock_file: 
     if get_prop(clip[0], "PlaneStatsAverage", float) > scale_value(16.2, 8, 32):
         return None
 
-    first_sc = int(linecache.getline(kf_file.to_str(), 5).replace(' I -1', ''))
+    first_sc = int(linecache.getline(kf_file.to_str(), 5).replace(" I -1", ""))
 
-    if first_sc > 24 \
-            and get_prop(clip[23], "PlaneStatsAverage", float) < scale_value(16.2, 8, 32) \
-            and get_prop(clip[24], "PlaneStatsAverage", float) > scale_value(16.2, 8, 32):
-        Log.warn("Auto-guessed 24 frame trim at the start. Please verify this!", "get_pre_trim")
+    if (
+        first_sc > 24
+        and get_prop(clip[23], "PlaneStatsAverage", float) < scale_value(16.2, 8, 32)
+        and get_prop(clip[24], "PlaneStatsAverage", float) > scale_value(16.2, 8, 32)
+    ):
+        Log.warn(
+            "Auto-guessed 24 frame trim at the start. Please verify this!",
+            "get_pre_trim",
+        )
 
         first_sc = 24
-    elif get_prop(clip[first_sc - 1], "PlaneStatsAverage", float) < scale_value(16.2, 8, 32):
+    elif get_prop(clip[first_sc - 1], "PlaneStatsAverage", float) < scale_value(
+        16.2, 8, 32
+    ):
         return None
 
     Log.debug(
         f"Black frames found at the start of the video. Trimming clip at the end (frame {first_sc}).",
-        "get_pre_trim"
+        "get_pre_trim",
     )
 
     SPath(lock_file).touch(exist_ok=True)
@@ -59,7 +69,9 @@ def get_pre_trim(clip: vs.VideoNode | SPathLike, kf_file: SPathLike, lock_file: 
     return first_sc
 
 
-def get_post_trim(clip: vs.VideoNode | SPathLike, kf_file: SPathLike, lock_file: SPathLike) -> int | None:
+def get_post_trim(
+    clip: vs.VideoNode | SPathLike, kf_file: SPathLike, lock_file: SPathLike
+) -> int | None:
     """
     Simple naive function that checks an existing keyframe file to trim the end of the clip.
 
@@ -79,30 +91,36 @@ def get_post_trim(clip: vs.VideoNode | SPathLike, kf_file: SPathLike, lock_file:
     clip = gauss_blur(clip, 1.5).std.PlaneStats()
 
     if get_prop(clip[-1], "PlaneStatsAverage", float) > scale_value(32, 8, 32):
-        Log.debug(f"{get_prop(clip[-1], 'PlaneStatsAverage', float)} > {scale_value(21, 8, 32)}", "get_post_trim")
+        Log.debug(
+            f"{get_prop(clip[-1], 'PlaneStatsAverage', float)} > {scale_value(21, 8, 32)}",
+            "get_post_trim",
+        )
         return None
 
     with open(kf_file, "rb") as f:
         try:
             f.seek(-3, os.SEEK_END)
 
-            while f.read(1) != b'\n':
+            while f.read(1) != b"\n":
                 f.seek(-3, os.SEEK_CUR)
         except OSError:
             f.seek(0)
 
         last_line = f.readline().decode()
 
-    last_sc = int(last_line.replace(' I -1', ''))
+    last_sc = int(last_line.replace(" I -1", ""))
 
     if get_prop(clip[last_sc], "PlaneStatsAverage", float) < scale_value(32, 8, 32):
-        Log.debug(f"{get_prop(clip[last_sc], 'PlaneStatsAverage', float)} > {scale_value(21, 8, 32)}", "get_post_trim")
+        Log.debug(
+            f"{get_prop(clip[last_sc], 'PlaneStatsAverage', float)} > {scale_value(21, 8, 32)}",
+            "get_post_trim",
+        )
         return None
 
     Log.debug(
         "Black frames found at the end of the video. "
         f"Trimming clip at the end (frame {last_sc}, relative trim: {last_sc - clip.num_frames}).",
-        "get_post_trim"
+        "get_post_trim",
     )
 
     SPath(lock_file).touch(exist_ok=True)

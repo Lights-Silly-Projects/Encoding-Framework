@@ -1,4 +1,3 @@
-
 from vstools import SPath
 
 __all__: list[str] = [

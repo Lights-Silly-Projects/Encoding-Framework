@@ -31,15 +31,23 @@ def check_package_installed(pkg: str) -> bool:
     return (pkg in sys.modules) or (find_spec(pkg) is not None)
 
 
-def install_package(pkg: str, extra_params: list[str] = [], prompt: bool = False) -> bool:
+def install_package(
+    pkg: str, extra_params: list[str] = [], prompt: bool = False
+) -> bool:
     """Install a given Python package."""
-    Log.info(f"Installing \"{pkg}\" via pip!", install_package)
+    Log.info(f'Installing "{pkg}" via pip!', install_package)
 
-    if prompt and input("Continue with this process? [Y/n] ").strip().lower() not in TruthyInput:
+    if (
+        prompt
+        and input("Continue with this process? [Y/n] ").strip().lower()
+        not in TruthyInput
+    ):
         return False
 
     try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", pkg] + extra_params)
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", pkg] + extra_params
+        )
     except subprocess.CalledProcessError as e:
         Log.error(str(e))
 
@@ -56,7 +64,9 @@ def iew_latest() -> None:
         raise Log.error(str(e))
 
 
-def check_program_installed(program: str, installer: str | None = None, warn: bool = False) -> bool:
+def check_program_installed(
+    program: str, installer: str | None = None, warn: bool = False
+) -> bool:
     """
     Check whether a program is installed and warn the user if it isn't.
 
@@ -72,10 +82,12 @@ def check_program_installed(program: str, installer: str | None = None, warn: bo
 
     if warn:
         Log.warn(
-            f"The program \"{program}\" could not be found on this system! "
+            f'The program "{program}" could not be found on this system! '
             "If you've installed it, you may need to add it to your PATH. "
-            + f"Installation instructions: \"{installer}\"" if installer else "",
-            check_program_installed
+            + f'Installation instructions: "{installer}"'
+            if installer
+            else "",
+            check_program_installed,
         )
 
     return x
@@ -83,7 +95,9 @@ def check_program_installed(program: str, installer: str | None = None, warn: bo
 
 def cargo_build(package: str) -> bool:
     """Attempt to build a given cargo package."""
-    if not check_program_installed("cargo", "https://www.rust-lang.org/tools/install/", warn=True):
+    if not check_program_installed(
+        "cargo", "https://www.rust-lang.org/tools/install/", warn=True
+    ):
         return False
 
     params = ["cargo", "install"]
@@ -96,7 +110,9 @@ def cargo_build(package: str) -> bool:
     try:
         subprocess.run(params, shell=True)
     except subprocess.SubprocessError as e:
-        Log.warn(f"An error occurred while trying to build the cargo for {package}! \n{str(e)}")
+        Log.warn(
+            f"An error occurred while trying to build the cargo for {package}! \n{str(e)}"
+        )
 
         return False
 
@@ -115,7 +131,8 @@ def run_cmd(params: list[str] = [], shell: bool = True) -> bool:
     except subprocess.SubprocessError as e:
         Log.error(
             f"An error occurred while trying to run this command! \n{str(e)}\n"
-            f"Command run: {p}", run_cmd
+            f"Command run: {p}",
+            run_cmd,
         )
 
         return False
@@ -136,41 +153,49 @@ def temp_download(url: str, filename: str | None = None) -> Path:
     out_file = Path(out)
 
     if not out_file.exists():
-        raise FileNotFoundError(f"The file \"{out}\" was not found!")
+        raise FileNotFoundError(f'The file "{out}" was not found!')
 
     return out_file
 
 
 @overload
 def unpack_zip(
-    path: str, file_to_extract: str | None = None,
-    location: str | None = None, **kwargs: Any
-) -> list[str]:
-    ...
+    path: str,
+    file_to_extract: str | None = None,
+    location: str | None = None,
+    **kwargs: Any,
+) -> list[str]: ...
+
 
 @overload
 def unpack_zip(
-    path: str, file_to_extract: str | None = "",
-    location: str | None = None, **kwargs: Any
-) -> str:
-    ...
+    path: str,
+    file_to_extract: str | None = "",
+    location: str | None = None,
+    **kwargs: Any,
+) -> str: ...
+
 
 @overload
 def unpack_zip(
-    path: str, file_to_extract: str | None = None,
-    location: str | None = "", **kwargs: Any
-) -> str:
-    ...
+    path: str,
+    file_to_extract: str | None = None,
+    location: str | None = "",
+    **kwargs: Any,
+) -> str: ...
+
 
 def unpack_zip(
-    path: str, file_to_extract: str | None = None,
-    location: str | None = None, **kwargs: Any
+    path: str,
+    file_to_extract: str | None = None,
+    location: str | None = None,
+    **kwargs: Any,
 ) -> list[str] | str:
     """Try to unpack a zip file. Returns either an individual filepath or a list of extracted contents."""
     zip_file = Path(path)
 
     if not zip_file.exists():
-        raise ValueError(f"Could no find the path \"{path}\"!")
+        raise ValueError(f'Could no find the path "{path}"!')
 
     out_dir = zip_file.parent / zip_file.stem
     out_dir.mkdir(exist_ok=True)
@@ -193,7 +218,15 @@ def unpack_zip(
 
 
 def install_docker() -> str | Literal[False]:
-    docker_pf_path = Path("C:/") / "Program Files" / "Docker" / "Docker" / "resources" / "bin" / "docker.exe"
+    docker_pf_path = (
+        Path("C:/")
+        / "Program Files"
+        / "Docker"
+        / "Docker"
+        / "resources"
+        / "bin"
+        / "docker.exe"
+    )
     docker_param = "docker"
 
     if check_program_installed(docker_param):
@@ -201,10 +234,12 @@ def install_docker() -> str | Literal[False]:
     elif docker_pf_path.exists():
         return docker_pf_path
 
-    if not (x := temp_download(
-        "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe?utm_source=docker&utm_medium=webreferral&utm_campaign=dd-smartbutton&utm_location=module",
-        "Docker Desktop Installer.exe"
-    )):
+    if not (
+        x := temp_download(
+            "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe?utm_source=docker&utm_medium=webreferral&utm_campaign=dd-smartbutton&utm_location=module",
+            "Docker Desktop Installer.exe",
+        )
+    ):
         return x
 
     run_cmd(x)

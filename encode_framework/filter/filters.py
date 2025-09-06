@@ -1,13 +1,20 @@
 """
-    A handful of common functions to use in scripts.
-    These aren't in other packages, and often highly experimental.
+A handful of common functions to use in scripts.
+These aren't in other packages, and often highly experimental.
 """
 
 from typing import Any, Literal
 
 from vsexprtools import norm_expr
-from vstools import (CustomValueError, FrameRangesN, SPath, VSFunction, core,
-                     replace_ranges, vs)
+from vstools import (
+    CustomValueError,
+    FrameRangesN,
+    SPath,
+    VSFunction,
+    core,
+    replace_ranges,
+    vs,
+)
 
 from ..util.logging import Log
 
@@ -44,12 +51,21 @@ def fixedges(clip: vs.VideoNode, **kwargs: Any) -> vs.VideoNode:
     prot = _rektlvls(clip, rownum, rowval, colnum, colval)
     pp = prot.cf.ContinuityFixer(3, 3, 3, 3, 30)
 
-    return norm_expr([clip, fix, prot, pp], "x z < y z - xor z x y - abs x a - abs < y z a y max min ? ?")
+    return norm_expr(
+        [clip, fix, prot, pp],
+        "x z < y z - xor z x y - abs x a - abs < y z a y max min ? ?",
+    )
 
 
 def _rektlvls(
-    clip, rownum=None, rowval=None, colnum=None, colval=None,
-    prot_val=[16, 235], min_val=16, max_val=235
+    clip,
+    rownum=None,
+    rowval=None,
+    colnum=None,
+    colval=None,
+    prot_val=[16, 235],
+    min_val=16,
+    max_val=235,
 ) -> vs.VideoNode:
     """Copied here as a temporary fix for the pip package not working."""
     if rownum:
@@ -60,8 +76,15 @@ def _rektlvls(
         for _ in range(len(rownum)):
             if rownum[_] < 0:
                 rownum[_] = clip.height + rownum[_]
-            clip = _rektlvl(clip, rownum[_], rowval[_], alignment='row',
-                            prot_val=prot_val, min_val=min_val, max_val=max_val)
+            clip = _rektlvl(
+                clip,
+                rownum[_],
+                rowval[_],
+                alignment="row",
+                prot_val=prot_val,
+                min_val=min_val,
+                max_val=max_val,
+            )
     if colnum:
         if isinstance(colnum, int):
             colnum = [colnum]
@@ -70,18 +93,28 @@ def _rektlvls(
         for _ in range(len(colnum)):
             if colnum[_] < 0:
                 colnum[_] = clip.width + colnum[_]
-            clip = _rektlvl(clip, colnum[_], colval[_], alignment='column',
-                            prot_val=prot_val, min_val=min_val, max_val=max_val)
+            clip = _rektlvl(
+                clip,
+                colnum[_],
+                colval[_],
+                alignment="column",
+                prot_val=prot_val,
+                min_val=min_val,
+                max_val=max_val,
+            )
 
     return clip
 
 
-def _rektlvl(c, num, adj_val, alignment='row', prot_val=[16, 235], min_val=16, max_val=235):
+def _rektlvl(
+    c, num, adj_val, alignment="row", prot_val=[16, 235], min_val=16, max_val=235
+):
     from rekt.rekt_fast import rekt_fast  # type:ignore[import]
 
     if adj_val == 0:
         return c
     from vsutil import get_y, scale_value
+
     core = vs.core
 
     if (adj_val > 100 or adj_val < -100) and prot_val:
@@ -104,44 +137,69 @@ def _rektlvl(c, num, adj_val, alignment='row', prot_val=[16, 235], min_val=16, m
     if prot_val:
         adj_val = scale_value(adj_val * 2.19, 8, bits)
         if adj_val > 0:
-            expr = f'x {min_val} - 0 <= {min_val} {max_val} {adj_val} - {min_val} - 0 <= 0.01 {max_val} {adj_val} - {min_val} - ? / {diff_val} * x {min_val} - {max_val} {adj_val} - {min_val} - 0 <= 0.01 {max_val} {adj_val} - {min_val} - ? / {diff_val} * {min_val} + ?'
+            expr = f"x {min_val} - 0 <= {min_val} {max_val} {adj_val} - {min_val} - 0 <= 0.01 {max_val} {adj_val} - {min_val} - ? / {diff_val} * x {min_val} - {max_val} {adj_val} - {min_val} - 0 <= 0.01 {max_val} {adj_val} - {min_val} - ? / {diff_val} * {min_val} + ?"
         elif adj_val < 0:
-            expr = f'x {min_val} - 0 <= {min_val} {diff_val} / {max_val} {adj_val} + {min_val} - * x {min_val} - {diff_val} / {max_val} {adj_val} + {min_val} - * {min_val} + ?'
+            expr = f"x {min_val} - 0 <= {min_val} {diff_val} / {max_val} {adj_val} + {min_val} - * x {min_val} - {diff_val} / {max_val} {adj_val} + {min_val} - * {min_val} + ?"
 
         if isinstance(prot_val, int):
-            prot_top = [scale_value(255 - prot_val, 8, bits), scale_value(245 - prot_val, 8, bits)]
-            expr += f' x {prot_top[0]} - -{ten} / 0 max 1 min * x x {prot_top[1]} - {ten} / 0 max 1 min * +'
+            prot_top = [
+                scale_value(255 - prot_val, 8, bits),
+                scale_value(245 - prot_val, 8, bits),
+            ]
+            expr += f" x {prot_top[0]} - -{ten} / 0 max 1 min * x x {prot_top[1]} - {ten} / 0 max 1 min * +"
         else:
-            prot_val = [scale_value(prot_val[0], 8, bits), scale_value(prot_val[1], 8, bits)]
-            expr += f' x {prot_val[1]} - -{ten} / 0 max 1 min * x x {prot_val[1]} {ten} - - {ten} / 0 max 1 min * + {prot_val[0]} x - -{ten} / 0 max 1 min * x {prot_val[0]} {ten} + x - {ten} / 0 max 1 min * +'
+            prot_val = [
+                scale_value(prot_val[0], 8, bits),
+                scale_value(prot_val[1], 8, bits),
+            ]
+            expr += f" x {prot_val[1]} - -{ten} / 0 max 1 min * x x {prot_val[1]} {ten} - - {ten} / 0 max 1 min * + {prot_val[0]} x - -{ten} / 0 max 1 min * x {prot_val[0]} {ten} + x - {ten} / 0 max 1 min * +"
 
-        def last(x): return core.std.Expr(x, expr=expr)
+        def last(x):
+            return core.std.Expr(x, expr=expr)
     else:
         adj_val = adj_val * (max_val - min_val) / 100
         if adj_val < 0:
-            def last(x): return core.std.Levels(
-                x, min_in=min_val, max_in=max_val, min_out=min_val, max_out=max_val + adj_val)
-        elif adj_val > 0:
-            def last(x): return core.std.Levels(
-                x, min_in=min_val, max_in=max_val - adj_val, min_out=min_val, max_out=max_val)
 
-    if alignment == 'row':
+            def last(x):
+                return core.std.Levels(
+                    x,
+                    min_in=min_val,
+                    max_in=max_val,
+                    min_out=min_val,
+                    max_out=max_val + adj_val,
+                )
+        elif adj_val > 0:
+
+            def last(x):
+                return core.std.Levels(
+                    x,
+                    min_in=min_val,
+                    max_in=max_val - adj_val,
+                    min_out=min_val,
+                    max_out=max_val,
+                )
+
+    if alignment == "row":
         last = rekt_fast(c, last, bottom=c.height - num - 1, top=num)
-    elif alignment == 'column':
+    elif alignment == "column":
         last = rekt_fast(c, last, right=c.width - num - 1, left=num)
     else:
         raise ValueError("Alignment must be 'row' or 'column'.")
 
     if c_orig:
-        last = core.std.ShufflePlanes([last, c_orig], planes=[0, 1, 2], colorfamily=c_orig.format.color_family)
+        last = core.std.ShufflePlanes(
+            [last, c_orig], planes=[0, 1, 2], colorfamily=c_orig.format.color_family
+        )
 
     return last
 
 
 def diff_keyframes(
-    clip_a: vs.VideoNode, clip_b: vs.VideoNode,
-    ep_num: str, prefilter: VSFunction | None = None,
-    raise_if_error: bool = True
+    clip_a: vs.VideoNode,
+    clip_b: vs.VideoNode,
+    ep_num: str,
+    prefilter: VSFunction | None = None,
+    raise_if_error: bool = True,
 ) -> SPath:
     from lvsfunc import diff
     from vstools import Keyframes, check_ref_clip
@@ -169,13 +227,19 @@ def diff_keyframes(
     Keyframes(list(sum(ranges, ()))).to_file(kf_path)
 
     if raise_if_error:
-        raise CustomValueError("Check the diff keyframes!", diff_keyframes, f"raise_if_error={raise_if_error}")
+        raise CustomValueError(
+            "Check the diff keyframes!",
+            diff_keyframes,
+            f"raise_if_error={raise_if_error}",
+        )
 
     return kf_path
 
 
 class Squaremask:
-    ranges: tuple[int | None | Literal["auto"], int | None | Literal["auto"]] | None = None
+    ranges: tuple[int | None | Literal["auto"], int | None | Literal["auto"]] | None = (
+        None
+    )
     """Ranges to apply a squaremask."""
 
     width: int
@@ -191,13 +255,15 @@ class Squaremask:
     mask_clip: vs.VideoNode
 
     def __init__(
-        self, ranges: FrameRangesN | None = None,
-        offset_x: int = 1, offset_y: int = 1,
-        width: int | bool = 0, height: int | bool = 0,
+        self,
+        ranges: FrameRangesN | None = None,
+        offset_x: int = 1,
+        offset_y: int = 1,
+        width: int | bool = 0,
+        height: int | bool = 0,
         invert: bool = False,
         sigma: float = 4.0,
     ) -> None:
-
         if ranges is None:
             ranges = [(None, None)]
 
@@ -230,13 +296,20 @@ class Squaremask:
 
         return out
 
-    def apply(self, clip_a: vs.VideoNode, clip_b: vs.VideoNode, ranges: FrameRangesN | None = None) -> vs.VideoNode:
+    def apply(
+        self,
+        clip_a: vs.VideoNode,
+        clip_b: vs.VideoNode,
+        ranges: FrameRangesN | None = None,
+    ) -> vs.VideoNode:
         """Apply the squaremasks."""
         self.generate_mask(clip_a, ranges)
 
         return core.std.MaskedMerge(clip_a, clip_b, self.mask_clip)
 
-    def generate_mask(self, ref: vs.VideoNode, ranges: FrameRangesN | None = None) -> vs.VideoNode:
+    def generate_mask(
+        self, ref: vs.VideoNode, ranges: FrameRangesN | None = None
+    ) -> vs.VideoNode:
         """Generate a mask and add it to a mask clip."""
         from vsmasktools import squaremask
         from vsrgtools import gauss_blur
@@ -258,7 +331,7 @@ class Squaremask:
             Log.warn(
                 f"Squaremask ({self.offset_x} + {self.width}) is wider than "
                 f"the clip ({self.mask_clip.width}) it's being applied to!",
-                self.generate_mask
+                self.generate_mask,
             )
 
             self.width = self.mask_clip.width - self.offset_x
@@ -267,12 +340,20 @@ class Squaremask:
             Log.warn(
                 f"Squaremask ({self.offset_y} + {self.height}) is taller than "
                 f"the clip ({self.mask_clip.height}) it's being applied to!",
-                self.generate_mask
+                self.generate_mask,
             )
 
             self.height = self.mask_clip.height - self.offset_y
 
-        sq = squaremask(self.mask_clip, self.width, self.height, self.offset_x, self.offset_y, self.invert, self.apply)
+        sq = squaremask(
+            self.mask_clip,
+            self.width,
+            self.height,
+            self.offset_x,
+            self.offset_y,
+            self.invert,
+            self.apply,
+        )
 
         if self.sigma:
             sq = gauss_blur(sq, self.sigma)
@@ -286,9 +367,11 @@ class Squaremask:
 
 
 def apply_squaremasks(
-    clip_a: vs.VideoNode, clip_b: vs.VideoNode,
+    clip_a: vs.VideoNode,
+    clip_b: vs.VideoNode,
     squaremasks: Squaremask | list[Squaremask],
-    show_mask: bool = False, print_sq: bool = False,
+    show_mask: bool = False,
+    print_sq: bool = False,
 ) -> vs.VideoNode:
     """Apply a bunch of squaremasks at once."""
     from vsexprtools import ExprOp

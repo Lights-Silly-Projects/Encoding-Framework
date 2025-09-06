@@ -7,15 +7,14 @@ from functools import lru_cache
 from typing import Any, Literal, Sequence
 
 from vssource import ExternalIndexer
-from vstools import (PackageStorage, SPath, SPathLike, copy_signature, core,
-                     to_arr)
+from vstools import PackageStorage, SPath, SPathLike, copy_signature, core, to_arr
 
 __all__ = [
-    'DGIndexNVAddFilenames',
+    "DGIndexNVAddFilenames",
 ]
 
 
-DVD_DEBUG = 'DVD_DEBUG' in os.environ
+DVD_DEBUG = "DVD_DEBUG" in os.environ
 
 
 @copy_signature(print)
@@ -89,17 +88,24 @@ class DGIndexFileInfo(_IndexFileInfoBase):
 
 
 class DGIndexNV(ExternalIndexer):
-    _bin_path = 'DGIndexNV'
-    _ext = 'dgi'
+    _bin_path = "DGIndexNV"
+    _ext = "dgi"
     _source_func = core.lazy.dgdecodenv.DGSource
 
     def get_cmd(self, files: list[SPath], output: SPath) -> list[str]:
         return list(
-            map(str, [
-                self._get_bin_path(), '-i',
-                ','.join(str(path.absolute()) for path in files),
-                '-h', '-o', output, '-e'
-            ])
+            map(
+                str,
+                [
+                    self._get_bin_path(),
+                    "-i",
+                    ",".join(str(path.absolute()) for path in files),
+                    "-h",
+                    "-o",
+                    output,
+                    "-e",
+                ],
+            )
         )
 
     def update_video_filenames(self, index_path: SPath, filepaths: list[SPath]) -> None:
@@ -107,18 +113,16 @@ class DGIndexNV(ExternalIndexer):
 
         str_filepaths = list(map(str, filepaths))
 
-        if 'DGIndexNV' not in lines[0]:
+        if "DGIndexNV" not in lines[0]:
             self.file_corrupted(index_path)
 
-        start_videos = lines.index('') + 1
-        end_videos = lines.index('', start_videos)
+        start_videos = lines.index("") + 1
+        end_videos = lines.index("", start_videos)
 
         if end_videos - start_videos != len(str_filepaths):
             self.file_corrupted(index_path)
 
-        split_lines = [
-            line.split(' ') for line in lines[start_videos:end_videos]
-        ]
+        split_lines = [line.split(" ") for line in lines[start_videos:end_videos]]
 
         current_paths = [line[:-1][0] for line in split_lines]
 
@@ -128,21 +132,21 @@ class DGIndexNV(ExternalIndexer):
         video_args = [line[-1:] for line in split_lines]
 
         lines[start_videos:end_videos] = [
-            ' '.join([path, *args]) for path, args in zip(str_filepaths, video_args)
+            " ".join([path, *args]) for path, args in zip(str_filepaths, video_args)
         ]
 
         index_path.write_lines(lines)
 
     @lru_cache
     def get_info(self, index_path: SPath, file_idx: int = -1) -> DGIndexFileInfo:
-        with open(index_path, 'r') as file:
+        with open(index_path, "r") as file:
             file_content = file.read()
 
-        lines = file_content.split('\n')
+        lines = file_content.split("\n")
 
         head, lines = self._split_lines(lines)
 
-        if 'DGIndexNV' not in head[0]:
+        if "DGIndexNV" not in head[0]:
             self.file_corrupted(index_path)
 
         vid_lines, lines = self._split_lines(lines)
@@ -151,41 +155,45 @@ class DGIndexNV(ExternalIndexer):
         header = DGIndexHeader()
 
         for rlin in raw_header:
-            if split_val := rlin.rstrip().split(' '):
+            if split_val := rlin.rstrip().split(" "):
                 key: str = split_val[0].upper()
                 values: list[str] = split_val[1:]
             else:
                 continue
 
-            if key == 'DEVICE':
+            if key == "DEVICE":
                 header.device = int(values[0])
-            elif key == 'DECODE_MODES':
-                header.decode_modes = list(map(int, values[0].split(',')))
-            elif key == 'STREAM':
+            elif key == "DECODE_MODES":
+                header.decode_modes = list(map(int, values[0].split(",")))
+            elif key == "STREAM":
                 header.stream = tuple(map(int, values))
-            elif key == 'RANGE':
+            elif key == "RANGE":
                 header.ranges = list(map(int, values))
-            elif key == 'DEMUX':
+            elif key == "DEMUX":
                 continue
-            elif key == 'DEPTH':
+            elif key == "DEPTH":
                 header.depth = int(values[0])
-            elif key == 'ASPECT':
+            elif key == "ASPECT":
                 try:
                     header.aspect = Fraction(*list(map(int, values)))
                 except ZeroDivisionError:
                     header.aspect = Fraction(1, 1)
-                    if os.environ.get('VSSOURCE_DEBUG', False):
-                        print(ResourceWarning('Encountered video with 0/0 aspect ratio!'))
-            elif key == 'COLORIMETRY':
+                    if os.environ.get("VSSOURCE_DEBUG", False):
+                        print(
+                            ResourceWarning("Encountered video with 0/0 aspect ratio!")
+                        )
+            elif key == "COLORIMETRY":
                 header.colorimetry = tuple(map(int, values))
-            elif key == 'PKTSIZ':
+            elif key == "PKTSIZ":
                 header.packet_size = int(values[0])
-            elif key == 'VPID':
+            elif key == "VPID":
                 header.vpid = int(values[0])
 
-        video_sizes = [int(line[-1]) for line in [line.split(' ') for line in vid_lines]]
+        video_sizes = [
+            int(line[-1]) for line in [line.split(" ") for line in vid_lines]
+        ]
 
-        max_sector = sum([0, *video_sizes[:file_idx + 1]])
+        max_sector = sum([0, *video_sizes[: file_idx + 1]])
 
         idx_file_sector = [max_sector - video_sizes[file_idx], max_sector]
 
@@ -195,11 +203,14 @@ class DGIndexNV(ExternalIndexer):
             if len(rawline) == 0:
                 break
 
-            line: Sequence[str | None] = [*rawline.split(" ", maxsplit=6), *([None] * 6)]
+            line: Sequence[str | None] = [
+                *rawline.split(" ", maxsplit=6),
+                *([None] * 6),
+            ]
 
             name = str(line[0])
 
-            if name == 'SEQ':
+            if name == "SEQ":
                 curr_SEQ = opt_int(line[1]) or 0
 
             if curr_SEQ < idx_file_sector[0]:
@@ -208,27 +219,31 @@ class DGIndexNV(ExternalIndexer):
                 break
 
             try:
-                int(name.split(':')[0])
+                int(name.split(":")[0])
             except ValueError:
                 continue
 
-            frame_data.append(DGIndexFrameData(
-                int(line[2] or 0) + 2, str(line[1]), *opt_ints(line[4:6])
-            ))
+            frame_data.append(
+                DGIndexFrameData(
+                    int(line[2] or 0) + 2, str(line[1]), *opt_ints(line[4:6])
+                )
+            )
 
         footer = DGIndexFooter()
 
         for rlin in lines[-10:]:
-            if split_val := rlin.rstrip().split(' '):
-                values = [split_val[0], ' '.join(split_val[1:])]
+            if split_val := rlin.rstrip().split(" "):
+                values = [split_val[0], " ".join(split_val[1:])]
             else:
                 continue
 
             for key in footer.__dict__.keys():
-                if key.split('_')[-1].upper() in values:
-                    if key == 'film':
+                if key.split("_")[-1].upper() in values:
+                    if key == "film":
                         try:
-                            value = [float(v.replace('%', '')) for v in values if '%' in v][0]
+                            value = [
+                                float(v.replace("%", "")) for v in values if "%" in v
+                            ][0]
                         except IndexError:
                             value = 0
                     else:
@@ -243,8 +258,12 @@ class DGIndexNVAddFilenames(DGIndexNV):
     """DGIndexNV with the filenames added to the index file."""
 
     def index(
-        self, files: Sequence[SPath], force: bool = False, split_files: bool = False,
-        output_folder: SPathLike | Literal[False] | None = None, *cmd_args: str
+        self,
+        files: Sequence[SPath],
+        force: bool = False,
+        split_files: bool = False,
+        output_folder: SPathLike | Literal[False] | None = None,
+        *cmd_args: str,
     ) -> list[SPath]:
         files, hash_str = self._create_temp_symlink(files)
         dest_folder = self.get_out_folder(output_folder, files[0])
@@ -259,39 +278,59 @@ class DGIndexNVAddFilenames(DGIndexNV):
             return self._run_index(files, output, cmd_args)
 
         if not split_files:
-            output = self.get_video_idx_path(files[0], dest_folder, hash_str, 'JOINED' if len(files) > 1 else 'SINGLE')
+            output = self.get_video_idx_path(
+                files[0],
+                dest_folder,
+                hash_str,
+                "JOINED" if len(files) > 1 else "SINGLE",
+            )
             _index(files, output)
             return [output]
 
-        outputs = [self.get_video_idx_path(file, dest_folder, hash_str, file.name) for file in files]
+        outputs = [
+            self.get_video_idx_path(file, dest_folder, hash_str, file.name)
+            for file in files
+        ]
 
         for file, output in zip(files, outputs):
             _index([file], output)
 
         return outputs
 
-    def get_video_idx_path(self, file_name: SPath, folder: SPath, file_hash: str, video_name: SPathLike) -> SPath:
+    def get_video_idx_path(
+        self, file_name: SPath, folder: SPath, file_hash: str, video_name: SPathLike
+    ) -> SPath:
         vid_name = SPath(video_name).stem
         current_indxer = os.path.basename(self._bin_path)
-        filename = '_'.join([file_name.stem, file_hash, vid_name, current_indxer])
+        filename = "_".join([file_name.stem, file_hash, vid_name, current_indxer])
 
         return self.get_idx_file_path(PackageStorage(folder).get_file(filename))
 
     def _create_temp_symlink(
-        self, files: list[SPath], force: bool = False, split_files: bool = False,
-        output_folder: SPathLike | Literal[False] | None = None
+        self,
+        files: list[SPath],
+        force: bool = False,
+        split_files: bool = False,
+        output_folder: SPathLike | Literal[False] | None = None,
     ) -> tuple[list[SPath], str]:
         files = to_arr(files)
 
-        if len(unique_folders := list(set([f.get_folder().to_str() for f in files]))) > 1:
+        if (
+            len(unique_folders := list(set([f.get_folder().to_str() for f in files])))
+            > 1
+        ):
             return [
-                c for s in (
+                c
+                for s in (
                     self.index(
                         [f for f in files if f.get_folder().to_str() == folder],
-                        force, split_files, output_folder
+                        force,
+                        split_files,
+                        output_folder,
                     )
                     for folder in unique_folders
-                ) for c in s
+                )
+                for c in s
             ], None
 
         files = list(sorted(set(files)))
@@ -309,7 +348,7 @@ class DGIndexNVAddFilenames(DGIndexNV):
                 try:
                     symlink_path.symlink_to(target_path)
                 except OSError as e:
-                    if getattr(e, 'winerror', None) == 1314:
+                    if getattr(e, "winerror", None) == 1314:
                         shutil.copy2(target_path, symlink_path)
                     else:
                         raise

@@ -6,15 +6,15 @@ from ...types import BitmapSubExt, TextSubExt
 from ...util import Log
 from .base import _BaseSubtitles
 
-__all__: list[str] = [
-    "_FindSubtitles"
-]
+__all__: list[str] = ["_FindSubtitles"]
 
 
 class _FindSubtitles(_BaseSubtitles):
     """Class containing methods pertaining to finding subtitle files."""
 
-    def find_sub_files(self, dgi_path: SPathLike | None = None, **kwargs: Any) -> list[SPath]:
+    def find_sub_files(
+        self, dgi_path: SPathLike | None = None, **kwargs: Any
+    ) -> list[SPath]:
         """
         Find accompanying DGIndex(NV) demuxed pgs tracks.
 
@@ -30,15 +30,18 @@ class _FindSubtitles(_BaseSubtitles):
             dgi_file = self.script_info.src_file[0]
 
         if not dgi_file.to_str().endswith(".dgi"):
-            Log.error("Input file is not a dgi file, not returning any subs.", self.find_sub_files)
+            Log.error(
+                "Input file is not a dgi file, not returning any subs.",
+                self.find_sub_files,
+            )
 
             return []
 
-        if not dgi_file.to_str().endswith(".dgi") and not kwargs.get('_is_loop', False):
+        if not dgi_file.to_str().endswith(".dgi") and not kwargs.get("_is_loop", False):
             Log.warn(
                 "Trying to pass a non-dgi file! "
                 "Extracting tracks using DGIndexNV in %TEMP% (this may take some time)...",
-                self.find_sub_files
+                self.find_sub_files,
             )
 
             old_script_info_src = self.script_info.src_file
@@ -68,22 +71,24 @@ class _FindSubtitles(_BaseSubtitles):
 
         return self.subtitle_files
 
-    def _find(self, files: list[SPath], caller: str | Callable[[Any], Any] | None = None) -> Any:
+    def _find(
+        self, files: list[SPath], caller: str | Callable[[Any], Any] | None = None
+    ) -> Any:
         for f in files:
-            Log.debug(f"Checking the following file: \"{f.name}\"...", caller)
+            Log.debug(f'Checking the following file: "{f.name}"...', caller)
 
             f_no_undersc = SPath(f.to_str().split("_")[0])
 
             bitmap_exist = any(
-                f.with_suffix(ext).exists() or
-                f_no_undersc.with_suffix(ext).exists()
+                f.with_suffix(ext).exists() or f_no_undersc.with_suffix(ext).exists()
                 for ext in BitmapSubExt
             )
 
             if f.suffix in TextSubExt and bitmap_exist:
                 Log.debug(
-                    f"\"{f.name}\" is an OCR'd subtitle file from an existing "
-                    "bitmap subtitle file. Skipping...", caller
+                    f'"{f.name}" is an OCR\'d subtitle file from an existing '
+                    "bitmap subtitle file. Skipping...",
+                    caller,
                 )
                 f.unlink()
 
@@ -97,6 +102,6 @@ class _FindSubtitles(_BaseSubtitles):
 
         for f in self.subtitle_files:
             try:
-                Log.info(f"    - \"{SPath(f).name}\"", caller)
+                Log.info(f'    - "{SPath(f).name}"', caller)
             except (AttributeError, ValueError) as e:
                 Log.warn(f"    - Could not determine track name!\n{e}", caller)

@@ -7,19 +7,19 @@ from vstools import SPath, SPathLike
 
 __all__: list[str] = [
     "touch_ini",
-
     "add_section",
-
-    "add_option", "get_option",
-
-    "get_items"
+    "add_option",
+    "get_option",
+    "get_items",
 ]
 
 
 def touch_ini(
-    name: SPathLike, sections: list[str] | str = [],
+    name: SPathLike,
+    sections: list[str] | str = [],
     fields: list[dict[str, Any]] | dict[str, Any] = [],
-    raise_on_new: bool = False, caller: str | None = None
+    raise_on_new: bool = False,
+    caller: str | None = None,
 ) -> ConfigParser:
     """
     Touch, populate, and sanitize an ini file.
@@ -62,7 +62,10 @@ def touch_ini(
         if raise_on_new:
             from ..util.logging import Log
 
-            raise Log.error(f"Template config created at {filename.resolve()}.\nPlease configure it!", caller)
+            raise Log.error(
+                f"Template config created at {filename.resolve()}.\nPlease configure it!",
+                caller,
+            )
 
     config.read(filename.to_str())
 
@@ -74,7 +77,7 @@ def add_section(
     sections: list[str] | str,
     fields: list[dict[str, Any]] | dict[str, Any] = [],
     caller: str | None = None,
-    config: ConfigParser | None = None
+    config: ConfigParser | None = None,
 ) -> ConfigParser:
     """Add a new section to a given config file. If the file does not exist, it will create it."""
     caller = caller or get_caller_module()
@@ -116,7 +119,9 @@ def add_section(
 
 
 def add_option(
-    name: SPathLike, section: str, field: tuple[str, Any],
+    name: SPathLike,
+    section: str,
+    field: tuple[str, Any],
     config: ConfigParser | None = None,
 ) -> ConfigParser:
     """Add an option to a given config file's section. If a section does not exist, it will create it."""
@@ -125,7 +130,9 @@ def add_option(
     if not filename.exists():
         from ..util.logging import Log
 
-        raise Log.error(f"The config file \"{filename.name}\" does not exist!", add_option)  # type:ignore[arg-type]
+        raise Log.error(
+            f'The config file "{filename.name}" does not exist!', add_option
+        )  # type:ignore[arg-type]
 
     if not config:
         config_obj = ConfigParser()
@@ -146,8 +153,7 @@ def add_option(
 
 
 def get_items(
-    name: SPathLike, section: str,
-    config: ConfigParser | None = None
+    name: SPathLike, section: str, config: ConfigParser | None = None
 ) -> dict[str, str]:
     """
     Get all items of a specific section from a given config file.
@@ -172,8 +178,7 @@ def get_items(
 
 
 def get_option(
-    name: SPathLike, section: str, option: str,
-    config: ConfigParser | None = None
+    name: SPathLike, section: str, option: str, config: ConfigParser | None = None
 ) -> str:
     """
     Get a specific option from a given config file and section.

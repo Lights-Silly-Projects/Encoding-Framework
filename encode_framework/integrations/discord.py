@@ -20,10 +20,7 @@ from ..util import Log, markdownify
 from .anilist import AniList, AniListAnime
 from .ftp import Ftp
 
-__all__: list[str] = [
-    "DiscordEmbedder",
-    "DiscordEmbedOpts", "DisOpt"
-]
+__all__: list[str] = ["DiscordEmbedder", "DiscordEmbedOpts", "DisOpt"]
 
 
 class DiscordEmbedOpts(str, Enum):
@@ -89,7 +86,7 @@ class DiscordEmbedder(DiscordWebhook):
             DiscordEmbedOpts.TIME_ELAPSED,
             DiscordEmbedOpts.TRACKS_INFO,
         },
-        **webhook_kwargs: Any
+        **webhook_kwargs: Any,
     ) -> None:
         """
         :param script_info:         The ScriptInfo object containing information about the script.
@@ -116,7 +113,7 @@ class DiscordEmbedder(DiscordWebhook):
         init_kwargs = {
             "avatar_url": "https://i.imgur.com/icZhOfv.png",
             "username": "BB Encode News Delivery Service",
-            "rate_limit_entry": True
+            "rate_limit_entry": True,
         }
 
         init_kwargs |= webhook_kwargs
@@ -130,10 +127,10 @@ class DiscordEmbedder(DiscordWebhook):
 
         self._encode_embed_opts = options
 
-        if all(x in self._encode_embed_opts for x in (
-            DiscordEmbedOpts.TRACKS_INFO,
-            DiscordEmbedOpts.GENERAL_FILE_INFO
-        )):
+        if all(
+            x in self._encode_embed_opts
+            for x in (DiscordEmbedOpts.TRACKS_INFO, DiscordEmbedOpts.GENERAL_FILE_INFO)
+        ):
             self._encode_embed_opts -= set(DiscordEmbedOpts.GENERAL_FILE_INFO)
 
         if DiscordEmbedOpts.ANIME_INFO in self._encode_embed_opts:
@@ -172,14 +169,19 @@ class DiscordEmbedder(DiscordWebhook):
             else:
                 self.encoder.premux_path = SPath(pmx)
 
-        embed = DiscordEmbed(title=self._get_base_title("has finished encoding!"), description=msg, color=32768)
+        embed = DiscordEmbed(
+            title=self._get_base_title("has finished encoding!"),
+            description=msg,
+            color=32768,
+        )
 
         if DiscordEmbedOpts.ANIME_INFO in self._encode_embed_opts:
             embed = self._set_anilist_title(embed, "has finished encoding!")
 
-        if any(x in self._encode_embed_opts for x in (
-            DiscordEmbedOpts.TRACKS_INFO, DiscordEmbedOpts.GENERAL_FILE_INFO
-        )):
+        if any(
+            x in self._encode_embed_opts
+            for x in (DiscordEmbedOpts.TRACKS_INFO, DiscordEmbedOpts.GENERAL_FILE_INFO)
+        ):
             embed = self._track_info(embed)
 
         if DiscordEmbedOpts.TIME_ELAPSED in self._encode_embed_opts:
@@ -194,18 +196,25 @@ class DiscordEmbedder(DiscordWebhook):
         self._safe_add_embed(embed)
         self._safe_execute(self.success)
 
-    def fail(self, msg: str = "", exception: BaseException | str | None = None) -> Exception:
+    def fail(
+        self, msg: str = "", exception: BaseException | str | None = None
+    ) -> Exception:
         """Encode fail embed."""
         if not self.webhook_url:
             return
 
         if not self._start:
             return Log.error(
-                f"You must run \"{self.__class__.__name__}.start\" first!\n"
-                f"Original exception: {exception}", self.fail
+                f'You must run "{self.__class__.__name__}.start" first!\n'
+                f"Original exception: {exception}",
+                self.fail,
             )
 
-        embed = DiscordEmbed(title=self._get_base_title("has failed while encoding!"), description=msg, color=12582912)
+        embed = DiscordEmbed(
+            title=self._get_base_title("has failed while encoding!"),
+            description=msg,
+            color=12582912,
+        )
 
         if DiscordEmbedOpts.ANIME_INFO in self._encode_embed_opts:
             embed = self._set_anilist_title(embed, "has failed while encoding!")
@@ -226,10 +235,16 @@ class DiscordEmbedder(DiscordWebhook):
             return
 
         if not self._start:
-            return Log.error(f"You must run \"{self.__class__.__name__}.start\" first!", self.ftp_upload)
+            return Log.error(
+                f'You must run "{self.__class__.__name__}.start" first!',
+                self.ftp_upload,
+            )
 
         if not ftp._history:
-            raise CustomValueError("You cannot call this embedded if you haven't uploaded anything!", self.ftp_upload)
+            raise CustomValueError(
+                "You cannot call this embedded if you haven't uploaded anything!",
+                self.ftp_upload,
+            )
 
         msg = "The following files were uploaded to the FTP:"
 
@@ -253,7 +268,9 @@ class DiscordEmbedder(DiscordWebhook):
             raise Log.error(f"Could not ping webhook! ({e})", self.ping)  # type:ignore[arg-type]
 
         if not response.ok:
-            raise Log.error(f"Could not ping webhook! ({response.status_code})", self.ping)  # type:ignore[arg-type]
+            raise Log.error(
+                f"Could not ping webhook! ({response.status_code})", self.ping
+            )  # type:ignore[arg-type]
 
         Log.info(f"Webhook succesfully pinged! (Time: {response.elapsed})", self.ping)  # type:ignore[arg-type]
 
@@ -265,7 +282,10 @@ class DiscordEmbedder(DiscordWebhook):
             self.webhook_url = None
 
         if not self.webhook_url:
-            Log.error("You MUST set a webhook url to use Discord embeds!", self._set_webhook_url)
+            Log.error(
+                "You MUST set a webhook url to use Discord embeds!",
+                self._set_webhook_url,
+            )
 
         return self.webhook_url
 
@@ -301,8 +321,10 @@ class DiscordEmbedder(DiscordWebhook):
         desc = ""
 
         if self._anime.next_airing_episode is not None:  # type:ignore[union-attr]
-            desc += "\nTime until next episode airs: " \
-                f"{self._anime.next_airing_episode.time_until_air}"  # type:ignore[union-attr]
+            desc += (
+                "\nTime until next episode airs: "
+                f"{self._anime.next_airing_episode.time_until_air}"
+            )  # type:ignore[union-attr]
 
         embed = self._append_to_embed_description(embed, desc)
 
@@ -314,11 +336,15 @@ class DiscordEmbedder(DiscordWebhook):
 
         return self._anime
 
-    def _set_anilist_title(self, embed: DiscordEmbed, suffix: str = "has started encoding!") -> DiscordEmbed:
+    def _set_anilist_title(
+        self, embed: DiscordEmbed, suffix: str = "has started encoding!"
+    ) -> DiscordEmbed:
         if self._anime is None:
             return embed
 
-        title = self._anime.name.get(get_option("config.ini", "ANILIST", "title_language").lower(), None)
+        title = self._anime.name.get(
+            get_option("config.ini", "ANILIST", "title_language").lower(), None
+        )
 
         # No title found, get the first fallback title it can find.
         if title is None:
@@ -376,9 +402,14 @@ class DiscordEmbedder(DiscordWebhook):
 
         enc_is_x265 = isinstance(self.encoder.encoder, x265)
 
-        out_clip = self.encoder._finalize_clip(self.encoder.out_clip, func=self._video_enc_settings)
+        out_clip = self.encoder._finalize_clip(
+            self.encoder.out_clip, func=self._video_enc_settings
+        )
 
-        settings = file_or_default(sfile.to_str(), settings_builder_x265() if enc_is_x265 else settings_builder_x265())
+        settings = file_or_default(
+            sfile.to_str(),
+            settings_builder_x265() if enc_is_x265 else settings_builder_x265(),
+        )
         settings = fill_props(settings[0], out_clip, enc_is_x265)
 
         desc = f"\nTotal number of frames: {out_clip.num_frames}\n"
@@ -421,7 +452,7 @@ class DiscordEmbedder(DiscordWebhook):
                 desc += f"{track_title}:"
 
                 if track_info:
-                    desc += ("\n    - " + "\n    - ".join(track_info))
+                    desc += "\n    - " + "\n    - ".join(track_info)
 
                 desc += "\n\n"
 
@@ -433,7 +464,9 @@ class DiscordEmbedder(DiscordWebhook):
 
         return embed
 
-    def _get_tracks(self, premux_path: SPathLike | None = None) -> list[tuple[str, list[str]]]:
+    def _get_tracks(
+        self, premux_path: SPathLike | None = None
+    ) -> list[tuple[str, list[str]]]:
         if not premux_path:
             if isinstance(self.encoder, tuple):
                 encoder = self.encoder[0]
@@ -468,16 +501,25 @@ class DiscordEmbedder(DiscordWebhook):
         except Exception as e:
             Log.error((str(vars(track)), e), self._track_info)
 
-            raise Log.error(f"An error occured while retrieving the \"{track.track_type}\" track!", self._get_tracks)
+            raise Log.error(
+                f'An error occured while retrieving the "{track.track_type}" track!',
+                self._get_tracks,
+            )
 
         return tracks
 
     def _get_basic_track_title(self, track: Track) -> str:
-        return " ".join([
-            f"[{track.track_id}] {track.track_type}",
-            f"({track.commercial_name})",
-            f"{track.other_stream_size[0]}"
-        ]).replace("] Text ", "] Subtitles ").strip()
+        return (
+            " ".join(
+                [
+                    f"[{track.track_id}] {track.track_type}",
+                    f"({track.commercial_name})",
+                    f"{track.other_stream_size[0]}",
+                ]
+            )
+            .replace("] Text ", "] Subtitles ")
+            .strip()
+        )
 
     def _get_video_track_info(self, track: Track) -> tuple[str, list[str]]:
         t_data = track.to_data()
@@ -508,11 +550,15 @@ class DiscordEmbedder(DiscordWebhook):
 
         # Colorimetry, but only if set by the user.
         if t_data.get("matrix_coefficients_source", "") == "Stream":
-            info += [" / ".join([
-                f"{track.matrix_coefficients} (M)",
-                f"{track.transfer_characteristics} (T)",
-                f"{track.color_primaries} (P)"
-            ])]
+            info += [
+                " / ".join(
+                    [
+                        f"{track.matrix_coefficients} (M)",
+                        f"{track.transfer_characteristics} (T)",
+                        f"{track.color_primaries} (P)",
+                    ]
+                )
+            ]
 
         return (self._get_basic_track_title(track), info)
 
@@ -523,7 +569,7 @@ class DiscordEmbedder(DiscordWebhook):
 
         info = [
             # Number of channels
-            str(t_data.get('other_channel_s', ['Unknown number of channels'])[0]),
+            str(t_data.get("other_channel_s", ["Unknown number of channels"])[0]),
             # Language
             f"Language: {t_data.get('language', 'Not set')}",
             # Track selection
@@ -531,13 +577,13 @@ class DiscordEmbedder(DiscordWebhook):
             f"Forced: {t_data.get('forced', 'Unknown')}",
         ]
 
-        if t_data.get('commercial_name', '') == "FLAC":
+        if t_data.get("commercial_name", "") == "FLAC":
             info += [
                 # Bit depth
-                str(t_data.get('other_bit_depth', ['?'])[0]),
+                str(t_data.get("other_bit_depth", ["?"])[0]),
             ]
 
-        if (delay := t_data.get('delay_relative_to_video', 0)):
+        if delay := t_data.get("delay_relative_to_video", 0):
             info += [
                 # Delay
                 f"Delay relative to video: {str(delay)}ms"
@@ -554,7 +600,7 @@ class DiscordEmbedder(DiscordWebhook):
             f"Forced: {t_data.get('forced', 'Unknown')}",
         ]
 
-        if (delay := t_data.get('delay_relative_to_video', 0)):
+        if delay := t_data.get("delay_relative_to_video", 0):
             info += [
                 # Delay
                 f"Delay relative to video: {str(delay)}ms"
@@ -585,22 +631,29 @@ class DiscordEmbedder(DiscordWebhook):
             embed.set_image(url)
         else:
             Log.error("Could not upload image!", self._set_plotbitrate)
-            embed = self._append_to_embed_description(embed, "< Could not upload bitrate plot >")
+            embed = self._append_to_embed_description(
+                embed, "< Could not upload bitrate plot >"
+            )
 
         return embed
 
-    def _make_plotbitrate(self, premux_path: SPathLike | None = None) -> str | Literal[False]:
+    def _make_plotbitrate(
+        self, premux_path: SPathLike | None = None
+    ) -> str | Literal[False]:
         if not which("plotbitrate"):
             from vstools import DependencyNotFoundError
 
             Log.error(
-                "The executable for \"plotbitrate\" could not be found! Install it with `pip install plotbitrate`!",
-                self._make_plotbitrate, DependencyNotFoundError
+                'The executable for "plotbitrate" could not be found! Install it with `pip install plotbitrate`!',
+                self._make_plotbitrate,
+                DependencyNotFoundError,
             )
             return False
 
         if premux_path is None:
-            encoder = self.encoder[0] if isinstance(self.encoder, tuple) else self.encoder
+            encoder = (
+                self.encoder[0] if isinstance(self.encoder, tuple) else self.encoder
+            )
             premux_path = encoder.premux_path
 
         premux_path = SPath(premux_path)
@@ -611,15 +664,22 @@ class DiscordEmbedder(DiscordWebhook):
 
         try:
             args = [
-                "python", "-m", "plotbitrate", "-o", out_path.to_str(), "-f", "png",
-                "--show-frame-types", premux_path.to_str()
+                "python",
+                "-m",
+                "plotbitrate",
+                "-o",
+                out_path.to_str(),
+                "-f",
+                "png",
+                "--show-frame-types",
+                premux_path.to_str(),
             ]
 
             sp.run(args)
         except sp.CalledProcessError:
             Log.error(
                 f"An error occurred while trying to create a bitrate plot! Params:\n{args}",
-                self._make_plotbitrate
+                self._make_plotbitrate,
             )
 
         err = 0
@@ -640,13 +700,16 @@ class DiscordEmbedder(DiscordWebhook):
 
     def _success_add_elapsed(self, embed: DiscordEmbed) -> DiscordEmbed:
         # !For some reason this is about 5s off. Not a big deal, but still, wtf?
-        elapsed = datetime.now(timezone(timedelta(seconds=0), name=time.tzname[time.daylight])) - \
-            self._get_response_datetime(self._history[0])
+        elapsed = datetime.now(
+            timezone(timedelta(seconds=0), name=time.tzname[time.daylight])
+        ) - self._get_response_datetime(self._history[0])
 
         desc = f"\nTime elapsed: {str(elapsed)[:-3]}"
 
         if DiscordEmbedOpts.SHOW_FPS in self._encode_embed_opts:
-            encoder = self.encoder[0] if isinstance(self.encoder, tuple) else self.encoder
+            encoder = (
+                self.encoder[0] if isinstance(self.encoder, tuple) else self.encoder
+            )
 
             desc += f" ({self._calc_fps(encoder.out_clip, elapsed.seconds):.2f} fps)"
 
@@ -658,7 +721,9 @@ class DiscordEmbedder(DiscordWebhook):
         """Calculate the framerate. We can't get it from the encoder directly it seems, so gotta do it ourselves."""
         return clip.num_frames / elapsed_time
 
-    def _prettify_exception(self, embed: DiscordEmbed, exception: BaseException | str | None = None) -> DiscordEmbed:
+    def _prettify_exception(
+        self, embed: DiscordEmbed, exception: BaseException | str | None = None
+    ) -> DiscordEmbed:
         if isinstance(exception, KeyboardInterrupt):
             exception = "The encode was manually interrupted! "
 
@@ -676,7 +741,9 @@ class DiscordEmbedder(DiscordWebhook):
 
         return embed
 
-    def _append_to_embed_description(self, embed: DiscordEmbed, description: str) -> DiscordEmbed:
+    def _append_to_embed_description(
+        self, embed: DiscordEmbed, description: str
+    ) -> DiscordEmbed:
         embed.set_description(str(embed.description) + description)
 
         return embed
@@ -693,8 +760,15 @@ class DiscordEmbedder(DiscordWebhook):
         saved_props: dict[str, Any] = {}
 
         annoying_props = (
-            "_anilist", "_anime", "_encode_embed_opts", "_history", "_start",
-            "encoder", "project_options", "script_info", "start_time"
+            "_anilist",
+            "_anime",
+            "_encode_embed_opts",
+            "_history",
+            "_start",
+            "encoder",
+            "project_options",
+            "script_info",
+            "start_time",
         )
 
         for prop in annoying_props:

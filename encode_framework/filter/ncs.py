@@ -1,7 +1,16 @@
 from typing import Literal, Sequence, overload
 
-from vstools import (CustomValueError, FrameRangesN, core, depth, expect_bits,
-                     get_depth, insert_clip, replace_ranges, vs)
+from vstools import (
+    CustomValueError,
+    FrameRangesN,
+    core,
+    depth,
+    expect_bits,
+    get_depth,
+    insert_clip,
+    replace_ranges,
+    vs,
+)
 
 __all__: Sequence[str] = [
     "splice_ncs",
@@ -13,42 +22,79 @@ __all__: Sequence[str] = [
 @overload
 def splice_ncs(
     clip: vs.VideoNode,
-    ncop: vs.VideoNode | None = None, opstart: int | Literal[False] = False, op_offset: int = 1, op_ignore_ranges: FrameRangesN = [],
-    nced: vs.VideoNode | None = None, edstart: int | Literal[False] = False, ed_offset: int = 1, ed_ignore_ranges: FrameRangesN = [],
-    minimum: int = 2, inflate: int = 5, maximum: int = 5, close: int = 9,
-    show_mask: bool = False, return_scomps: bool = True,
-) -> list[vs.VideoNode]:
-    ...
+    ncop: vs.VideoNode | None = None,
+    opstart: int | Literal[False] = False,
+    op_offset: int = 1,
+    op_ignore_ranges: FrameRangesN = [],
+    nced: vs.VideoNode | None = None,
+    edstart: int | Literal[False] = False,
+    ed_offset: int = 1,
+    ed_ignore_ranges: FrameRangesN = [],
+    minimum: int = 2,
+    inflate: int = 5,
+    maximum: int = 5,
+    close: int = 9,
+    show_mask: bool = False,
+    return_scomps: bool = True,
+) -> list[vs.VideoNode]: ...
 
 
 @overload
 def splice_ncs(
     clip: vs.VideoNode,
-    ncop: vs.VideoNode | None = None, opstart: int | Literal[False] = False, op_offset: int = 1, op_ignore_ranges: FrameRangesN = [],
-    nced: vs.VideoNode | None = None, edstart: int | Literal[False] = False, ed_offset: int = 1, ed_ignore_ranges: FrameRangesN = [],
-    minimum: int = 2, inflate: int = 5, maximum: int = 5, close: int = 9,
-    show_mask: bool = False, return_scomps: bool = False,
-) -> tuple[vs.VideoNode, vs.VideoNode]:
-    ...
+    ncop: vs.VideoNode | None = None,
+    opstart: int | Literal[False] = False,
+    op_offset: int = 1,
+    op_ignore_ranges: FrameRangesN = [],
+    nced: vs.VideoNode | None = None,
+    edstart: int | Literal[False] = False,
+    ed_offset: int = 1,
+    ed_ignore_ranges: FrameRangesN = [],
+    minimum: int = 2,
+    inflate: int = 5,
+    maximum: int = 5,
+    close: int = 9,
+    show_mask: bool = False,
+    return_scomps: bool = False,
+) -> tuple[vs.VideoNode, vs.VideoNode]: ...
 
 
 @overload
 def splice_ncs(
     clip: vs.VideoNode,
-    ncop: vs.VideoNode | None = None, opstart: int | Literal[False] = False, op_offset: int = 1, op_ignore_ranges: FrameRangesN = [],
-    nced: vs.VideoNode | None = None, edstart: int | Literal[False] = False, ed_offset: int = 1, ed_ignore_ranges: FrameRangesN = [],
-    minimum: int = 2, inflate: int = 5, maximum: int = 5, close: int = 9,
-    show_mask: bool = True, return_scomps: bool = False,
-) -> vs.VideoNode:
-    ...
+    ncop: vs.VideoNode | None = None,
+    opstart: int | Literal[False] = False,
+    op_offset: int = 1,
+    op_ignore_ranges: FrameRangesN = [],
+    nced: vs.VideoNode | None = None,
+    edstart: int | Literal[False] = False,
+    ed_offset: int = 1,
+    ed_ignore_ranges: FrameRangesN = [],
+    minimum: int = 2,
+    inflate: int = 5,
+    maximum: int = 5,
+    close: int = 9,
+    show_mask: bool = True,
+    return_scomps: bool = False,
+) -> vs.VideoNode: ...
 
 
 def splice_ncs(
     clip: vs.VideoNode,
-    ncop: vs.VideoNode | None = None, opstart: int | Literal[False] = False, op_offset: int = 1, op_ignore_ranges: FrameRangesN = [],
-    nced: vs.VideoNode | None = None, edstart: int | Literal[False] = False, ed_offset: int = 1, ed_ignore_ranges: FrameRangesN = [],
-    minimum: int = 2, inflate: int = 5, maximum: int = 5, close: int = 9,
-    show_mask: bool = False, return_scomps: bool = False,
+    ncop: vs.VideoNode | None = None,
+    opstart: int | Literal[False] = False,
+    op_offset: int = 1,
+    op_ignore_ranges: FrameRangesN = [],
+    nced: vs.VideoNode | None = None,
+    edstart: int | Literal[False] = False,
+    ed_offset: int = 1,
+    ed_ignore_ranges: FrameRangesN = [],
+    minimum: int = 2,
+    inflate: int = 5,
+    maximum: int = 5,
+    close: int = 9,
+    show_mask: bool = False,
+    return_scomps: bool = False,
 ) -> vs.VideoNode | list[vs.VideoNode] | tuple[vs.VideoNode, vs.VideoNode]:
     """
     Splice NCs into a clip and return the spliced clip and a diff clip.
@@ -88,22 +134,32 @@ def splice_ncs(
         raise CustomValueError("Both ncop and nced are None!", splice_ncs)
 
     def _process_nc_range(
-        clip: vs.VideoNode, nc_clip: vs.VideoNode | None, start: int | Literal[False],
-        offset: int, ignore_ranges: FrameRangesN, name: str
+        clip: vs.VideoNode,
+        nc_clip: vs.VideoNode | None,
+        start: int | Literal[False],
+        offset: int,
+        ignore_ranges: FrameRangesN,
+        name: str,
     ) -> tuple[vs.VideoNode, FrameRangesN, list[vs.VideoNode]]:
-        if not isinstance(nc_clip, vs.VideoNode) or not isinstance(start, int) or isinstance(start, bool):
+        if (
+            not isinstance(nc_clip, vs.VideoNode)
+            or not isinstance(start, int)
+            or isinstance(start, bool)
+        ):
             return clip, [], []
 
         nc_clip = nc_clip.std.SetFrameProps(isNC=True)
         nc_clip = nc_clip + nc_clip[-1] * 12
-        nc_clip = replace_ranges(nc_clip, clip[start:start + nc_clip.num_frames - 1], ignore_ranges)
+        nc_clip = replace_ranges(
+            nc_clip, clip[start : start + nc_clip.num_frames - 1], ignore_ranges
+        )
 
         nc_range = [(start, start + nc_clip.num_frames - 1 - offset)]
 
         b = clip.std.BlankClip(length=1, color=[0] * 3)
         scomp = stack_compare(
-            clip.text.FrameNum()[start:start + nc_clip.num_frames - 1] + b,
-            nc_clip[:-offset] + b.text.FrameNum()
+            clip.text.FrameNum()[start : start + nc_clip.num_frames - 1] + b,
+            nc_clip[:-offset] + b.text.FrameNum(),
         )
 
         clip = insert_clip(clip, nc_clip[:-offset], start)

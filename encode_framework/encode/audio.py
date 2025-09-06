@@ -3,11 +3,27 @@ import threading
 import time
 from typing import Any, Literal
 
-from vsmuxtools import (AudioFile, AudioTrack, Encoder, FFMpeg, HasTrimmer,
-                        Opus, get_workdir)
-from vstools import (CustomIndexError, CustomNotImplementedError,
-                     CustomRuntimeError, CustomValueError, FileNotExistsError,
-                     FileType, SPath, SPathLike, to_arr, vs)
+from vsmuxtools import (
+    AudioFile,
+    AudioTrack,
+    Encoder,
+    FFMpeg,
+    HasTrimmer,
+    Opus,
+    get_workdir,
+)
+from vstools import (
+    CustomIndexError,
+    CustomNotImplementedError,
+    CustomRuntimeError,
+    CustomValueError,
+    FileNotExistsError,
+    FileType,
+    SPath,
+    SPathLike,
+    to_arr,
+    vs,
+)
 
 from ..util.convert import frame_to_ms
 from ..util.logging import Log
@@ -229,8 +245,7 @@ class _AudioEncoder(_BaseEncoder):
                                 I'm aware I said it would never re-encode it.
         """
 
-        from vsmuxtools import (FLAC, Sox, do_audio, frames_to_samples,
-                                is_fancy_codec)
+        from vsmuxtools import FLAC, Sox, do_audio, frames_to_samples, is_fancy_codec
 
         from ..script import ScriptInfo
 

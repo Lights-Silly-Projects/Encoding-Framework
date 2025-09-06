@@ -13,9 +13,7 @@ __all__: list[str] = [
 ]
 
 
-def clone_git_repo(
-    url: str, out_dir: SPathLike | None = None
-) -> SPath:
+def clone_git_repo(url: str, out_dir: SPathLike | None = None) -> SPath:
     """Clone a git repository."""
     repo_name = str(url).split("/")[-1].split(".")[0]
 
@@ -28,11 +26,11 @@ def clone_git_repo(
         return out_path
 
     try:
-        Log.info(f"Cloning repository \"{repo_name}\" (\"{url}\")...", clone_git_repo)
+        Log.info(f'Cloning repository "{repo_name}" ("{url}")...', clone_git_repo)
         Repo.clone_from(url, out_path.to_str(), progress=_CloneProgress())  # type:ignore[arg-type]
     except GitCommandError as e:
         if "already exists" in str(e):
-            Log.info(f"\"{repo_name}\" has already been cloned!")
+            Log.info(f'"{repo_name}" has already been cloned!')
         else:
             raise Log.error(str(e), clone_git_repo)
 
@@ -55,9 +53,7 @@ class _CloneProgress(RemoteProgress):
         "RESOLVING",
         "WRITING",
     ]
-    OP_CODE_MAP = {
-        getattr(RemoteProgress, _op_code): _op_code for _op_code in OP_CODES
-    }
+    OP_CODE_MAP = {getattr(RemoteProgress, _op_code): _op_code for _op_code in OP_CODES}
 
     def __init__(self) -> None:
         super().__init__()

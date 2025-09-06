@@ -4,12 +4,10 @@ from vstools import SPath
 from ...types import BitmapSubExt
 from ..base import _BaseEncoder
 
-__all__: list[str] = [
-    "_BaseSubtitles"
-]
+__all__: list[str] = ["_BaseSubtitles"]
+
 
 class _BaseSubtitles(_BaseEncoder):
-
     subtitle_files: list[SubFile] = []
     """A list of all the subtitle source files."""
 

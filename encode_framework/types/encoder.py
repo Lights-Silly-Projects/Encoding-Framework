@@ -2,7 +2,6 @@ from typing import Literal
 
 __all__: list[str] = [
     "Zones",
-
     "TrimAuto",
 ]
 

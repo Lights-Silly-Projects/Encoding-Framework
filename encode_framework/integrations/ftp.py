@@ -1,6 +1,7 @@
 """
-    An FTP module, created to automatically upload or download files to or from an FTP.
+An FTP module, created to automatically upload or download files to or from an FTP.
 """
+
 from __future__ import annotations
 
 import datetime
@@ -9,8 +10,13 @@ from configparser import ConfigParser, NoOptionError, NoSectionError
 from dataclasses import dataclass
 from ftplib import FTP
 
-from vstools import (CustomError, CustomNotImplementedError,
-                     FileNotExistsError, SPath, SPathLike)
+from vstools import (
+    CustomError,
+    CustomNotImplementedError,
+    FileNotExistsError,
+    SPath,
+    SPathLike,
+)
 
 from ..git.ignore import append_gitignore
 from ..util.logging import Log
@@ -38,8 +44,12 @@ class FtpTransfer:
     """The total elapsed time of the upload."""
 
     def human_readable(self, show_elapsed_time: bool = True) -> str:
-        return f"\"`{self.target_file.name}`\" @ `{self.address.split('@')[1]}`" + \
-            f" (elapsed time: {self.elapsed_in_iso})" if show_elapsed_time else ""
+        return (
+            f"\"`{self.target_file.name}`\" @ `{self.address.split('@')[1]}`"
+            + f" (elapsed time: {self.elapsed_in_iso})"
+            if show_elapsed_time
+            else ""
+        )
 
     @property
     def elapsed_in_iso(self) -> str:
@@ -88,9 +98,9 @@ class Ftp:
             self._create_basic_config()
 
             raise Log.error(
-                "New section \"FTP\" added to \"auth.ini\". Please set it up first!",
+                'New section "FTP" added to "auth.ini". Please set it up first!',
                 self.__class__.__name__,
-                CustomError[NoSectionError]
+                CustomError[NoSectionError],
             )
 
         self.config_parsed = auth
@@ -98,7 +108,7 @@ class Ftp:
         if not (sftp := auth.getboolean("FTP", "sftp")):
             raise CustomNotImplementedError(
                 "Non-SFTP connections are currently not supported!",
-                self.__class__.__name__
+                self.__class__.__name__,
             )
         else:
             self._create_sftp_config()
@@ -111,7 +121,9 @@ class Ftp:
         self.config_parsed.set("FTP", "sftp", "True")
 
         for val in ("host", "port", "username", "password"):
-            self.config_parsed.set("FTP", val, "Please set a value!" if not val == "port" else None)
+            self.config_parsed.set(
+                "FTP", val, "Please set a value!" if not val == "port" else None
+            )
 
         self.config_parsed.set("FTP", "upload_directory", "/")
 
@@ -129,12 +141,19 @@ class Ftp:
         return self.config_parsed.get("FTP", key, fallback=fallback, raw=raw)
 
     def _create_sftp_config(self) -> None:
-        if not (self._hasopt("host") and self._hasopt("username") and self._hasopt("password")):
-            missing = ', '.join(k for k in ('host', 'username', 'password') if not self._hasopt(k))
+        if not (
+            self._hasopt("host")
+            and self._hasopt("username")
+            and self._hasopt("password")
+        ):
+            missing = ", ".join(
+                k for k in ("host", "username", "password") if not self._hasopt(k)
+            )
 
             raise Log.error(
                 f"Please configure the missing FTP settings! Missing key(s): {missing}",
-                self.__class__.__name__, CustomError[NoOptionError]
+                self.__class__.__name__,
+                CustomError[NoOptionError],
             )
 
         self.host = self._getopt("host")
@@ -143,10 +162,12 @@ class Ftp:
         self.password = self._getopt("password", raw=True)
         self.upload_directory = SPath(self._getopt("upload_dir", "/")).as_posix()
 
-        Log.debug(f"SFTP setup complete. Uploading to \"{self.address}\"", self.__class__.__name__)
+        Log.debug(
+            f'SFTP setup complete. Uploading to "{self.address}"',
+            self.__class__.__name__,
+        )
 
-    def get_welcome(self) -> None:
-        ...
+    def get_welcome(self) -> None: ...
 
     def upload(self, target_file: SPathLike) -> FTP:
         """Upload the given file to the FTP following the details given in \"auth.ini\"."""
@@ -155,21 +176,28 @@ class Ftp:
         if not self.sftp:
             raise Log.error(
                 "Only SFTP connections are currently supported!",
-                self.upload, CustomNotImplementedError  # type:ignore[arg-type]
+                self.upload,
+                CustomNotImplementedError,  # type:ignore[arg-type]
             )
 
         if not (target_file := SPath(target_file)).exists():
-            raise FileNotExistsError(f"Could not find the file, \"{target_file}\"!", self.upload)
+            raise FileNotExistsError(
+                f'Could not find the file, "{target_file}"!', self.upload
+            )
 
         stime = time.time()
 
-        with pysftp.Connection(self.host, self.username, None, self.password, self.port) as sftp:
+        with pysftp.Connection(
+            self.host, self.username, None, self.password, self.port
+        ) as sftp:
             with sftp.cd(self.upload_directory):
-                Log.info(f"Uploading \"{target_file}\" to \"{self.address}\"", self.upload)
+                Log.info(f'Uploading "{target_file}" to "{self.address}"', self.upload)
 
                 sftp.put(target_file.to_str())
 
-        self._history += [FtpTransfer(self.address, target_file, stime, time.time() - stime)]
+        self._history += [
+            FtpTransfer(self.address, target_file, stime, time.time() - stime)
+        ]
 
         return self
 
@@ -184,5 +212,3 @@ class Ftp:
     @property
     def address(self) -> str:
         return f"{self.username}@{self.host_with_target}"
-
-

@@ -7,9 +7,7 @@ from vstools import CustomRuntimeError, SPath, SPathLike, finalize_clip, vs
 from ..script import ScriptInfo
 from ..util import Log
 
-__all__: list[str] = [
-    "_BaseEncoder"
-]
+__all__: list[str] = ["_BaseEncoder"]
 
 
 class _BaseEncoder:
@@ -24,7 +22,12 @@ class _BaseEncoder:
     _temp_files: list[SPath] = []
     """A list of all temporary files created during the encoding process."""
 
-    def __init__(self, script_info: ScriptInfo, out_clip: vs.VideoNode | None = None, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        script_info: ScriptInfo,
+        out_clip: vs.VideoNode | None = None,
+        **kwargs: Any,
+    ) -> None:
         self.script_info = script_info
 
         if out_clip is None:
@@ -35,7 +38,9 @@ class _BaseEncoder:
         if not isinstance(out_clip, vs.VideoNode):
             raise CustomRuntimeError(
                 "Multiple output nodes detected in filterchain! "
-                "Please output just one node!", __file__, len(out_clip)  # type:ignore[arg-type]
+                "Please output just one node!",
+                __file__,
+                len(out_clip),  # type:ignore[arg-type]
             )
 
         self.out_clip = finalize_clip(out_clip, **kwargs)  # type:ignore[arg-type]
@@ -47,8 +52,10 @@ class _BaseEncoder:
         return file.stat().st_size == 0
 
     def check_identical(
-        self, *files: SPath, shallow: bool = False,
-        caller: str | Callable[[Any], Any] | None = None
+        self,
+        *files: SPath,
+        shallow: bool = False,
+        caller: str | Callable[[Any], Any] | None = None,
     ) -> bool:
         """Check whether an arbitrary amount of files are bit-identical. Must pass at least 2 files."""
         if len(files) < 2:

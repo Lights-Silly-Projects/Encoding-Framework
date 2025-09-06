@@ -9,10 +9,7 @@ from typing import Any, Callable, Literal
 from rich.logging import RichHandler
 from vstools import CustomError
 
-__all__: list[str] = [
-    "Logger",
-    "Log"
-]
+__all__: list[str] = ["Logger", "Log"]
 
 
 class Logger:
@@ -30,7 +27,7 @@ class Logger:
         log_file: Path | None | Literal[False] = False,
         format: str = "%(name)s | %(message)s",
         datefmt: str = "[%X]",
-        **kwargs: Any
+        **kwargs: Any,
     ) -> None:
         log_name = logger_name or "Encode_Framework"
 
@@ -50,8 +47,11 @@ class Logger:
         self.log_file = log_file
 
         logging.basicConfig(
-            format=format, datefmt=datefmt,
-            handlers=[RichHandler(markup=True, omit_repeated_times=False, show_path=False)],
+            format=format,
+            datefmt=datefmt,
+            handlers=[
+                RichHandler(markup=True, omit_repeated_times=False, show_path=False)
+            ],
         )
 
         log_name_join = "_".join([log_name, "Script"])
@@ -64,15 +64,23 @@ class Logger:
                 self.logger.setLevel(logging.DEBUG)
 
             if logger_name is None:
-                self.debug(f"Config file found, logger name: \"{log_name_join}\"", "logging")
+                self.debug(
+                    f'Config file found, logger name: "{log_name_join}"', "logging"
+                )
 
         if self.log_file:
-            self.debug(f"Writing to log file \"{self.log_file}\"", "logging")
+            self.debug(f'Writing to log file "{self.log_file}"', "logging")
 
-    def _format_msg(self, msg: str | bytes | Exception, caller: str | Callable[[Any], Any] | None) -> str:
+    def _format_msg(
+        self, msg: str | bytes | Exception, caller: str | Callable[[Any], Any] | None
+    ) -> str:
         if caller and not isinstance(caller, str):
-            caller = caller.__class__.__qualname__ if hasattr(caller, "__class__") \
-                and caller.__class__.__name__ not in ["function", "method"] else caller
+            caller = (
+                caller.__class__.__qualname__
+                if hasattr(caller, "__class__")
+                and caller.__class__.__name__ not in ["function", "method"]
+                else caller
+            )
 
             caller = caller.__name__ if not isinstance(caller, str) else caller
 
@@ -84,19 +92,23 @@ class Logger:
 
         return msg if caller is None else f"[bold]{caller}:[/] {msg}"
 
-    def _write(self, formatted_msg: str, caller: str | Callable[[Any], Any] | None) -> None:
+    def _write(
+        self, formatted_msg: str, caller: str | Callable[[Any], Any] | None
+    ) -> None:
         if not self.log_file:
             return
 
         if caller and not isinstance(caller, str):
-            caller = caller.__class__.__qualname__ if hasattr(caller, "__class__") \
-                and caller.__class__.__name__ not in ["function", "method"] else caller
+            caller = (
+                caller.__class__.__qualname__
+                if hasattr(caller, "__class__")
+                and caller.__class__.__name__ not in ["function", "method"]
+                else caller
+            )
 
             caller = caller.__name__ if not isinstance(caller, str) else caller
 
-        formatted_msg = formatted_msg \
-            .replace("[bold]", "") \
-            .replace("[/]", "")
+        formatted_msg = formatted_msg.replace("[bold]", "").replace("[/]", "")
 
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
         self.log_file.touch(exist_ok=True)
@@ -104,7 +116,9 @@ class Logger:
         with open(self.log_file, "a") as f:
             f.write(f"{datetime.now()} | [{str(caller).upper()}] {formatted_msg}\n")
 
-    def crit(self, msg: str | bytes, caller: str | Callable[[Any], Any] | None = None) -> Exception:
+    def crit(
+        self, msg: str | bytes, caller: str | Callable[[Any], Any] | None = None
+    ) -> Exception:
         message = self._format_msg(msg, caller)
 
         if self.log_file:
@@ -114,7 +128,12 @@ class Logger:
 
         return Exception(message)
 
-    def debug(self, msg: str | bytes, caller: str | Callable[[Any], Any] | None = None, force: bool = False) -> None:
+    def debug(
+        self,
+        msg: str | bytes,
+        caller: str | Callable[[Any], Any] | None = None,
+        force: bool = False,
+    ) -> None:
         if not self._config_file.exists():
             return
 
@@ -128,7 +147,9 @@ class Logger:
 
         self.logger.debug(message)
 
-    def info(self, msg: str | bytes, caller: str | Callable[[Any], Any] | None = None) -> None:
+    def info(
+        self, msg: str | bytes, caller: str | Callable[[Any], Any] | None = None
+    ) -> None:
         message = self._format_msg(msg, caller)
 
         if self.log_file:
@@ -136,7 +157,12 @@ class Logger:
 
         self.logger.info(message)
 
-    def warn(self, msg: str | bytes, caller: str | Callable[[Any], Any] | None = None, sleep: int = 0) -> None:
+    def warn(
+        self,
+        msg: str | bytes,
+        caller: str | Callable[[Any], Any] | None = None,
+        sleep: int = 0,
+    ) -> None:
         message = self._format_msg(msg, caller)
 
         if self.log_file:
@@ -148,8 +174,12 @@ class Logger:
             time.sleep(sleep)
 
     def error(
-        self, msg: str | bytes, caller: str | Callable[[Any], Any] | None = None,
-        custom_exception: CustomError | Exception | None = None, tb_limit: int = 2, **kwargs: Any
+        self,
+        msg: str | bytes,
+        caller: str | Callable[[Any], Any] | None = None,
+        custom_exception: CustomError | Exception | None = None,
+        tb_limit: int = 2,
+        **kwargs: Any,
     ) -> Exception:
         message = self._format_msg(msg, caller)
 
@@ -165,7 +195,9 @@ class Logger:
 
         return Exception(message)
 
-    def exit(self, msg: str | bytes, caller: str | Callable[[Any], Any] | None = None) -> None:
+    def exit(
+        self, msg: str | bytes, caller: str | Callable[[Any], Any] | None = None
+    ) -> None:
         message = self._format_msg(msg, caller)
 
         if self.log_file:

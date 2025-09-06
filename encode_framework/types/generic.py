@@ -4,7 +4,7 @@ from typing import Any
 try:
     from typing import Iterable
 except AttributeError:
-    from collections import Iterable
+    from collections import Iterable  # type:ignore
 
 __all__: list[str] = [
     "SystemName",

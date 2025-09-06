@@ -8,7 +8,7 @@ __all__: list[str] = ["markdownify", "get_opus_bitrate_from_channels"]
 
 
 def frame_to_ms(
-    f: int, fps: Fraction | SPathLike = Fraction(24000, 1001), compensate: bool = False
+    f: int, fps: Fraction = Fraction(24000, 1001), compensate: bool = False
 ) -> float:
     """
     Converts a frame number to it's ms value.

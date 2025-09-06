@@ -226,13 +226,13 @@ class ScriptInfo:
         )
 
         self.clip_cut = cast(vs.VideoNode, self.src.init_cut()).std.SetFrameProps(
-            OutNode="src", idx_filepath=SPath(path[0]).absolute().to_str()
+            Name="src", idx_filepath=SPath(path[0]).absolute().to_str()
         )
 
         self.update_trims(trim)
 
         if name is not None:
-            self.clip_cut = self.clip_cut.std.SetFrameProps(OutNode=name)
+            self.clip_cut = self.clip_cut.std.SetFrameProps(Name=name)
 
         return self.clip_cut
 
@@ -518,9 +518,7 @@ class Preview:
                 "Name",
                 t,
                 func=self.set_video_outputs,
-                default=get_prop(
-                    clip, "OutNode", t, None, False, self.set_video_outputs
-                ),
+                default=get_prop(clip, "Name", t, None, False, self.set_video_outputs),
             )
 
             if isinstance(name, bytes):

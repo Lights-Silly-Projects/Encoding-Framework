@@ -81,7 +81,7 @@ class _AudioEncoder(_BaseEncoder):
             old_script_info_trim = self.script_info.trim
 
             self.script_info.src_file = []
-            self.script_info.index(dgi_file, force_dgi=True)
+            self.script_info.index(dgi_file, self.script_info.trim, force_dgi=True)
 
             afiles = self.find_audio_files(None, reorder, overwrite, _is_loop=True)
 

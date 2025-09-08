@@ -1,3 +1,4 @@
+from re import S
 from typing import Any, Callable
 
 from vstools import SPath, SPathLike, to_arr
@@ -13,7 +14,7 @@ class _FindSubtitles(_BaseSubtitles):
     """Class containing methods pertaining to finding subtitle files."""
 
     def find_sub_files(
-        self, dgi_path: SPathLike | None = None, **kwargs: Any
+        self, dgi_path: SPathLike | None = None, overwrite: bool = False, **kwargs: Any
     ) -> list[SPath]:
         """
         Find accompanying DGIndex(NV) demuxed pgs tracks.
@@ -29,14 +30,6 @@ class _FindSubtitles(_BaseSubtitles):
         else:
             dgi_file = self.script_info.src_file[0]
 
-        if not dgi_file.to_str().endswith(".dgi"):
-            Log.error(
-                "Input file is not a dgi file, not returning any subs.",
-                self.find_sub_files,
-            )
-
-            return []
-
         if not dgi_file.to_str().endswith(".dgi") and not kwargs.get("_is_loop", False):
             Log.warn(
                 "Trying to pass a non-dgi file! "
@@ -48,12 +41,21 @@ class _FindSubtitles(_BaseSubtitles):
             old_script_info_trim = self.script_info.trim
 
             self.script_info.src_file = []
-            self.script_info.index(dgi_file, force_dgi=True)
+            self.script_info.index(dgi_file, self.script_info.trim, force_dgi=True)
 
-            sfiles = self.find_sub_files(self.script_info.src_file[0], _is_loop=True)
+            sfiles = self.find_sub_files(None, overwrite, _is_loop=True)
 
             # Delete files from tempdir
-            (f.unlink(True) for f in to_arr(self.script_info.src_file))
+            self._temp_files += to_arr(self.script_info.src_file)
+
+            for f in self._temp_files:
+                try:
+                    f.unlink(missing_ok=True)
+                except PermissionError:
+                    Log.warn(
+                        f'Failed to unlink file, "{f}"! Skipping...',
+                        self.find_sub_files,
+                    )
 
             self.script_info.src_file = old_script_info_src
             self.script_info.update_trims(old_script_info_trim)

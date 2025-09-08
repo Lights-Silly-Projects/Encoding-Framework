@@ -129,6 +129,7 @@ class ScriptInfo:
         idx_dir: SPathLike | None = None,
         cmd_args: tuple[str] = ("-a",),
         replace_ffms2_clip: bool = False,
+        **index_kwargs: Any
     ) -> vs.VideoNode:
         """Index the given file. Returns a tuple containing the `src_file` object and the `init_cut` node."""
         from .trim import get_post_trim, get_pre_trim
@@ -209,7 +210,7 @@ class ScriptInfo:
 
             Log.debug(f"New trim: {trim}", self.index)
 
-        if all(isinstance(x, type(None)) for x in trim):
+        if trim == (None, None):
             trim = None
 
         self._was_trimmed = bool(trim)
@@ -223,6 +224,7 @@ class ScriptInfo:
             trim=trim,
             sourcefilter=src_idx,
             preview_sourcefilter=src_idx,
+            **index_kwargs
         )
 
         self.clip_cut = cast(vs.VideoNode, self.src.init_cut()).std.SetFrameProps(
@@ -269,7 +271,7 @@ class ScriptInfo:
             return trim
 
         if not any(x < 0 for x in trim):
-            trim = normalize_ranges(self.src.src, trim)[0]
+            trim = normalize_ranges(self.src.src, trim, True)[0]
         else:
             if trim[0] is None:
                 trim[0] = 0

@@ -11,7 +11,7 @@ from vsmuxtools import (
     HasTrimmer,
     Opus,
     get_workdir,
-    ParsedFile
+    ParsedFile,
 )
 from vstools import (
     CustomIndexError,
@@ -45,7 +45,6 @@ class _AudioEncoder(_BaseEncoder):
     def find_audio_files(
         self,
         dgi_path: SPathLike | None = None,
-        reorder: list[int] | Literal[False] = False,
         overwrite: bool = False,
         **kwargs: Any,
     ) -> list[SPath]:
@@ -84,7 +83,7 @@ class _AudioEncoder(_BaseEncoder):
             self.script_info.src_file = []
             self.script_info.index(dgi_file, self.script_info.trim, force_dgi=True)
 
-            afiles = self.find_audio_files(None, reorder, overwrite, _is_loop=True)
+            afiles = self.find_audio_files(None, overwrite, _is_loop=True)
 
             # Delete files from tempdir
             self._temp_files += to_arr(self.script_info.src_file)
@@ -138,11 +137,6 @@ class _AudioEncoder(_BaseEncoder):
         Log.info(f"The following audio sources were found ({len(audio_files)}):")
 
         audio_files = sorted(audio_files, key=self.extract_pid)
-
-        if reorder:
-            old, new = audio_files, self._reorder(audio_files, reorder)
-            Log.info(f"Reordering files! {old=}, {new=}", self.find_audio_files)
-            audio_files = new
 
         for f in audio_files:
             try:

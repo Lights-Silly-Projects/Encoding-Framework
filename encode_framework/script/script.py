@@ -129,7 +129,7 @@ class ScriptInfo:
         idx_dir: SPathLike | None = None,
         cmd_args: tuple[str] = ("-a",),
         replace_ffms2_clip: bool = False,
-        **index_kwargs: Any
+        **index_kwargs: Any,
     ) -> vs.VideoNode:
         """Index the given file. Returns a tuple containing the `src_file` object and the `init_cut` node."""
         from .trim import get_post_trim, get_pre_trim
@@ -224,7 +224,7 @@ class ScriptInfo:
             trim=trim,
             sourcefilter=src_idx,
             preview_sourcefilter=src_idx,
-            **index_kwargs
+            **index_kwargs,
         )
 
         self.clip_cut = cast(vs.VideoNode, self.src.init_cut()).std.SetFrameProps(

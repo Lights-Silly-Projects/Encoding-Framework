@@ -154,7 +154,7 @@ class _VideoEncoder(_BaseEncoder):
         if self.video_container_args:
             Log.info(
                 "Applying the following container settings:\n"
-                f"\"{' '.join(self.video_container_args)}\"",
+                f'"{" ".join(self.video_container_args)}"',
                 self.encode_video,
             )
 

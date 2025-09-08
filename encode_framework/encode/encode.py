@@ -133,7 +133,7 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
 
         if self.video_container_args:
             Log.info(
-                f"       - [+] Additional args: \"{" ".join(self.video_container_args)}\"",
+                f'       - [+] Additional args: "{" ".join(self.video_container_args)}"',
                 self.mux,
             )
 

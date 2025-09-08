@@ -102,35 +102,35 @@ class _AudioEncoder(_BaseEncoder):
             self.script_info.update_trims(old_script_info_trim)
 
             return afiles
-        else:
+
+        Log.debug(
+            f'DGIndex(NV) input found! Trying to find audio tracks in "{dgi_file.get_folder()}"...',
+            self.find_audio_files,
+        )
+
+        audio_files: list[SPath] = []  # type:ignore[no-redef]
+
+        # [] and () characters mess up the glob, so replacing them
+        search_string = f"*{dgi_file.stem}*.*".translate(
+            str.maketrans("[]()", "????")
+        ).replace("**", "*")
+
+        for f in dgi_file.get_folder().glob(search_string):
+            # explicitly ignore certain files; audio.parse seems to count these for some reason?
+            if f.suffix.lower() in (".log", ".sup", ".ttf", ".otf", ".ttc", ".wob"):
+                continue
+
             Log.debug(
-                f'DGIndex(NV) input found! Trying to find audio tracks in "{dgi_file.get_folder()}"...',
-                self.find_audio_files,
+                f'Checking the following file: "{f.name}"...', self.find_audio_files
             )
 
-            audio_files: list[SPath] = []  # type:ignore[no-redef]
+            try:
+                FileType.AUDIO.parse(f, func=self.find_audio_files)
+            except (AssertionError, ValueError) as e:
+                print(e)
+                continue
 
-            # [] and () characters mess up the glob, so replacing them
-            search_string = f"*{dgi_file.stem}*.*".translate(
-                str.maketrans("[]()", "????")
-            ).replace("**", "*")
-
-            for f in dgi_file.get_folder().glob(search_string):
-                # explicitly ignore certain files; audio.parse seems to count these for some reason?
-                if f.suffix.lower() in (".log", ".sup", ".ttf", ".otf", ".ttc", ".wob"):
-                    continue
-
-                Log.debug(
-                    f'Checking the following file: "{f.name}"...', self.find_audio_files
-                )
-
-                try:
-                    FileType.AUDIO.parse(f, func=self.find_audio_files)
-                except (AssertionError, ValueError) as e:
-                    print(e)
-                    continue
-
-                audio_files += [f]
+            audio_files += [f]
 
         if not audio_files:
             return []

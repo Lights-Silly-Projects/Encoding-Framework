@@ -519,8 +519,14 @@ class Preview:
                 clip,
                 "Name",
                 t,
+                default=get_prop(
+                    clip,
+                    "Name",
+                    t,
+                    default="Node",
+                    func=self.set_video_outputs,
+                ),
                 func=self.set_video_outputs,
-                default=get_prop(clip, "Name", t, None, False, self.set_video_outputs),
             )
 
             if isinstance(name, bytes):

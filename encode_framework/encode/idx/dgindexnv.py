@@ -9,6 +9,8 @@ from typing import Any, Literal, Sequence
 from vssource import ExternalIndexer
 from vstools import PackageStorage, SPath, SPathLike, copy_signature, core, to_arr
 
+from ...util import path_has_non_ascii_or_bracket_chars
+
 __all__ = [
     "DGIndexNVAddFilenames",
 ]
@@ -306,7 +308,7 @@ class DGIndexNVAddFilenames(DGIndexNV):
 
         return self.get_idx_file_path(PackageStorage(folder).get_file(filename))
 
-    def _create_temp_symlink(
+    def _create_temp_symlink_if_necessary(
         self,
         files: list[SPath],
         force: bool = False,
@@ -335,6 +337,9 @@ class DGIndexNVAddFilenames(DGIndexNV):
 
         files = list(sorted(set(files)))
         hash_str = self.get_videos_hash(files)
+
+        if not any(path_has_non_ascii_or_bracket_chars(str(f)) for f in files):
+            return files, hash_str
 
         tempdir = SPath(tempfile.gettempdir())
         symlink_paths = []

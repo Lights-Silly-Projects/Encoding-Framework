@@ -10,8 +10,8 @@ from vsmuxtools import (
     FFMpeg,
     HasTrimmer,
     Opus,
-    get_workdir,
     ParsedFile,
+    get_workdir,
 )
 from vstools import (
     CustomIndexError,
@@ -240,7 +240,7 @@ class _AudioEncoder(_BaseEncoder):
                                 I'm aware I said it would never re-encode it.
         """
 
-        from vsmuxtools import FLAC, Sox, do_audio, frames_to_samples, AudioFormat
+        from vsmuxtools import FLAC, AudioFormat, Sox, do_audio, frames_to_samples
 
         from ..script import ScriptInfo
 

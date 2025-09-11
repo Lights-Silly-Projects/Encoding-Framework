@@ -160,6 +160,9 @@ class _ProcessSubtitles(_BaseSubtitles):
             track_args = [track_args]
 
         for i, (sub, track_arg) in enumerate(zip_longest(sub_files, track_args)):
+            if not sub:
+                continue
+
             sub = SPath(sub)
 
             if track_arg:

@@ -137,14 +137,6 @@ class ScriptInfo:
         if not path:
             raise Log.error(f"No file given ({path=})!", self.index)
 
-        if trim and isinstance(trim, list) and all(isinstance(x, tuple) for x in trim):
-            if len(trim) > 1:
-                Log.warn(
-                    f"Multiple trims found! Only grabbing the first ({trim[0][0]} => {trim[0][1]})..."
-                )
-
-            trim = trim[0]
-
         path_is_iterable = is_iterable(path)
 
         if path_is_iterable and not force_dgi:

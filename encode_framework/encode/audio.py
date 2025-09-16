@@ -543,7 +543,8 @@ class _AudioEncoder(_BaseEncoder):
                     encoder=encoder,
                     trims=None if (trim == (0, wclip.num_frames)) else trim,
                     num_frames=wclip.num_frames,
-                    quiet=not verbose,
+                    # quiet=not verbose,
+                    quiet=False
                 )
             else:
                 atrack = AudioFile.from_file(afile, func)
@@ -566,7 +567,8 @@ class _AudioEncoder(_BaseEncoder):
             self.audio_tracks += [atrack]
 
         # Remove acopy files again so they don't mess up future encodes.
-        self.__clean_acopy(afile.file)
+        if is_file:
+            self.__clean_acopy(afile.file)
 
         return self.audio_tracks
 

@@ -94,7 +94,7 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         except PermissionError as e:
             Log.warn(e, self.mux)
 
-            if out_path.exists():
+            if out_path and out_path.exists():
                 muxed = out_path
 
         assert muxed is not None, "Could not find the muxed file!"

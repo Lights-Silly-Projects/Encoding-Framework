@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import shutil
 import threading
 import time
@@ -68,7 +70,10 @@ class _AudioEncoder(_BaseEncoder):
             dgi_file = self.script_info.src_file[0]
 
         # Pre-clean acopy files because it's a pain if you ran this after updating...
-        self.__clean_acopy(dgi_file)
+        try:
+            self.__clean_acopy(dgi_file)
+        except Exception as e:
+            Log.error(e, self.find_audio_files)
 
         if not dgi_file.to_str().endswith(".dgi") and not kwargs.get("_is_loop", False):
             Log.warn(
@@ -213,6 +218,7 @@ class _AudioEncoder(_BaseEncoder):
         track_args: list[dict[str, Any]] = [dict(lang="ja", default=True)],
         encoder: Encoder = Opus,
         trimmer: HasTrimmer | None | Literal[False] = None,
+        script_info: "ScriptInfo" | None = None,
         full_analysis: bool = True,
         force: bool = False,
         verbose: bool = False,
@@ -267,7 +273,10 @@ class _AudioEncoder(_BaseEncoder):
 
         # Remove acopy files first so they don't mess with reorder and stuff.
         if is_file:
-            self.__clean_acopy(process_files[0])  # type:ignore[index]
+            try:
+                self.__clean_acopy(process_files[0])  # type:ignore[index]
+            except Exception as e:
+                Log.error(e, self.encode_audio)
 
         if ref is not None:
             Log.debug(f"`ref` VideoNode passed: {ref}", func)
@@ -285,10 +294,14 @@ class _AudioEncoder(_BaseEncoder):
         elif isinstance(trims, tuple) and not isinstance(trims, list):
             trims = [trims]
         elif is_file:
-            trims = [trims] if not isinstance(trims[0], tuple) else trims
-        else:
-            trims_list = trims if isinstance(trims[0], tuple) else [trims]
-            trims = [frames_to_samples(x, 48000, wclip.fps) for x in trims_list]
+            trims = [trims] if not isinstance(trims[0], (tuple, list)) else trims
+
+        if isinstance(trims, list) and len(trims) == 1:
+            if trims[0] is None:
+                trims[0] = 0
+
+            if trims[1] is None:
+                trims[1] = wclip.num_frames
 
         if trims:
             Log.debug(f"{trims=}", func)
@@ -310,7 +323,12 @@ class _AudioEncoder(_BaseEncoder):
         # TODO: Figure out how much I can move out of this for loop.
         for i, audio_file in enumerate(process_files):
             # Get corresponding trim and track_arg if available.
-            trim = trims[i] if i < len(trims) else (trims[-1] if trims else None)
+            if trims:
+                if script_info and isinstance(script_info.trim, list) and len(script_info.trim) == 1:
+                    trim = trims[i] if trims and i < len(trims) else (trims[-1] if trims else None)
+                else:
+                    trim = trims
+
             track_arg = (
                 track_args[i]
                 if i < len(track_args)
@@ -324,33 +342,33 @@ class _AudioEncoder(_BaseEncoder):
                 Log.warn(
                     f"Trim is not a tuple: {trim} ({type(trim)})", self.encode_audio
                 )
-                trim = tuple(trim)
 
             # I guess this is something to worry about now?
             if trim == track_arg:
                 track_arg = track_args[-1]
 
-            if any(x < 0 for x in trim):
-                old_trim, trim = (
-                    trim,
-                    (
-                        max(0, trim[0]),
-                        wclip.num_frames - abs(trim[1]) if trim[1] < 0 else trim[1],
-                    ),
-                )
+            if not isinstance(trim, list):
+                if any(x < 0 for x in trim):
+                    old_trim, trim = (
+                        trim,
+                        (
+                            max(0, trim[0]),
+                            wclip.num_frames - abs(trim[1]) if trim[1] < 0 else trim[1],
+                        ),
+                    )
 
-                Log.warn(
-                    f"Invalid trim values fixed: {trim}. Original trim: {old_trim}",
-                    self.encode_audio,
-                )
+                    Log.warn(
+                        f"Invalid trim values fixed: {trim}. Original trim: {old_trim}",
+                        self.encode_audio,
+                    )
 
-            if any(x > wclip.num_frames for x in trim):
-                old_trim, trim = trim, tuple(min(wclip.num_frames, x) for x in trim)
-                Log.warn(
-                    f"Trim values greater than the number of frames set to the number of frames: {trim}. "
-                    f"Original trim: {old_trim}",
-                    self.encode_audio,
-                )
+                if any(x > wclip.num_frames for x in trim):
+                    old_trim, trim = trim, tuple(min(wclip.num_frames, x) for x in trim)
+                    Log.warn(
+                        f"Trim values greater than the number of frames set to the number of frames: {trim}. "
+                        f"Original trim: {old_trim}",
+                        self.encode_audio,
+                    )
 
             if track_arg:
                 track_arg = dict(track_arg)
@@ -381,19 +399,14 @@ class _AudioEncoder(_BaseEncoder):
                 Log.warn(
                     "Not properly supported yet! This may fail!",
                     self.encode_audio,
-                    CustomNotImplementedError,
                 )  # type:ignore[arg-type]
 
-                atrack = do_audio(
+                audio_file = do_audio(
                     audio_file,
-                    encoder=encoder,
-                )
-
-                atrack.container_delay = delay
-
-                self.audio_tracks += [atrack.to_track(**track_arg)]
-
-                continue
+                    encoder=None,
+                    num_frames=wclip.num_frames,
+                    quiet=not verbose,
+                ).file
 
             trimmed_files = list(
                 SPath(get_workdir()).glob(f"{audio_file.stem}_*_trimmed_*.*")
@@ -446,7 +459,7 @@ class _AudioEncoder(_BaseEncoder):
                 afile_copy = shutil.copy(afile.file, afile_copy)
 
             try:
-                is_lossy = force or aformat.is_lossy
+                is_lossy = force or (aformat.is_lossy if aformat else False)
             except IndexError:
                 raise Log.error(
                     f'Could not get the mediainfo for "{afile.file}"!', CustomIndexError
@@ -460,30 +473,31 @@ class _AudioEncoder(_BaseEncoder):
                 if any(x is None for x in trim):
                     trim = (trim[0] or 0, trim[1] or wclip.num_frames)
 
-                if trim[0] < 0:
-                    new_delay = frame_to_ms(abs(trim[0]), wclip.fps)
+                if not isinstance(trim, list):
+                    if trim[0] < 0:
+                        new_delay = frame_to_ms(abs(trim[0]), wclip.fps)
 
-                    Log.warn(
-                        f"Start trim value is negative ({trim[0]})! Calculating additional delay of {new_delay}ms!",
-                        self.encode_audio,
-                    )
-
-                    delay -= new_delay
-                    trim = (0, trim[1])
-
-                if trim[1] > wclip.num_frames:
-                    trim = (trim[0], wclip.num_frames)
-                elif trim[1] < 0:
-                    trim_into_ep = wclip.num_frames - abs(trim[1])
-                    if trim_into_ep < 0:
                         Log.warn(
-                            f"End trim is before the start trim ({trim[1]} < {trim[0]} ({trim_into_ep} frames))!",
+                            f"Start trim value is negative ({trim[0]})! Calculating additional delay of {new_delay}ms!",
                             self.encode_audio,
                         )
 
-                        trim = (0, 0)
-                    else:
-                        trim = (trim[0], trim_into_ep)
+                        delay -= new_delay
+                        trim = (0, trim[1])
+
+                    if trim[1] > wclip.num_frames:
+                        trim = (trim[0], wclip.num_frames)
+                    elif trim[1] < 0:
+                        trim_into_ep = wclip.num_frames - abs(trim[1])
+                        if trim_into_ep < 0:
+                            Log.warn(
+                                f"End trim is before the start trim ({trim[1]} < {trim[0]} ({trim_into_ep} frames))!",
+                                self.encode_audio,
+                            )
+
+                            trim = (0, 0)
+                        else:
+                            trim = (trim[0], trim_into_ep)
 
                 setattr(trimmer_obj, "trim", trim)
 
@@ -567,8 +581,10 @@ class _AudioEncoder(_BaseEncoder):
             self.audio_tracks += [atrack]
 
         # Remove acopy files again so they don't mess up future encodes.
-        if is_file:
+        try:
             self.__clean_acopy(afile.file)
+        except Exception as e:
+            Log.error(e, self.encode_audio)
 
         return self.audio_tracks
 

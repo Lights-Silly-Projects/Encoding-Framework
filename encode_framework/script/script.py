@@ -236,15 +236,11 @@ class ScriptInfo:
         """Update trims if necessary. Useful for if you adjust the trims during prefiltering."""
 
         if isinstance(trim, list):
-            if any(isinstance(x, tuple) for x in trim):
+            if isinstance(trim[0], list):
+                trim = (trim[0], trim[0])
+
+            if len(trim) == 1:
                 trim = trim[0]
-            elif len(trim) > 1:
-                trim = (trim[0], trim[1])
-            # TODO: this one is a bug in wobblyparser. Gotta fix this.
-            elif isinstance(trim[0], list):
-                trim = (trim[0][0], trim[0][1])
-            else:
-                trim = tuple(trim)
         elif not isinstance(trim, tuple):
             trim = (trim, trim)
 
@@ -262,14 +258,19 @@ class ScriptInfo:
         if inspect.stack()[1][3] in ("trim"):
             return trim
 
-        if not any(x < 0 for x in trim):
-            trim = normalize_ranges(self.src.src, trim, True)[0]
-        else:
-            if trim[0] is None:
-                trim[0] = 0
+        if isinstance(trim, list):
+            new_trim = []
 
-            if trim[1] is None:
-                trim[1] = self.src.src.num_frames
+            for start, end in trim:
+                if start is None:
+                    start = 0
+
+                if end is None:
+                    end = self.src.src.num_frames
+
+                new_trim += [(start, end)]
+
+            trim = new_trim
 
         self._trim = trim
         self.src.trim = trim
@@ -277,21 +278,8 @@ class ScriptInfo:
     @property
     def trim(self) -> tuple[int, int]:
         """The clip trim. Exclusive trim."""
-        tr = self._trim
 
-        if tr is None:
-            tr = (None, None)
-        elif isinstance(tr, list):
-            tr = self.update_trims(tr)
-
-        if any(t is None for t in tr):
-            if tr[0] is None:
-                tr[0] = 0  # type:ignore[assignment, index]
-
-            if tr[1] is None:
-                tr[1] = self.clip_cut.num_frames + 1  # type:ignore[index]
-
-        return tuple(tr)
+        return self._trim
 
     def update_tc(self, tc_path: SPathLike) -> SPath:
         """Update the timecode properties."""

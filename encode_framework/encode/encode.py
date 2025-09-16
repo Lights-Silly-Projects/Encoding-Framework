@@ -213,7 +213,10 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
 
         clean_temp_files()
 
-        if self.lossless_path and self.lossless_path.exists():
+        if not hasattr(self, "lossless_path"):
+            return
+
+        if self.lossless_path is not None:
             self.lossless_path.unlink(missing_ok=True)
 
     def prepare_vspipe(self, out_clip: vs.VideoNode | None = None) -> None:

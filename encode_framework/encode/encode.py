@@ -93,6 +93,7 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
             )
         except PermissionError as e:
             Log.warn(e, self.mux)
+            muxed = None
 
             if out_path and out_path.exists():
                 muxed = out_path

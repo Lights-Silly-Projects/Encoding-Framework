@@ -296,7 +296,10 @@ class _AudioEncoder(_BaseEncoder):
         elif is_file:
             trims = [trims] if not isinstance(trims[0], (tuple, list)) else trims
 
-        if isinstance(trims, list) and len(trims) == 1:
+        if not (multi_trim := isinstance(trims, list) and len(trims) > 1):
+            if isinstance(trims, list) and len(trims) == 1:
+                trims = trims[0]
+
             if trims[0] is None:
                 trims[0] = 0
 
@@ -347,7 +350,7 @@ class _AudioEncoder(_BaseEncoder):
             if trim == track_arg:
                 track_arg = track_args[-1]
 
-            if not isinstance(trim, list):
+            if not multi_trim:
                 if any(x < 0 for x in trim):
                     old_trim, trim = (
                         trim,

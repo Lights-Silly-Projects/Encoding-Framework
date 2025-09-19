@@ -1,8 +1,10 @@
+import stgpytools
 from typing import Any, cast
 
 from muxtools import get_workdir
 from vsmuxtools import VideoFile, VideoTrack, x265  # type:ignore[import]
 from vsmuxtools.video.encoders import VideoEncoder  # type:ignore[import]
+import vssource
 from vstools import (
     ColorRange,
     CustomRuntimeError,
@@ -17,8 +19,9 @@ from vstools import (
     get_depth,
     get_prop,
     vs,
+    CustomNotImplementedError
 )
-
+from vssource import BestSource
 from ..types import Zones
 from ..util.logging import Log
 from .base import _BaseEncoder
@@ -52,8 +55,8 @@ class _VideoEncoder(_BaseEncoder):
 
     def encode_video(
         self,
-        input_clip: vs.VideoNode | None = None,
-        output_clip: vs.VideoNode | None = None,
+        input_clip: vs.VideoNode | SPathLike | None = None,
+        output_clip: vs.VideoNode | SPathLike | None = None,
         zones: Zones = [],
         out_bit_depth: int = 10,
         dither_type: DitherType = DitherType.AUTO,
@@ -87,7 +90,7 @@ class _VideoEncoder(_BaseEncoder):
         :return:                    VideoFile object.
         """
 
-        in_clip = input_clip or self.script_info.clip_cut
+        in_clip = self._handle_path_clip(input_clip) or self.script_info.clip_cut
 
         self._remove_empty_parts()
         self._get_crop_args()
@@ -117,7 +120,7 @@ class _VideoEncoder(_BaseEncoder):
         if isinstance(in_clip, tuple):
             in_clip = in_clip[0]
 
-        out_clip = output_clip or self.out_clip or in_clip
+        out_clip = self._handle_path_clip(output_clip) or self.out_clip or in_clip
 
         self.encoder = encoder
 
@@ -169,9 +172,12 @@ class _VideoEncoder(_BaseEncoder):
                 out_clip, out_bit_depth, dither_type, self.encode_video
             )
 
-        video_file = self.encoder(
-            settings_file, zones, qpfile, in_clip, **encoder_kwargs
-        ).encode(out_clip)  # type:ignore[arg-type, call-arg]
+        if isinstance(self.encoder, type):
+            self.encoder = self.encoder(
+                settings_file, zones, qpfile, in_clip, **encoder_kwargs
+            )
+
+        video_file = self.encoder.encode(out_clip)  # type:ignore[arg-type, call-arg]
 
         self.video_file = cast(VideoFile, video_file)
 
@@ -223,6 +229,23 @@ class _VideoEncoder(_BaseEncoder):
         for part in SPath(get_workdir()).glob("encoded_part_*"):
             if part.stat().st_size == 0:
                 part.unlink()
+
+    def _handle_path_clip(self, potential_path: vs.VideoNode | SPathLike | None) -> vs.VideoNode | SPath | None:
+        if isinstance(potential_path, vs.VideoNode):
+            return potential_path
+
+        if potential_path is None:
+            return potential_path
+
+        try:
+            if (spath := SPath(potential_path)).exists():
+                return BestSource.source(spath)
+        except CustomNotImplementedError:
+            pass
+        except Exception as e:
+            Log.warn(e, self.encode_video)
+
+        return potential_path
 
     def _get_crop_args(
         self, crop: int | tuple[int, int] | tuple[int, int, int, int] | None = None

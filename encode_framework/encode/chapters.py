@@ -123,6 +123,7 @@ def get_chapter_frames(
     script_info: ScriptInfo,
     ref: vs.VideoNode | None = None,
     log: bool = False,
+    _print: bool = True,
     func: FuncExceptT | None = None,
 ) -> list[tuple[int, int | None]] | None:
     """Get the start and end frame of a chapter obtained from a file."""
@@ -133,15 +134,8 @@ def get_chapter_frames(
 
     Log.info(f'Checking chapters for file, "{ch_src}"', func)
 
-    if isinstance(ref, ScriptInfo):
-        ref = ref.src
-    elif isinstance(ref, (Path, SPath, str)):
-        if not (ref := SPath(ref)).exists():
-            raise Log.error(f'Could not find the file "{ref}"!', func)
-    elif isinstance(ref, vs.VideoNode):
-        ref = cast(vs.VideoNode, ref)
+    wclip = script_info.src
 
-    wclip = ref or script_info.src
     src_suffix = SPath(
         wclip.file[0] if isinstance(wclip.file, list) else wclip.file
     ).suffix.lower()
@@ -171,9 +165,9 @@ def get_chapter_frames(
             Log.warn("No chapter files could be found.", func)
 
     if src_suffix == ".mkv":
-        chs = Chapters.from_mkv(wclip.file, wclip.src.fps)
+        chs = Chapters.from_mkv(wclip.file, wclip.src.fps, _print=_print)
     else:
-        chs = Chapters(wclip)
+        chs = Chapters(wclip, _print=_print)
 
     if chs.chapters is None:
         Log.warn("No chapters could be found.", func)
@@ -188,14 +182,24 @@ def get_chapter_frames(
         return
 
     ch_ranges = []
+    final_frame = frame_to_timedelta(ref.num_frames, ref.fps) if ref else 9999999999
 
     for i, (start_time, _) in enumerate(chs.chapters):
+        if ref and start_time >= final_frame:
+            ch_ranges[-1] = (ch_ranges[-1][0], None)
+            break
+
         end_time = chs.chapters[i + 1][0] if i + 1 < len(chs.chapters) else None
+
         ch_ranges += [
             (
                 timedelta_to_frame(start_time),
                 end_time if end_time is None else timedelta_to_frame(end_time),
             )
         ]
+
+        if end_time == final_frame:
+            ch_ranges[-1] = (ch_ranges[-1][0], None)
+            break
 
     return ch_ranges

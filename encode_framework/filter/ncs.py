@@ -157,10 +157,17 @@ def splice_ncs(
         nc_range = [(start, start + nc_clip.num_frames - 1 - offset)]
 
         b = clip.std.BlankClip(length=1, color=[0] * 3)
-        scomp = stack_compare(
-            clip.text.FrameNum()[start : start + nc_clip.num_frames - 1] + b,
-            nc_clip[:-offset] + b.text.FrameNum(),
-        )
+
+        try:
+            scomp = stack_compare(
+                clip.text.FrameNum()[start : start + nc_clip.num_frames - 1] + b,
+                nc_clip[:-offset] + b.text.FrameNum(),
+            )
+        except vs.Error as e:
+            raise CustomValueError(
+                f"There was some kind of error while comparing clips for {name}!", _process_nc_range,
+                dict(e=e, clip=clip, start=start, nc_clip=nc_clip, offset=offset)
+            )
 
         clip = insert_clip(clip, nc_clip[:-offset], start)
 

@@ -284,6 +284,27 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
 
         return self.premux_path
 
+    def move_av1_premux(self, dir_suffix: str = " (AV1)") -> SPath:
+        """Move the premux to an AV1 premux."""
+
+        curr_dir = self.premux_path.parent
+        new_dir = curr_dir / (curr_dir.name + dir_suffix)
+
+        new_dir.mkdir(exist_ok=True)
+
+        new_file_path = new_dir / self.premux_path.name
+
+        Log.info(
+            f'Moving AV1 premux: "{self.premux_path}" --> "{new_file_path}"',
+            self.move_av1_premux,
+        )
+
+        self.premux_path = self.premux_path.rename(new_file_path)
+
+        self._warn_if_path_too_long(self.move_av1_premux)
+
+        return self.premux_path
+
     def fix_filename(self, fallback: Any = None) -> SPath:
         """For some reason my output filenames are fucked, but only for $show_name$. idk why. This fixes that."""
 

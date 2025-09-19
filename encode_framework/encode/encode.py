@@ -338,7 +338,7 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         curr_dir = self.premux_path.get_folder()
         new_dir = curr_dir / (curr_dir.name + dir_suffix)
 
-        if new_dir.name in ("Extras", "Specials"):
+        while new_dir.name.lower() in ("extras", "specials", "premux"):
             new_dir = new_dir.get_folder() / (curr_dir.name + dir_suffix)
 
         new_dir.mkdir(exist_ok=True)

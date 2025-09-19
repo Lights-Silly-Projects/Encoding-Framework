@@ -124,7 +124,13 @@ class _VideoEncoder(_BaseEncoder):
 
         self.encoder = encoder
 
-        settings_file = SPath(str(settings).format(encoder=self.encoder.__name__))
+        settings_file = SPath(
+            str(settings).format(
+                encoder=self.encoder.__name__
+                if hasattr(self.encoder, "__name__")
+                else str(self.encoder)
+            )
+        )
 
         if not isinstance(out_clip, vs.VideoNode):
             raise Log.error(
@@ -146,10 +152,9 @@ class _VideoEncoder(_BaseEncoder):
             qpfile = self.script_info.sc_path
 
         if not settings_file.exists():
-            Log.error(
+            Log.warn(
                 f'No settings file found at "{settings_file}"! Falling back to defaults...',
                 self.encode_video,
-                FileNotExistsError,  # type:ignore[arg-type]
             )
         else:
             self._set_container_args(encoder, settings_file)

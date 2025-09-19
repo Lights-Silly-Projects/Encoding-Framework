@@ -66,34 +66,39 @@ class _VideoEncoder(_BaseEncoder):
         lossless: bool = False,
         encoder: VideoEncoders = x265,
         track_args: dict[str, Any] = {},
+        delete_partial_encodes: bool = False,
         **encoder_kwargs: Any,
     ) -> VideoFile:
         """
         Encode the video node.
 
-        :param input_clip:          Source clip. Used for certain metrics.
-        :param output_clip:         Filtered clip to encode.
-        :param zones:               Zones for the encoder. If empty list or None, take from script_info.
-        :param out_bit_depth:       Bitdepth to output to.
-        :param dither_type:         Dither type when dithering down to `out_bit_depth`.
-        :param qpfile:              qpfile for the encoder. A path must be passed.
-                                    If False, do not use a qpfile at all.
-        :param lang:                Language of the track.
-        :param settings:            Settings file. By default, tries to find a settings file using the encoder's name.
-        :param lossless:            Whether to run a lossless encode prior to the regular encode.
-        :param encoder:             The lossy encoder to use. Default: x265.
-        :param track_args:          Additional arguments to pass to the track.
-                                    For example, `{display-unit:3, display-width:267, display-height:200}`
-                                    to force a true 9:10 aspect ratio.
-        :param **encoder_kwargs:    Additional arguments to pass to the encoder.
+        :param input_clip:              Source clip. Used for certain metrics.
+        :param output_clip:             Filtered clip to encode.
+        :param zones:                   Zones for the encoder. If empty list or None, take from script_info.
+        :param out_bit_depth:           Bitdepth to output to.
+        :param dither_type:             Dither type when dithering down to `out_bit_depth`.
+        :param qpfile:                  qpfile for the encoder. A path must be passed.
+                                        If False, do not use a qpfile at all.
+        :param lang:                    Language of the track.
+        :param settings:                Settings file. By default, tries to find a settings file using the encoder's name.
+        :param lossless:                Whether to run a lossless encode prior to the regular encode.
+        :param encoder:                 The lossy encoder to use. Default: x265.
+        :param track_args:              Additional arguments to pass to the track.
+                                        For example, `{display-unit:3, display-width:267, display-height:200}`
+                                        to force a true 9:10 aspect ratio.
+        :param delete_partial_encodes:  Delete partial encodes after encoding.
+        :param **encoder_kwargs:        Additional arguments to pass to the encoder.
 
-        :return:                    VideoFile object.
+        :return:                        VideoFile object.
         """
 
         in_clip = self._handle_path_clip(input_clip) or self.script_info.clip_cut
 
         self._remove_empty_parts()
         self._get_crop_args()
+
+        if delete_partial_encodes:
+            self._delete_partial_encodes()
 
         if track_args:
             self._video_track_args = []
@@ -227,6 +232,12 @@ class _VideoEncoder(_BaseEncoder):
                 ]
 
         return self.video_container_args
+
+    def _delete_partial_encodes(self) -> None:
+        """Delete partial encodes from the workdir."""
+
+        for part in SPath(get_workdir()).glob("encode*"):
+            part.unlink()
 
     def _remove_empty_parts(self) -> None:
         """Remove empty parts from the workdir."""

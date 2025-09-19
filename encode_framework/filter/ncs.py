@@ -165,8 +165,9 @@ def splice_ncs(
             )
         except vs.Error as e:
             raise CustomValueError(
-                f"There was some kind of error while comparing clips for {name}!", _process_nc_range,
-                dict(e=e, clip=clip, start=start, nc_clip=nc_clip, offset=offset)
+                f"There was some kind of error while comparing clips for {name}!",
+                _process_nc_range,
+                dict(e=e, clip=clip, start=start, nc_clip=nc_clip, offset=offset),
             )
 
         clip = insert_clip(clip, nc_clip[:-offset], start)

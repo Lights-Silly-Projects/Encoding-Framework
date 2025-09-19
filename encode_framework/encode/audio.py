@@ -327,8 +327,16 @@ class _AudioEncoder(_BaseEncoder):
         for i, audio_file in enumerate(process_files):
             # Get corresponding trim and track_arg if available.
             if trims:
-                if script_info and isinstance(script_info.trim, list) and len(script_info.trim) == 1:
-                    trim = trims[i] if trims and i < len(trims) else (trims[-1] if trims else None)
+                if (
+                    script_info
+                    and isinstance(script_info.trim, list)
+                    and len(script_info.trim) == 1
+                ):
+                    trim = (
+                        trims[i]
+                        if trims and i < len(trims)
+                        else (trims[-1] if trims else None)
+                    )
                 else:
                     trim = trims
 
@@ -561,7 +569,7 @@ class _AudioEncoder(_BaseEncoder):
                     trims=None if (trim == (0, wclip.num_frames)) else trim,
                     num_frames=wclip.num_frames,
                     # quiet=not verbose,
-                    quiet=False
+                    quiet=False,
                 )
             else:
                 atrack = AudioFile.from_file(afile, func)

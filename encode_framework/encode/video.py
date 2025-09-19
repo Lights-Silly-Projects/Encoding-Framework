@@ -19,7 +19,7 @@ from vstools import (
     get_depth,
     get_prop,
     vs,
-    CustomNotImplementedError
+    CustomNotImplementedError,
 )
 from vssource import BestSource
 from ..types import Zones
@@ -230,7 +230,9 @@ class _VideoEncoder(_BaseEncoder):
             if part.stat().st_size == 0:
                 part.unlink()
 
-    def _handle_path_clip(self, potential_path: vs.VideoNode | SPathLike | None) -> vs.VideoNode | SPath | None:
+    def _handle_path_clip(
+        self, potential_path: vs.VideoNode | SPathLike | None
+    ) -> vs.VideoNode | SPath | None:
         if isinstance(potential_path, vs.VideoNode):
             return potential_path
 

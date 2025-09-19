@@ -1,8 +1,9 @@
 import re
 import shutil
+import tempfile
 from typing import Any, cast
 
-from muxtools import get_setup_attr
+from muxtools import get_setup_attr, get_workdir
 from vstools import CustomRuntimeError, SPath, SPathLike, vs
 
 from ..script import ScriptInfo
@@ -53,22 +54,20 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         self,
         out_path: SPathLike | None = None,
         move_once_done: bool = False,
-        lang: str = "ja",
         crop: int | tuple[int, int] | tuple[int, int, int, int] | None = None,
-        video_track_args: dict[str, Any] = {},
-        audio_track_args: dict[str, Any] = {},
+        clean_workdir: bool = True,
     ) -> SPath:
         """
         Mux the different tracks together.
 
         :param out_path:            Path to output the muxed file to.
         :param move_once_done:      Move the python script once muxing is done.
-        :param lang:                Language of the video track.
         :param crop:                Container cropping. Useful for anamorphic resolutions
                                     and consistency in the event you may want to regularly crop a video.
                                     If None, checks the output clip for "_SARLeft", "_SARRight", etc. props.
-        :param args:                Additional arguments to pass on to mkvmerge.
+        :param clean_workdir:       Clean the work directory after muxing.
         """
+
         from muxtools.muxing.mux import mux as vsmux  # type:ignore[import]
 
         if self.script_info.tc_path and self.script_info.tc_path.exists():
@@ -77,7 +76,15 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         crop = self._get_crop_args(crop)
 
         if hasattr(self, "_video_track_args"):
-            self.video_track.args = self._video_track_args + self.video_track.args
+            self.video_track.args = self._video_track_args + (
+                self.video_track.args or []
+            )
+
+        workdir = None
+        temp_dir = None
+
+        if not clean_workdir:
+            workdir, temp_dir = self._preserve_workdir()
 
         self._mux_logs()
 
@@ -101,6 +108,9 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         assert muxed is not None, "Could not find the muxed file!"
 
         self.premux_path = SPath(muxed)
+
+        if not clean_workdir and workdir is not None and temp_dir is not None:
+            self._restore_workdir(workdir, temp_dir)
 
         # self.fix_filename()
 
@@ -176,6 +186,44 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
             Log.error(str(e), self._move_once_done)
 
         return self.script_info.file
+
+    def _preserve_workdir(self) -> tuple[SPath, SPath]:
+        """Preserve workdir contents to a temporary directory."""
+
+        workdir = SPath(get_workdir())
+        temp_dir = SPath(tempfile.mkdtemp(prefix="workdir_backup_"))
+
+        Log.info(f'Preserving workdir contents: "{workdir}" --> "{temp_dir}"', self.mux)
+
+        if workdir.exists():
+            for item in workdir.iterdir():
+                if item.is_file():
+                    shutil.copy2(item, temp_dir / item.name)
+                elif item.is_dir():
+                    shutil.copytree(item, temp_dir / item.name)
+
+        return workdir, temp_dir
+
+    def _restore_workdir(self, workdir: SPath, temp_dir: SPath) -> None:
+        """Restore workdir contents from a temporary directory."""
+
+        Log.info(f'Restoring workdir contents: "{temp_dir}" --> "{workdir}"', self.mux)
+
+        if workdir.exists():
+            for item in workdir.iterdir():
+                if item.is_file():
+                    item.unlink()
+                elif item.is_dir():
+                    shutil.rmtree(item)
+
+        if temp_dir.exists():
+            for item in temp_dir.iterdir():
+                if item.is_file():
+                    shutil.copy2(item, workdir / item.name)
+                elif item.is_dir():
+                    shutil.copytree(item, workdir / item.name)
+
+            shutil.rmtree(temp_dir)
 
     def _move_old_premuxes_once_done(self, dir_name: str = "_old") -> list[SPath]:
         out_dir = self.premux_path / dir_name

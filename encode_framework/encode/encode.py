@@ -335,8 +335,11 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
     def move_av1_premux(self, dir_suffix: str = " (AV1)") -> SPath:
         """Move the premux to an AV1 premux."""
 
-        curr_dir = self.premux_path.parent
+        curr_dir = self.premux_path.get_folder()
         new_dir = curr_dir / (curr_dir.name + dir_suffix)
+
+        if new_dir.name in ("Extras", "Specials"):
+            new_dir = new_dir.get_folder() / (curr_dir.name + dir_suffix)
 
         new_dir.mkdir(exist_ok=True)
 

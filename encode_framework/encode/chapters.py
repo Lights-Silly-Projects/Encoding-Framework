@@ -182,23 +182,25 @@ def get_chapter_frames(
         return
 
     ch_ranges = []
-    final_frame = frame_to_timedelta(ref.num_frames, ref.fps) if ref else 9999999999
 
     for i, (start_time, _) in enumerate(chs.chapters):
-        if ref and start_time >= final_frame:
-            ch_ranges[-1] = (ch_ranges[-1][0], None)
+        end_time = chs.chapters[i + 1][0] if i + 1 < len(chs.chapters) else None
+        start_frame = timedelta_to_frame(start_time, fps)
+
+        if ref and start_frame >= ref.num_frames:
+            if ch_ranges:
+                ch_ranges[-1] = (ch_ranges[-1][0], None)
+
             break
 
-        end_time = chs.chapters[i + 1][0] if i + 1 < len(chs.chapters) else None
+        if end_time is None:
+            end_frame = None
+        else:
+            end_frame = timedelta_to_frame(end_time, fps)
 
-        ch_ranges += [
-            (
-                timedelta_to_frame(start_time),
-                end_time if end_time is None else timedelta_to_frame(end_time),
-            )
-        ]
+        ch_ranges.append((start_frame, end_frame))
 
-        if end_time == final_frame:
+        if ref and end_time is not None and end_frame >= ref.num_frames:
             ch_ranges[-1] = (ch_ranges[-1][0], None)
             break
 

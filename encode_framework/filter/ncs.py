@@ -330,6 +330,9 @@ def nc_splice_handler(
         if chs:
             nced_ranges = next((ch for ch in chs if ch[0] == edstart), None)
 
+            if nced_ranges[1] is None:
+                nced_ranges = (nced_ranges[0], clip.num_frames - 1)
+
         if ed_offset is None and nced_ranges:
             ed_offset = abs(nced.num_frames - (nced_ranges[1] - nced_ranges[0])) + 12  # type:ignore
 

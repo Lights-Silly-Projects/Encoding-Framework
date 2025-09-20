@@ -1,4 +1,4 @@
-from typing import Literal, Sequence, overload
+from typing import Any, Literal, Sequence, overload
 
 from vstools import (
     CustomValueError,
@@ -11,11 +11,13 @@ from vstools import (
     replace_ranges,
     vs,
 )
+from ..util.logging import Log
 
 __all__: Sequence[str] = [
     "splice_ncs",
     "merge_credits",
     "merge_credits_mask",
+    "nc_splice_handler",
 ]
 
 
@@ -258,3 +260,107 @@ def merge_credits_mask(
         return credit_mask
 
     return flt.std.MaskedMerge(src, credit_mask)
+
+
+def nc_splice_handler(
+    clip: vs.VideoNode,
+    chs: list[tuple[int | None, int | None]] = [],
+    # OP
+    ncop: vs.VideoNode | None = None,
+    opstart: int | Literal[False] = False,
+    op_trim_into: int | None = None,
+    op_offset: int | None = None,
+    op_ignore_ranges: FrameRangesN = [],
+    # ED
+    nced: vs.VideoNode | None = None,
+    edstart: int | Literal[False] = False,
+    ed_trim_into: int | None = None,
+    ed_offset: int | None = None,
+    ed_ignore_ranges: FrameRangesN = [],
+    # Other
+    no_creds: bool = False,
+    scomp: bool = False,
+    **kwargs: Any,
+) -> (
+    tuple[
+        vs.VideoNode | tuple[vs.VideoNode, ...],
+        vs.VideoNode | None,
+        tuple[int | None, int | None],
+        tuple[int | None, int | None],
+    ]
+    | tuple[vs.VideoNode, ...]
+):
+    """The logic for preparing splicing-related stuff (that needs refactoring)"""
+
+    ncop_ranges = tuple[int, int]()
+    nced_ranges = tuple[int, int]()
+
+    if no_creds:
+        return clip, None, ncop_ranges, nced_ranges
+
+    if not any((ncop, nced)) and not any(
+        isinstance(x, int) for x in (opstart, edstart)
+    ):
+        if not chs:
+            return clip, None, ncop_ranges, nced_ranges
+
+        for start, end in chs:
+            if start == opstart:
+                ncop_ranges = (start, end)
+            elif start == edstart:
+                nced_ranges = (start, end)
+
+        return clip, None, ncop_ranges, nced_ranges
+
+    if ncop is not None and isinstance(op_trim_into, int):
+        ncop = ncop[op_trim_into:]
+
+    if nced is not None and isinstance(ed_trim_into, int):
+        nced = nced[ed_trim_into:]
+
+    # Automatic handling of offsets and NC ranges.
+    if isinstance(ncop, vs.VideoNode) and isinstance(opstart, int):
+        if chs:
+            ncop_ranges = next((ch for ch in chs if ch[0] == opstart), None)
+
+        if op_offset is None and ncop_ranges:
+            op_offset = abs(ncop.num_frames - (ncop_ranges[1] - ncop_ranges[0])) + 12  # type:ignore
+
+    if isinstance(nced, vs.VideoNode) and isinstance(edstart, int):
+        if chs:
+            nced_ranges = next((ch for ch in chs if ch[0] == edstart), None)
+
+        if ed_offset is None and nced_ranges:
+            ed_offset = abs(nced.num_frames - (nced_ranges[1] - nced_ranges[0])) + 12  # type:ignore
+
+    nc_kwargs = {
+        "ncop": ncop,
+        "opstart": opstart,
+        "op_offset": op_offset,
+        "op_ignore_ranges": op_ignore_ranges,
+        "nced": nced,
+        "edstart": edstart,
+        "ed_offset": ed_offset,
+        "ed_ignore_ranges": ed_ignore_ranges,
+    }
+
+    if "no_splice_op" in kwargs:
+        nc_kwargs["ncop"] = None
+
+    if "no_splice_ed" in kwargs:
+        nc_kwargs["nced"] = None
+
+    Log.info(f"Splicing in NCs... ({nc_kwargs}))", nc_splice_handler)  # type:ignore
+
+    try:
+        if scomp:
+            return tuple(splice_ncs(clip, return_scomps=True, **nc_kwargs))
+
+        return tuple(splice_ncs(clip, **nc_kwargs)), None, ncop_ranges, nced_ranges  # type:ignore
+    except ValueError as e:
+        print("\n\n")
+        Log.error(
+            (nc_kwargs | dict(ncop_ranges=ncop_ranges, nced_ranges=nced_ranges)),
+            nc_splice_handler,
+        )
+        raise e

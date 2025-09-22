@@ -1,7 +1,7 @@
 import re
 
 from vsmuxtools import AudioFormat, ParsedFile, TrackInfo, TrackType
-from vstools import CustomIndexError, SPath, SPathLike
+from vstools import CustomIndexError, CustomValueError, SPath, SPathLike
 
 from .logging import Log
 
@@ -145,13 +145,26 @@ def _get_descriptive_str(track_str: str, atrack: TrackInfo) -> str:
     return f"{track_str} - {', '.join(descriptive_str)}"
 
 
-def closest_common_bitrate(mps: int) -> int:
-    """Get the closest common bitrate that is equal to or above the given bitrate."""
+def closest_common_bitrate(bps: int, margin: int = 3) -> int:
+    """
+    Return the closest common lossy bitrate (in kbps) that is roughly equal to or above the given bitrate in bps,
+    allowing for a small margin of error due to encoder variability.
 
-    target = round(mps / 1000)
+    Args:
+        bps (int): Bitrate in bits per second.
+        margin (int): Margin of error in kbps.
+
+    Returns:
+        int: Closest common lossy bitrate in kbps. The given bitrate if no common bitrate is found.
+    """
+
+    if bps < 0:
+        raise CustomValueError("Bitrate must be non-negative", closest_common_bitrate)
+
+    target_kbps = max(1, bps // 1000)
 
     for bitrate in COMMON_LOSSY_BITRATES:
-        if bitrate >= target:
+        if bitrate >= target_kbps - margin:
             return bitrate
 
-    return COMMON_LOSSY_BITRATES[-1]
+    return bps

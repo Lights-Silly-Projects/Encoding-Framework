@@ -141,7 +141,7 @@ class DiscordEmbedder(DiscordWebhook):
         if not self.webhook_url:
             return
 
-        if hasattr(self, "_start"):
+        if self._start:
             return
 
         self._start = True

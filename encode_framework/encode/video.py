@@ -242,13 +242,18 @@ class _VideoEncoder(_BaseEncoder):
     def _fix_finished_encode_extension(self) -> None:
         """Sometimes I extract the old encode and forget to rename it properly."""
 
-        if (spath := SPath(get_workdir())).fglob("*.h265"):
+        wdir = SPath(get_workdir())
+
+        if spath := wdir.fglob("*.h265"):
+            target = wdir / "encoded.265"
+
             Log.info(
-                f"Renaming finished encode '{spath.name}' to 'encoded.265'...",
+                f"Renaming finished encode '{spath.name}' to '{target.name}'...",
                 self._fix_finished_encode_extension,
             )
 
-            spath.rename("encoded.265")
+            target.unlink(missing_ok=True)
+            spath.rename(target)
 
     def _remove_empty_parts(self) -> None:
         """Remove empty parts from the workdir."""

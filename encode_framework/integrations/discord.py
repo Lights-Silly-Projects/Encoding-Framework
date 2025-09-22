@@ -141,6 +141,9 @@ class DiscordEmbedder(DiscordWebhook):
         if not self.webhook_url:
             return
 
+        if hasattr(self, "_start"):
+            return
+
         self._start = True
 
         embed = DiscordEmbed(title=self._get_base_title(), description=msg, color=33023)

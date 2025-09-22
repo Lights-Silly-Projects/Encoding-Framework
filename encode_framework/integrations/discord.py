@@ -702,7 +702,7 @@ class DiscordEmbedder(DiscordWebhook):
         # !For some reason this is about 5s off. Not a big deal, but still, wtf?
         elapsed = datetime.now(
             timezone(timedelta(seconds=0), name=time.tzname[time.daylight])
-        ) - self._get_response_datetime(self._history[0])
+        ) - self._get_response_datetime(self._history[-1])
 
         desc = f"\nTime elapsed: {str(elapsed)[:-3]}"
 
@@ -711,7 +711,9 @@ class DiscordEmbedder(DiscordWebhook):
                 self.encoder[0] if isinstance(self.encoder, tuple) else self.encoder
             )
 
-            desc += f" ({self._calc_fps(encoder.out_clip, elapsed.seconds):.2f} fps)"
+            desc += (
+                f" (≈{self._calc_fps(encoder.out_clip, elapsed.seconds):.2f} fps total)"
+            )
 
         embed = self._append_to_embed_description(embed, desc)
 

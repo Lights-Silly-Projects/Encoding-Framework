@@ -1,16 +1,15 @@
-import stgpytools
 from typing import Any, cast
 
 from muxtools import get_workdir
 from vsmuxtools import VideoFile, VideoTrack, x265  # type:ignore[import]
 from vsmuxtools.video.encoders import VideoEncoder  # type:ignore[import]
-import vssource
+from vssource import BestSource
 from vstools import (
     ColorRange,
+    CustomNotImplementedError,
     CustomRuntimeError,
     CustomValueError,
     DitherType,
-    FileNotExistsError,
     FuncExceptT,
     SPath,
     SPathLike,
@@ -19,9 +18,8 @@ from vstools import (
     get_depth,
     get_prop,
     vs,
-    CustomNotImplementedError,
 )
-from vssource import BestSource
+
 from ..types import Zones
 from ..util.logging import Log
 from .base import _BaseEncoder

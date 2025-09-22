@@ -11,6 +11,7 @@ from vstools import (
     replace_ranges,
     vs,
 )
+
 from ..util.logging import Log
 
 __all__: Sequence[str] = [

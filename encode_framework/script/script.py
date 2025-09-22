@@ -18,7 +18,6 @@ from vstools import (
     SPathLike,
     core,
     get_prop,
-    normalize_ranges,
     set_output,
     to_arr,
     vs,

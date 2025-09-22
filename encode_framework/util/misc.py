@@ -1,7 +1,6 @@
 import re
 from fractions import Fraction
 
-from jetpytools import SPathLike
 
 from ..util import frame_to_timedelta
 

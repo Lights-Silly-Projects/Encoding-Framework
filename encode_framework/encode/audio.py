@@ -17,13 +17,10 @@ from vsmuxtools import (
     get_workdir,
 )
 from vstools import (
-    CustomIndexError,
-    CustomNotImplementedError,
     CustomRuntimeError,
     CustomValueError,
     FileNotExistsError,
     FileType,
-    NotFoundEnumValue,
     SPath,
     SPathLike,
     to_arr,
@@ -34,7 +31,9 @@ from ..util.convert import frame_to_ms
 from ..util.logging import Log
 from .base import _BaseEncoder
 
-__all__: list[str] = ["_AudioEncoder"]
+__all__: list[str] = [
+    "_AudioEncoder",
+]
 
 
 class _AudioEncoder(_BaseEncoder):
@@ -220,7 +219,7 @@ class _AudioEncoder(_BaseEncoder):
         track_args: list[dict[str, Any]] = [dict(lang="ja", default=True)],
         encoder: Encoder = Opus,
         trimmer: HasTrimmer | None | Literal[False] = None,
-        script_info: "ScriptInfo" | None = None,
+        script_info: "ScriptInfo" | None = None,  # type:ignore # noqa
         full_analysis: bool = True,
         force: bool = False,
         verbose: bool = False,
@@ -248,7 +247,7 @@ class _AudioEncoder(_BaseEncoder):
                                 I'm aware I said it would never re-encode it.
         """
 
-        from vsmuxtools import FLAC, AudioFormat, Sox, do_audio, frames_to_samples
+        from vsmuxtools import FLAC, Sox, do_audio
 
         from ..script import ScriptInfo
 

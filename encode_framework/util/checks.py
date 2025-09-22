@@ -1,8 +1,7 @@
 import re
 from typing import Any, Callable
 
-from jetpytools import SPathLike, FuncExcept
-from vstools import CustomValueError, SPath, SPathLike
+from vstools import CustomValueError, SPath, SPathLike, FuncExcept
 
 from .logging import Log
 

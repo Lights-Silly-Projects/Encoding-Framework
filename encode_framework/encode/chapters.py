@@ -1,6 +1,6 @@
 from fractions import Fraction
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from vsmuxtools import Chapters, src_file
 from vstools import FileNotExistsError, FuncExceptT, SPath, SPathLike, vs

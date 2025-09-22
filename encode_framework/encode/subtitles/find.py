@@ -1,4 +1,3 @@
-from re import S
 from typing import Any, Callable
 
 from vstools import SPath, SPathLike, to_arr

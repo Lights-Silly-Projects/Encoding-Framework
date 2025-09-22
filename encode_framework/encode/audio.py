@@ -573,7 +573,7 @@ class _AudioEncoder(_BaseEncoder):
                 )
 
             if track_arg and not track_arg.get("name"):
-                track_arg |= dict(name=build_audio_track_name(afile.file))
+                track_arg |= dict(name=build_audio_track_name(atrack.file))
 
             atrack = atrack.to_track(**(track_arg if track_arg else {}))
 

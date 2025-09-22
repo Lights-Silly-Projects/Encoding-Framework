@@ -98,6 +98,8 @@ class _VideoEncoder(_BaseEncoder):
         if delete_partial_encodes:
             self._delete_partial_encodes()
 
+        self._fix_finished_encode_extension()
+
         if track_args:
             self._video_track_args = []
 
@@ -236,6 +238,17 @@ class _VideoEncoder(_BaseEncoder):
 
         for part in SPath(get_workdir()).glob("encode*"):
             part.unlink()
+
+    def _fix_finished_encode_extension(self) -> None:
+        """Sometimes I extract the old encode and forget to rename it properly."""
+
+        if (spath := SPath(get_workdir())).fglob("*.h265"):
+            Log.info(
+                f"Renaming finished encode '{spath.name}' to 'encoded.265'...",
+                self._fix_finished_encode_extension,
+            )
+
+            spath.rename("encoded.265")
 
     def _remove_empty_parts(self) -> None:
         """Remove empty parts from the workdir."""

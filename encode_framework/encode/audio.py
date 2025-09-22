@@ -13,6 +13,7 @@ from vsmuxtools import (
     HasTrimmer,
     Opus,
     ParsedFile,
+    TrackType,
     get_workdir,
 )
 from vstools import (
@@ -22,6 +23,7 @@ from vstools import (
     CustomValueError,
     FileNotExistsError,
     FileType,
+    NotFoundEnumValue,
     SPath,
     SPathLike,
     to_arr,
@@ -131,7 +133,7 @@ class _AudioEncoder(_BaseEncoder):
             try:
                 FileType.AUDIO.parse(f, func=self.find_audio_files)
             except (AssertionError, ValueError) as e:
-                print(e)
+                Log.warn(e, self.encode_audio)
                 continue
 
             audio_files += [f]
@@ -346,7 +348,7 @@ class _AudioEncoder(_BaseEncoder):
                 else (track_args[-1] if track_args else None)
             )
 
-            Log.debug(f"Processing audio file {i + 1}/{len(process_files)}...", func)
+            Log.info(f"Processing audio file {i + 1}/{len(process_files)}...", func)
             Log.debug(f"{audio_file=}, {trim=}, {track_arg=}", func)
 
             if not isinstance(trim, tuple):
@@ -392,13 +394,6 @@ class _AudioEncoder(_BaseEncoder):
                 raise Log.error(
                     f"Invalid delay value: {delay} ({type(delay)})", self.encode_audio
                 )
-
-            Log.debug(
-                f"Processing audio track {i + 1}/{len(process_files)}...",
-                self.encode_audio,  # type:ignore[arg-type]
-            )
-            Log.debug(f'Processing audio file "{audio_file}"...', func)
-            Log.info(f"{trim=}, {track_arg=}", func)
 
             if delay:
                 Log.info(
@@ -450,35 +445,47 @@ class _AudioEncoder(_BaseEncoder):
             afile_copy = afile.file.with_suffix(".acopy")
             afile_old = afile.file
 
-            aformat = ParsedFile.from_file(afile).tracks[0].get_audio_format()
-            is_fancy = aformat.should_not_transcode() if aformat else False
+            # This is sadly somewhat limiting with the current API. We can only reliably get the first track.
+            # TODO: Figure out a nice way to allow us to pick and choose. For now, just demux as necessary instead.
+            aformat = ParsedFile.from_file(afile)
+            aformat = aformat.find_tracks(
+                type=TrackType.AUDIO, error_if_empty=True, caller=self.encode_audio
+            )
+            aformat = aformat[0].get_audio_format()
 
-            try:
-                FileType.AUDIO.parse(afile_old, func=self.encode_audio)
-                is_audio_file = True
-            except (AssertionError, ValueError):
-                is_audio_file = False
+            if aformat is None:
+                Log.warn(
+                    "Could not determine audio format! Passing untouched!",
+                    self.encode_audio,
+                )
+
+            lossy_or_special_format = (
+                aformat.should_not_transcode() if aformat is not None else True
+            )
+
+            Log.debug(
+                f"{lossy_or_special_format=}"
+                + (
+                    " (Audio format could not be determined)" if aformat is None else ""
+                ),
+                self.encode_audio,
+            )
 
             # vsmuxtools, at the time of writing, deletes the original audio files if you pass an external file.
-            if is_audio_file and not afile_copy.exists():
+            if not afile_copy.exists():
                 Log.debug(
-                    f'Copying audio file "{afile.file.name}" '
+                    f'Copying file "{afile.file.name}" '
                     "(this is a temporary workaround)!",
                     self.encode_audio,
                 )
 
                 afile_copy = shutil.copy(afile.file, afile_copy)
 
-            try:
-                is_lossy = force or (aformat.is_lossy if aformat else False)
-            except IndexError:
-                raise Log.error(
-                    f'Could not get the mediainfo for "{afile.file}"!', CustomIndexError
-                )
-
             # Trim the audio file if applicable.
             if trim and trimmer is not False:
-                trimmer_obj = trimmer or (FFMpeg.Trimmer if is_lossy else Sox)
+                trimmer_obj = trimmer or (
+                    FFMpeg.Trimmer if lossy_or_special_format else Sox
+                )
                 trimmer_obj = trimmer_obj(**trimmer_kwargs)
 
                 if any(x is None for x in trim):
@@ -512,9 +519,9 @@ class _AudioEncoder(_BaseEncoder):
 
                 setattr(trimmer_obj, "trim", trim)
 
-                if force and is_lossy:
+                if force and lossy_or_special_format:
                     Log.debug(
-                        '"force" is set to True and the file is lossy! Creating an intermediary file...',
+                        '"force" is set to True and the file is marked as lossy or special! Creating an intermediary file...',
                         self.encode_audio,
                     )
 
@@ -526,24 +533,9 @@ class _AudioEncoder(_BaseEncoder):
                 )
                 # afile = trimmer_obj.trim_audio(afile)
 
-            if is_lossy and force:
+            if lossy_or_special_format and not force:
                 Log.warn(
-                    'Input audio is lossy, but "force=True"...', self.encode_audio, 1
-                )
-            elif is_fancy and force:
-                Log.warn(
-                    'Audio contain Atmos or special DTS features, but "force=True"...',
-                    self.encode_audio,
-                    1,
-                )
-            elif is_lossy and not force:
-                Log.warn(
-                    "Input audio is lossy. Not re-encoding...", self.encode_audio, 1
-                )
-                encoder = None
-            elif is_fancy and not force:
-                Log.warn(
-                    "Audio contain Atmos or special DTS features. Not re-encoding...",
+                    "Input audio is lossy or contains special DTS metadata. Not re-encoding...",
                     self.encode_audio,
                     1,
                 )
@@ -560,7 +552,7 @@ class _AudioEncoder(_BaseEncoder):
                 afile_copy.replace(afile_old)
                 afile_copy.unlink(missing_ok=True)
 
-            if trimmer is not False and not is_fancy:
+            if trimmer is not False and not lossy_or_special_format:
                 atrack = do_audio(
                     audio_file,
                     # track=i,
@@ -636,7 +628,7 @@ class _AudioEncoder(_BaseEncoder):
 
         try:
             for acopy in SPath(file).parent.glob("*.acopy"):
-                Log.debug(f'Unlinking file "{acopy}"...', self.encode_audio)
+                Log.debug(f'Unlinking temporary file "{acopy}"...', self.encode_audio)
                 SPath(acopy).unlink(missing_ok=True)
         except Exception as e:
             Log.error(str(e), self.__clean_acopy, CustomValueError)  # type:ignore[arg-type]

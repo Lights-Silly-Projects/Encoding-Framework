@@ -437,6 +437,8 @@ class _AudioEncoder(_BaseEncoder):
                         afile.to_track(**(track_arg | dict(default=not bool(i))))
                     ]
 
+                    Log.debug(self.audio_tracks[-1].__dict__, func)
+
                     continue
 
             afile = AudioFile.from_file(audio_file, func)

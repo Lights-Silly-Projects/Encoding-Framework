@@ -1,7 +1,7 @@
 import re
 from typing import Any, Callable
 
-from vstools import CustomValueError, SPath, SPathLike, FuncExcept
+from vstools import CustomValueError, FuncExcept, SPath, SPathLike
 
 from .logging import Log
 

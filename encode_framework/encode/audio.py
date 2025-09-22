@@ -29,6 +29,7 @@ from vstools import (
 
 from ..util.convert import frame_to_ms
 from ..util.logging import Log
+from ..util.tracks import build_audio_track_name
 from .base import _BaseEncoder
 
 __all__: list[str] = [
@@ -557,7 +558,7 @@ class _AudioEncoder(_BaseEncoder):
                     # track=i,
                     extractor=FFMpeg.Extractor(skip_analysis=not full_analysis),
                     encoder=encoder,
-                    trims=None if (trim == (0, wclip.num_frames)) else trim,
+                    trims=None if (trim == (0, wclip.num_frames - 1)) else trim,
                     num_frames=wclip.num_frames,
                     # quiet=not verbose,
                     quiet=False,
@@ -574,7 +575,10 @@ class _AudioEncoder(_BaseEncoder):
                     self.encode_audio,
                 )
 
-            atrack = atrack.to_track(**track_arg)
+            if track_arg and not track_arg.get("name"):
+                track_arg |= dict(name=build_audio_track_name(afile.file))
+
+            atrack = atrack.to_track(**(track_arg if track_arg else {}))
 
             # atrack.delay = delay
 

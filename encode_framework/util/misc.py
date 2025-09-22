@@ -1,7 +1,6 @@
 import re
 from fractions import Fraction
 
-
 from ..util import frame_to_timedelta
 
 __all__: list[str] = ["markdownify", "get_opus_bitrate_from_channels"]

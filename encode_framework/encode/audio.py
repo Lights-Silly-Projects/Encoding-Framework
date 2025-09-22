@@ -552,19 +552,16 @@ class _AudioEncoder(_BaseEncoder):
                 afile_copy.replace(afile_old)
                 afile_copy.unlink(missing_ok=True)
 
-            if trimmer is not False and not lossy_or_special_format:
-                atrack = do_audio(
-                    audio_file,
-                    # track=i,
-                    extractor=FFMpeg.Extractor(skip_analysis=not full_analysis),
-                    encoder=encoder,
-                    trims=None if (trim == (0, wclip.num_frames - 1)) else trim,
-                    num_frames=wclip.num_frames,
-                    # quiet=not verbose,
-                    quiet=False,
-                )
-            else:
-                atrack = AudioFile.from_file(afile, func)
+            atrack = do_audio(
+                audio_file,
+                # track=i,
+                extractor=FFMpeg.Extractor(skip_analysis=not (full_analysis and not lossy_or_special_format)),
+                encoder=encoder,
+                trims=None if (trim == (0, wclip.num_frames - 1)) else trim,
+                num_frames=wclip.num_frames,
+                # quiet=not verbose,
+                quiet=False,
+            )
 
             atrack.container_delay = delay
 

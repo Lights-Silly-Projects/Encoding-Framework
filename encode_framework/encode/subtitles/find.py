@@ -42,14 +42,7 @@ class _FindSubtitles(_BaseSubtitles):
 
             try:
                 self.script_info.index(dgi_file, self.script_info.trim, force_dgi=True)
-            except IndexError as e:
-                Log.warn(
-                    "There was an error running DGIndexNV! "
-                    "Symlinking the source file to %TEMP% "
-                    f"(this may take some time)...\n{e}",
-                    self.find_sub_files,
-                )
-
+            except IndexError:
                 self.script_info.index(
                     dgi_file,
                     self.script_info.trim,

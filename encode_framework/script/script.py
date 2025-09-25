@@ -24,7 +24,7 @@ from vstools import (
 )
 
 from ..types import TrimAuto, Zones, is_iterable
-from ..util import Log, assert_truthy
+from ..util import Log, assert_truthy, path_has_non_ascii_or_bracket_chars
 
 __all__: list[str] = ["ScriptInfo", "Preview"]
 
@@ -162,28 +162,37 @@ class ScriptInfo:
             idx_dir = SPath(idx_dir)
 
         if force_dgi and not self.src_file[0].to_str().endswith(".dgi"):
-            from ..encode.idx.dgindexnv import DGIndexNVAddFilenames as DGIndexNV
+            from ..encode.idx.dgindexnv import DGIndexNVAddFilenames
 
             try:
-                self.src_file = DGIndexNV().index(
+                self.src_file = DGIndexNVAddFilenames().index(
                     self.src_file,
                     force_reindex,
+                    dgi_kwargs.pop("force_symlink"),
                     False,
                     idx_dir,
                     *cmd_args,
-                    **dgi_kwargs,
                 )
             except (Exception, vs.Error) as e:
-                if any(any(ch in p.to_str() for ch in "[]") for p in self.src_file):
-                    raise Log.error(
-                        "DGIndexNV sometimes has issues with square brackets in the path! "
-                        "Remove all brackets inside directories or filenames and try again. "
-                        f"Original error: {e}",
-                        self.index,
-                        CustomIndexError,
-                    )
+                if not any(
+                    path_has_non_ascii_or_bracket_chars(x) for x in self.src_file
+                ):
+                    raise Log.error(e, self.index, CustomIndexError)
 
-                raise Log.error(e, self.index, CustomIndexError)
+                Log.warn(
+                    "There was an error trying to index the file using DGIndexNV! Using symlinks...",
+                    self.index,
+                )
+                Log.debug(e, self.index)
+
+                self.src_file = DGIndexNVAddFilenames().index(
+                    self.src_file,
+                    force_reindex,
+                    True,
+                    False,
+                    idx_dir,
+                    *cmd_args,
+                )
 
         if not trim:
             trim = (None, None)

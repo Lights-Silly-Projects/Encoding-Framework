@@ -263,11 +263,12 @@ class DGIndexNVAddFilenames(DGIndexNV):
         self,
         files: Sequence[SPath],
         force: bool = False,
+        force_symlink: bool = False,
         split_files: bool = False,
         output_folder: SPathLike | Literal[False] | None = None,
         *cmd_args: str,
     ) -> list[SPath]:
-        files, hash_str = self._create_temp_symlink_if_necessary(files)
+        files, hash_str = self._create_temp_symlink_if_necessary(files, force_symlink)
         dest_folder = self.get_out_folder(output_folder, files[0])
 
         def _index(files: list[SPath], output: SPath) -> None:

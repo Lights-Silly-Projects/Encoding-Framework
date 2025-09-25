@@ -79,8 +79,7 @@ class _AudioEncoder(_BaseEncoder):
 
         if not dgi_file.to_str().endswith(".dgi") and not kwargs.get("_is_loop", False):
             Log.warn(
-                "Trying to pass a non-dgi file! "
-                "Extracting tracks using DGIndexNV in %TEMP% (this may take some time)...",
+                "Trying to pass a non-dgi file!",
                 self.find_audio_files,
             )
 
@@ -88,7 +87,23 @@ class _AudioEncoder(_BaseEncoder):
             old_script_info_trim = self.script_info.trim
 
             self.script_info.src_file = []
-            self.script_info.index(dgi_file, self.script_info.trim, force_dgi=True)
+
+            try:
+                self.script_info.index(dgi_file, self.script_info.trim, force_dgi=True)
+            except IndexError as e:
+                Log.warn(
+                    "There was an error running DGIndexNV! "
+                    "Symlinking the source file to %TEMP% "
+                    f"(this may take some time)...\n{e}",
+                    self.find_audio_files,
+                )
+
+                self.script_info.index(
+                    dgi_file,
+                    self.script_info.trim,
+                    force_dgi=True,
+                    dgi_kwargs=dict(force_symlink=True),
+                )
 
             afiles = self.find_audio_files(None, overwrite, _is_loop=True)
 
@@ -433,6 +448,9 @@ class _AudioEncoder(_BaseEncoder):
                     afile = AudioFile.from_file(trimmed_files[0], func)
                     afile.container_delay = delay
 
+                    if track_arg and not track_arg.get("name"):
+                        track_arg |= dict(name=build_audio_track_name(afile.file))
+
                     self.audio_tracks += [
                         afile.to_track(**(track_arg | dict(default=not bool(i))))
                     ]
@@ -557,7 +575,9 @@ class _AudioEncoder(_BaseEncoder):
             atrack = do_audio(
                 audio_file,
                 # track=i,
-                extractor=FFMpeg.Extractor(skip_analysis=not (full_analysis and not lossy_or_special_format)),
+                extractor=FFMpeg.Extractor(
+                    skip_analysis=not (full_analysis and not lossy_or_special_format)
+                ),
                 encoder=encoder,
                 trims=None if (trim == (0, wclip.num_frames - 1)) else trim,
                 num_frames=wclip.num_frames,

@@ -31,8 +31,7 @@ class _FindSubtitles(_BaseSubtitles):
 
         if not dgi_file.to_str().endswith(".dgi") and not kwargs.get("_is_loop", False):
             Log.warn(
-                "Trying to pass a non-dgi file! "
-                "Extracting tracks using DGIndexNV in %TEMP% (this may take some time)...",
+                "Trying to pass a non-dgi file!",
                 self.find_sub_files,
             )
 
@@ -40,7 +39,23 @@ class _FindSubtitles(_BaseSubtitles):
             old_script_info_trim = self.script_info.trim
 
             self.script_info.src_file = []
-            self.script_info.index(dgi_file, self.script_info.trim, force_dgi=True)
+
+            try:
+                self.script_info.index(dgi_file, self.script_info.trim, force_dgi=True)
+            except IndexError as e:
+                Log.warn(
+                    "There was an error running DGIndexNV! "
+                    "Symlinking the source file to %TEMP% "
+                    f"(this may take some time)...\n{e}",
+                    self.find_sub_files,
+                )
+
+                self.script_info.index(
+                    dgi_file,
+                    self.script_info.trim,
+                    force_dgi=True,
+                    dgi_kwargs=dict(force_symlink=True),
+                )
 
             sfiles = self.find_sub_files(None, overwrite, _is_loop=True)
 

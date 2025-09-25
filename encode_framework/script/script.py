@@ -127,6 +127,7 @@ class ScriptInfo:
         force_reindex: bool = False,
         idx_dir: SPathLike | None = None,
         cmd_args: tuple[str] = ("-a",),
+        dgi_kwargs: dict[str, Any] = {},
         replace_ffms2_clip: bool = False,
         **index_kwargs: Any,
     ) -> vs.VideoNode:
@@ -165,7 +166,12 @@ class ScriptInfo:
 
             try:
                 self.src_file = DGIndexNV().index(
-                    self.src_file, force_reindex, False, idx_dir, *cmd_args
+                    self.src_file,
+                    force_reindex,
+                    False,
+                    idx_dir,
+                    *cmd_args,
+                    **dgi_kwargs,
                 )
             except (Exception, vs.Error) as e:
                 if any(any(ch in p.to_str() for ch in "[]") for p in self.src_file):

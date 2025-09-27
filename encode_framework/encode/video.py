@@ -273,7 +273,7 @@ class _VideoEncoder(_BaseEncoder):
 
         try:
             if (spath := SPath(potential_path)).exists():
-                return BestSource.source(spath)
+                return BestSource.source(spath, cachepath=get_workdir() / "bscache")
         except CustomNotImplementedError:
             pass
         except Exception as e:

@@ -168,7 +168,7 @@ class ScriptInfo:
                 self.src_file = DGIndexNVAddFilenames().index(
                     self.src_file,
                     force_reindex,
-                    dgi_kwargs.pop("force_symlink"),
+                    dgi_kwargs.pop("force_symlink", False),
                     False,
                     idx_dir,
                     *cmd_args,

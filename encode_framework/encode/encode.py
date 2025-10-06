@@ -344,7 +344,9 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
 
         new_dir.mkdir(exist_ok=True)
 
-        new_file_path = new_dir / self.premux_path.name
+        new_file_path = (
+            new_dir / self.premux_path.stem + " (mini)" + self.premux_path.suffix
+        )
 
         Log.info(
             f'Moving AV1 premux: "{self.premux_path}" --> "{new_file_path}"',

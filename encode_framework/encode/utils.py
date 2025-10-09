@@ -60,13 +60,19 @@ def split_track_args(track_args: dict[str, Any], track_num: int = 0) -> dict[str
             track_args.pop(param, None)
 
     for param, value in track_args.items():
+        param = param.replace("_", "-")
+
         if value is None:
+            args_list.append(f"--{param}")
+            args_list.append("0:")
             continue
 
-        if not isinstance(value, bool):
-            args_list.append(f"--{param} 0:{value}")
-        else:
-            args_list.append(f"--{param} 0:{'yes' if value else 'no'}")
+        args_list.append(f"--{param}")
+
+        if isinstance(value, bool):
+            value = "yes" if value else "no"
+
+        args_list.append(f"0:{value}")
 
     to_track_kwargs["args"] = args_list
 

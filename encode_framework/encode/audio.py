@@ -31,6 +31,7 @@ from ..util.convert import frame_to_ms
 from ..util.logging import Log
 from ..util.tracks import build_audio_track_name
 from .base import _BaseEncoder
+from .utils import normalize_track_type_args, split_track_args
 
 __all__: list[str] = [
     "_AudioEncoder",
@@ -393,7 +394,7 @@ class _AudioEncoder(_BaseEncoder):
 
             if track_arg:
                 track_arg = dict(track_arg)
-                track_arg = {k.replace("_", "-"): v for k, v in track_arg.items()}
+                track_arg = normalize_track_type_args(track_arg)
 
             delay = track_arg.pop("delay", 0)
 
@@ -446,7 +447,12 @@ class _AudioEncoder(_BaseEncoder):
                         track_arg |= dict(name=build_audio_track_name(afile.file))
 
                     self.audio_tracks += [
-                        afile.to_track(**(track_arg | dict(default=not bool(i))))
+                        afile.to_track(
+                            **(
+                                split_track_args(track_arg, i)
+                                | dict(default=not bool(i))
+                            )
+                        )
                     ]
 
                     Log.debug(self.audio_tracks[-1].__dict__, func)
@@ -591,7 +597,7 @@ class _AudioEncoder(_BaseEncoder):
             if track_arg and not track_arg.get("name"):
                 track_arg |= dict(name=build_audio_track_name(atrack.file))
 
-            atrack = atrack.to_track(**(track_arg if track_arg else {}))
+            atrack = atrack.to_track(**(split_track_args(track_arg, i)))
 
             # atrack.delay = delay
 

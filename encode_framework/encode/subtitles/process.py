@@ -17,6 +17,7 @@ from ...types import BitmapSubExt, TextSubExt
 from ...util import Log, frame_to_ms
 from .base import _BaseSubtitles
 from .enum import OcrProgram
+from ..utils import normalize_track_type_args, split_track_args
 
 __all__: list[str] = ["_ProcessSubtitles"]
 
@@ -153,7 +154,7 @@ class _ProcessSubtitles(_BaseSubtitles):
             # track_args = [track_args[i] for i in reorder]  # type:ignore[index, misc]
 
         if not sub_files:
-            return sub_files
+            return []
 
         # Normalising track args
         if track_args and not isinstance(track_args, list):
@@ -167,7 +168,7 @@ class _ProcessSubtitles(_BaseSubtitles):
 
             if track_arg:
                 track_arg = dict(track_arg)
-                track_arg = {k.replace("_", "-"): v for k, v in track_arg.items()}
+                track_arg = normalize_track_type_args(track_arg)
 
             Log.info(f"[{i + 1}/{len(sub_files)}] {track_arg=}", self.sub_passthrough)
 
@@ -186,7 +187,9 @@ class _ProcessSubtitles(_BaseSubtitles):
                 sub = self._shift_pgs(sub, sub_delay, supmover_cmd)
                 sub_delay = 0
 
-            self.subtitle_tracks += [SubTrack(sub, delay=sub_delay, **track_arg)]
+            self.subtitle_tracks += [
+                SubTrack(sub, delay=sub_delay, **split_track_args(track_arg, i))
+            ]
 
         return self.subtitle_tracks
 

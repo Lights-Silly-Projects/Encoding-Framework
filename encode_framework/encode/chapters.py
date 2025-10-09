@@ -108,7 +108,9 @@ class _Chapters(_BaseEncoder):
             if isinstance((shift := getattr(self, "script_info", 0)), ScriptInfo):
                 shift = -shift.trim[0]
 
-        chapters_found = chapters and hasattr(chapters, "chapters") and chapters.chapters
+        chapters_found = (
+            chapters and hasattr(chapters, "chapters") and chapters.chapters
+        )
 
         if shift and chapters_found:
             for i, _ in enumerate(chapters.chapters):

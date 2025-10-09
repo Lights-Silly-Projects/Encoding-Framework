@@ -393,6 +393,7 @@ class _AudioEncoder(_BaseEncoder):
 
             if track_arg:
                 track_arg = dict(track_arg)
+                track_arg = {k.replace("_", "-"): v for k, v in track_arg.items()}
 
             delay = track_arg.pop("delay", 0)
 

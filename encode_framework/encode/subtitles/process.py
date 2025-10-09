@@ -167,6 +167,7 @@ class _ProcessSubtitles(_BaseSubtitles):
 
             if track_arg:
                 track_arg = dict(track_arg)
+                track_arg = {k.replace("_", "-"): v for k, v in track_arg.items()}
 
             Log.info(f"[{i + 1}/{len(sub_files)}] {track_arg=}", self.sub_passthrough)
 

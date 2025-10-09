@@ -580,6 +580,8 @@ class DiscordEmbedder(DiscordWebhook):
             f"Forced: {t_data.get('forced', 'Unknown')}",
         ]
 
+        info += self._get_track_flags(t_data)
+
         if t_data.get("commercial_name", "") == "FLAC":
             info += [
                 # Bit depth
@@ -609,7 +611,26 @@ class DiscordEmbedder(DiscordWebhook):
                 f"Delay relative to video: {str(delay)}ms"
             ]
 
+        info += self._get_track_flags(t_data)
+
         return (self._get_basic_track_title(track), info)
+
+    def _get_track_flags(self, track_data: dict[str, Any] = {}) -> list[str]:
+        flags_to_check: list[tuple[str, str]] = [
+            ("hearing_impaired", "Hearing Impaired"),
+            ("visual_impaired", "Visual Impaired"),
+            ("text_description", "Text Description"),
+            ("original", "Original"),
+            ("commentary", "Commentary"),
+        ]
+
+        flags = []
+
+        for flag_name, flag_label in flags_to_check:
+            if flag := track_data.get(flag_name, False):
+                flags.append(f"{flag_label}: {flag}")
+
+        return flags
 
     def _get_menu_track_info(self, track: Track) -> tuple[str, list[str]]:
         chapters = []

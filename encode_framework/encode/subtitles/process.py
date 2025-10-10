@@ -17,7 +17,11 @@ from ...types import BitmapSubExt, TextSubExt
 from ...util import Log, frame_to_ms
 from .base import _BaseSubtitles
 from .enum import OcrProgram
-from ..utils import normalize_track_type_args, split_track_args
+from ..utils import (
+    normalize_track_type_args,
+    safe_copy_file,
+    split_track_args,
+)
 
 __all__: list[str] = ["_ProcessSubtitles"]
 
@@ -266,7 +270,7 @@ class _ProcessSubtitles(_BaseSubtitles):
 
             Log.info(f'Saving subtitle file to "{out}"!', self.process_subs)
 
-            new_files += [SPath(shutil.copy(sub, uniquify_path(out)))]
+            new_files += [safe_copy_file(sub, uniquify_path(out))]
 
         return new_files
 

@@ -11,6 +11,7 @@ from ..util import Log
 from .audio import _AudioEncoder
 from .chapters import _Chapters
 from .subtitles import _Subtitles
+from .utils import safe_copy_file
 from .video import _VideoEncoder
 
 __all__: list[str] = ["Encoder"]
@@ -25,9 +26,11 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         self,
         script_info: ScriptInfo,
         out_clip: vs.VideoNode | None = None,
+        protect_files: bool = True,
         **kwargs: Any,
     ) -> None:
         self.script_info = script_info
+        self.protect_files = protect_files
 
         oclip = out_clip or self.script_info.clip_cut
 
@@ -198,7 +201,7 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         if workdir.exists():
             for item in workdir.iterdir():
                 if item.is_file():
-                    shutil.copy2(item, temp_dir / item.name)
+                    safe_copy_file(item, temp_dir / item.name)
                 elif item.is_dir():
                     shutil.copytree(item, temp_dir / item.name)
 
@@ -219,7 +222,7 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         if temp_dir.exists():
             for item in temp_dir.iterdir():
                 if item.is_file():
-                    shutil.copy2(item, workdir / item.name)
+                    safe_copy_file(item, workdir / item.name)
                 elif item.is_dir():
                     shutil.copytree(item, workdir / item.name)
 

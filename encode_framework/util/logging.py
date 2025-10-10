@@ -131,7 +131,7 @@ class Logger:
     def debug(
         self,
         msg: str | bytes,
-        caller: str | Callable[[Any], Any] | None = None,
+        caller: str | Callable[[Any], Any] | Any | None = None,
         force: bool = False,
     ) -> None:
         if not self._config_file.exists():

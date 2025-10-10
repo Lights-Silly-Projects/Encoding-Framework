@@ -31,7 +31,11 @@ from ..util.convert import frame_to_ms
 from ..util.logging import Log
 from ..util.tracks import build_audio_track_name
 from .base import _BaseEncoder
-from .utils import normalize_track_type_args, split_track_args
+from .utils import (
+    normalize_track_type_args,
+    safe_copy_file,
+    split_track_args,
+)
 
 __all__: list[str] = [
     "_AudioEncoder",
@@ -350,6 +354,8 @@ class _AudioEncoder(_BaseEncoder):
                     )
                 else:
                     trim = trims
+            else:
+                trim = None
 
             track_arg = (
                 track_args[i]
@@ -494,12 +500,12 @@ class _AudioEncoder(_BaseEncoder):
             # vsmuxtools, at the time of writing, deletes the original audio files if you pass an external file.
             if not afile_copy.exists():
                 Log.debug(
-                    f'Copying file "{afile.file.name}" '
+                    f'Copying file "{SPath(afile.file).name}" '
                     "(this is a temporary workaround)!",
                     self.encode_audio,
                 )
 
-                afile_copy = shutil.copy(afile.file, afile_copy)
+                afile_copy = safe_copy_file(afile.file, afile_copy)
 
             # Trim the audio file if applicable.
             if trim and trimmer is not False:

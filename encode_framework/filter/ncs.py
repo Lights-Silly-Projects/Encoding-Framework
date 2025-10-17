@@ -4,6 +4,7 @@ from vstools import (
     ClipLengthError,
     CustomValueError,
     FrameRangesN,
+    normalize_ranges,
     core,
     depth,
     expect_bits,
@@ -315,8 +316,7 @@ def nc_splice_handler(
     if no_creds:
         return clip, None, ncop_ranges, nced_ranges
 
-    if chs:
-        chs[-1] = (chs[-1][0], clip.num_frames)
+    chs[-1] = normalize_ranges(clip, chs[-1])[0]
 
     if not any((ncop, nced)) and not any(
         isinstance(x, int) for x in (opstart, edstart)

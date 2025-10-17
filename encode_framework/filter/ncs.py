@@ -154,14 +154,13 @@ def splice_ncs(
             return clip, [], []
 
         nc_clip = nc_clip.std.SetFrameProps(isNC=True)
-        nc_clip = nc_clip + nc_clip[-1] * 12
 
         nc_clip = replace_ranges(
             nc_clip, clip[start : start + nc_clip.num_frames - 1], ignore_ranges
         )
 
-        if offset := offset or 12:
-            nc_clip = nc_clip[:-offset]
+        if offset := abs(offset or 0):
+            nc_clip = nc_clip[: -abs(offset)]
 
         nc_range = [(start, start + nc_clip.num_frames - 1 - offset)]
 
@@ -318,6 +317,19 @@ def nc_splice_handler(
 
     chs[-1] = normalize_ranges(clip, chs[-1])[0]
 
+    nc_kwargs = {
+        "ncop": ncop,
+        "opstart": opstart,
+        "op_offset": op_offset,
+        "op_ignore_ranges": op_ignore_ranges,
+        "nced": nced,
+        "edstart": edstart,
+        "ed_offset": ed_offset,
+        "ed_ignore_ranges": ed_ignore_ranges,
+    }
+
+    Log.info(f"Preparing to splice in NCs... ({nc_kwargs}))", nc_splice_handler)  # type:ignore
+
     if not any((ncop, nced)) and not any(
         isinstance(x, int) for x in (opstart, edstart)
     ):
@@ -351,17 +363,21 @@ def nc_splice_handler(
             matched_start = ncop_ranges[0]
 
             if op_offset is None:
-                op_offset = (
-                    abs(ncop.num_frames - (ncop_ranges[1] - ncop_ranges[0])) + 12
-                )  # type:ignore
+                op_offset = ncop.num_frames - abs(ncop_ranges[1] - ncop_ranges[0])  # type:ignore
 
             if start_delta := (matched_start - opstart):
-                op_offset = (op_offset or 12) + abs(start_delta)
+                op_offset = (op_offset or 0) + abs(start_delta)
 
             Log.info(
-                f"Matched OP chapter {ncop_ranges} ({op_offset=} {start_delta=})",
+                f"Matched OP chapter {ncop_ranges} ({op_offset=}, {start_delta=})",
                 nc_splice_handler,
             )  # type:ignore
+
+            if op_offset < 0:
+                ncop = ncop + ncop[-1] * abs(op_offset)
+                Log.warn(
+                    f"OP offset is below 0! Copying last frame {abs(op_offset)} times..."
+                )
 
     if isinstance(nced, vs.VideoNode) and isinstance(edstart, int):
         if chs:
@@ -373,18 +389,28 @@ def nc_splice_handler(
         if nced_ranges:
             matched_start = nced_ranges[0]
 
+            if nced_ranges[-1] == clip.num_frames - 1:
+                nced_ranges = (nced_ranges[0], nced_ranges[1] + 1)
+
             if ed_offset is None:
-                ed_offset = (
-                    abs(nced.num_frames - (nced_ranges[1] - nced_ranges[0])) + 12
-                )  # type:ignore
+                ed_offset = nced.num_frames - abs(nced_ranges[1] - nced_ranges[0])  # type:ignore
 
             if start_delta := (matched_start - edstart):
-                ed_offset = (ed_offset or 12) + abs(start_delta)
+                ed_offset = (ed_offset or 0) + abs(start_delta)
+
+            if nced_ranges[-1] == clip.num_frames:
+                nced_ranges = (nced_ranges[0], nced_ranges[1] - 1)
 
             Log.info(
-                f"Matched ED chapter {nced_ranges} ({ed_offset=} {start_delta=})",
+                f"Matched ED chapter {nced_ranges} ({ed_offset=}, {start_delta=})",
                 nc_splice_handler,
             )  # type:ignore
+
+            if ed_offset < 0:
+                nced = nced + nced[-1] * abs(ed_offset)
+                Log.warn(
+                    f"ED offset is below 0! Copying last frame {abs(ed_offset)} times..."
+                )
 
     nc_kwargs = {
         "ncop": ncop,

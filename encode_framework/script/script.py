@@ -478,6 +478,14 @@ class ScriptInfo:
 
         return str(epnum)
 
+    @property
+    def workdir(self) -> SPath:
+        """The working directory for the current script."""
+
+        from vsmuxtools import get_temp_workdir
+
+        return SPath(get_temp_workdir())
+
 
 class Preview:
     """Class containing core previewing methods."""

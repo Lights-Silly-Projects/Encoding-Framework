@@ -198,7 +198,7 @@ def get_chapter_frames(
         if end_time is None:
             end_frame = None
         else:
-            end_frame = timedelta_to_frame(end_time, fps)
+            end_frame = timedelta_to_frame(end_time, fps) - 1
 
         ch_ranges.append((start_frame, end_frame))
 

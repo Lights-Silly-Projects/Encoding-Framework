@@ -126,7 +126,7 @@ class _AudioEncoder(_BaseEncoder):
         audio_files: list[SPath] = []  # type:ignore[no-redef]
 
         # [] and () characters mess up the glob, so replacing them
-        search_string = f"*{dgi_file.stem}*.*".translate(
+        search_string = f"*{dgi_file.stem}*".translate(
             str.maketrans("[]()", "????")
         ).replace("**", "*")
 
@@ -141,8 +141,8 @@ class _AudioEncoder(_BaseEncoder):
 
             try:
                 FileType.AUDIO.parse(f, func=self.find_audio_files)
-            except (AssertionError, ValueError) as e:
-                Log.warn(e, self.encode_audio)
+            except (AssertionError, ValueError):
+                # Log.warn(e, self.encode_audio)
                 continue
 
             audio_files += [f]
@@ -223,7 +223,7 @@ class _AudioEncoder(_BaseEncoder):
     def encode_audio(
         self,
         audio_file: SPath | list[SPath] | vs.AudioNode | None = None,
-        trims: list[tuple[int, int]] | tuple[int, int] | None = None,
+        trims: list[tuple[int, int]] | tuple[int, int] | Literal[False] | None = None,
         reorder: list[int] | Literal[False] | int = False,
         ref: vs.VideoNode | list[vs.VideoNode] | Any | None = None,
         track_args: list[dict[str, Any]] = [dict(lang="ja", default=True)],
@@ -297,7 +297,11 @@ class _AudioEncoder(_BaseEncoder):
             if isinstance(ref, ScriptInfo)
             else ref or self.script_info.src.init()
         )
-        trims = trims or self.script_info.trim
+
+        if trims is None:
+            trims = self.script_info.trim
+        elif trims is False:
+            trims = (0, wclip.num_frames)
 
         # Normalising trims.
         if not trims:
@@ -317,7 +321,7 @@ class _AudioEncoder(_BaseEncoder):
             if trims[1] is None:
                 trims[1] = wclip.num_frames
 
-        if trims:
+        if trims is not None:
             Log.debug(f"{trims=}", func)
 
         process_files = self._reorder(process_files, reorder)

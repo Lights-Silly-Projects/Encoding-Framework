@@ -41,6 +41,7 @@ def splice_ncs(
     close: int = 9,
     show_mask: bool = False,
     return_scomps: bool = True,
+    **kwargs: Any
 ) -> list[vs.VideoNode]: ...
 
 
@@ -61,6 +62,7 @@ def splice_ncs(
     close: int = 9,
     show_mask: bool = False,
     return_scomps: bool = False,
+    **kwargs: Any
 ) -> tuple[vs.VideoNode, vs.VideoNode]: ...
 
 
@@ -81,6 +83,7 @@ def splice_ncs(
     close: int = 9,
     show_mask: bool = True,
     return_scomps: bool = False,
+    **kwargs: Any
 ) -> vs.VideoNode: ...
 
 
@@ -100,6 +103,7 @@ def splice_ncs(
     close: int = 9,
     show_mask: bool = False,
     return_scomps: bool = False,
+    **kwargs: Any
 ) -> vs.VideoNode | list[vs.VideoNode] | tuple[vs.VideoNode, vs.VideoNode]:
     """
     Splice NCs into a clip and return the spliced clip and a diff clip.
@@ -156,13 +160,16 @@ def splice_ncs(
         nc_clip = nc_clip.std.SetFrameProps(isNC=True)
 
         nc_clip = replace_ranges(
-            nc_clip, clip[start : start + nc_clip.num_frames - 1], ignore_ranges
+            nc_clip, clip[start : start + nc_clip.num_frames - 1], ignore_ranges  # type:ignore
         )
 
-        if offset := abs(offset or 0):
-            nc_clip = nc_clip[: -abs(offset)]
+        if kwargs.get(f"no_splice_{name}".lower(), False):
+            nc_clip = clip[start : start + nc_clip.num_frames - 1]  # type:ignore
 
-        nc_range = [(start, start + nc_clip.num_frames - 1 - offset)]
+        if offset := abs(offset or 0):
+            nc_clip = nc_clip[: -offset]
+
+        nc_range = [(start, start + nc_clip.num_frames - 1)]
 
         b = clip.std.BlankClip(length=1, color=[0] * 3)
 
@@ -312,9 +319,6 @@ def nc_splice_handler(
     ncop_ranges = tuple[int, int]()
     nced_ranges = tuple[int, int]()
 
-    if no_creds:
-        return clip, None, ncop_ranges, nced_ranges
-
     chs[-1] = normalize_ranges(clip, chs[-1])[0]
 
     nc_kwargs = {
@@ -328,7 +332,7 @@ def nc_splice_handler(
         "ed_ignore_ranges": ed_ignore_ranges,
     }
 
-    Log.info(f"Preparing to splice in NCs... ({nc_kwargs}))", nc_splice_handler)  # type:ignore
+    Log.info(f"Preparing to splice in NCs... \n{nc_kwargs=}\n{chs=})", nc_splice_handler)  # type:ignore
 
     if not any((ncop, nced)) and not any(
         isinstance(x, int) for x in (opstart, edstart)
@@ -363,13 +367,13 @@ def nc_splice_handler(
             matched_start = ncop_ranges[0]
 
             if op_offset is None:
-                op_offset = ncop.num_frames - abs(ncop_ranges[1] - ncop_ranges[0])  # type:ignore
+                op_offset = ncop.num_frames - 1 - abs(ncop_ranges[1] - ncop_ranges[0])  # type:ignore
 
             if start_delta := (matched_start - opstart):
                 op_offset = (op_offset or 0) + abs(start_delta)
 
             Log.info(
-                f"Matched OP chapter {ncop_ranges} ({op_offset=}, {start_delta=})",
+                f"Matched OP chapter {ncop_ranges} ({ncop.num_frames=}, {op_offset=}, {start_delta=})",
                 nc_splice_handler,
             )  # type:ignore
 
@@ -393,7 +397,7 @@ def nc_splice_handler(
                 nced_ranges = (nced_ranges[0], nced_ranges[1] + 1)
 
             if ed_offset is None:
-                ed_offset = nced.num_frames - abs(nced_ranges[1] - nced_ranges[0])  # type:ignore
+                ed_offset = nced.num_frames - 1 - abs(nced_ranges[1] - nced_ranges[0])  # type:ignore
 
             if start_delta := (matched_start - edstart):
                 ed_offset = (ed_offset or 0) + abs(start_delta)
@@ -402,7 +406,7 @@ def nc_splice_handler(
                 nced_ranges = (nced_ranges[0], nced_ranges[1] - 1)
 
             Log.info(
-                f"Matched ED chapter {nced_ranges} ({ed_offset=}, {start_delta=})",
+                f"Matched ED chapter {nced_ranges} ({nced.num_frames=}, {ed_offset=}, {start_delta=})",
                 nc_splice_handler,
             )  # type:ignore
 
@@ -421,19 +425,16 @@ def nc_splice_handler(
         "edstart": edstart,
         "ed_offset": ed_offset,
         "ed_ignore_ranges": ed_ignore_ranges,
-    }
-
-    if "no_splice_op" in kwargs:
-        nc_kwargs["ncop"] = None
-
-    if "no_splice_ed" in kwargs:
-        nc_kwargs["nced"] = None
+    } | kwargs
 
     Log.info(f"Splicing in NCs... ({nc_kwargs}))", nc_splice_handler)  # type:ignore
 
     try:
         if scomp:
             return tuple(splice_ncs(clip, return_scomps=True, **nc_kwargs))
+
+        if no_creds:
+            return clip, None, ncop_ranges, nced_ranges
 
         return tuple(splice_ncs(clip, **nc_kwargs)), None, ncop_ranges, nced_ranges  # type:ignore
     except ValueError as e:

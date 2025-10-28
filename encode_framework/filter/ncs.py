@@ -30,10 +30,12 @@ def splice_ncs(
     ncop: vs.VideoNode | None = None,
     opstart: int | Literal[False] = False,
     op_offset: int = 1,
+    op_trim_into: int = 0,
     op_ignore_ranges: FrameRangesN = [],
     nced: vs.VideoNode | None = None,
     edstart: int | Literal[False] = False,
     ed_offset: int = 1,
+    ed_trim_into: int = 0,
     ed_ignore_ranges: FrameRangesN = [],
     minimum: int = 2,
     inflate: int = 5,
@@ -51,10 +53,12 @@ def splice_ncs(
     ncop: vs.VideoNode | None = None,
     opstart: int | Literal[False] = False,
     op_offset: int = 1,
+    op_trim_into: int = 0,
     op_ignore_ranges: FrameRangesN = [],
     nced: vs.VideoNode | None = None,
     edstart: int | Literal[False] = False,
     ed_offset: int = 1,
+    ed_trim_into: int = 0,
     ed_ignore_ranges: FrameRangesN = [],
     minimum: int = 2,
     inflate: int = 5,
@@ -72,10 +76,12 @@ def splice_ncs(
     ncop: vs.VideoNode | None = None,
     opstart: int | Literal[False] = False,
     op_offset: int = 1,
+    op_trim_into: int = 0,
     op_ignore_ranges: FrameRangesN = [],
     nced: vs.VideoNode | None = None,
     edstart: int | Literal[False] = False,
     ed_offset: int = 1,
+    ed_trim_into: int = 0,
     ed_ignore_ranges: FrameRangesN = [],
     minimum: int = 2,
     inflate: int = 5,
@@ -92,10 +98,12 @@ def splice_ncs(
     ncop: vs.VideoNode | None = None,
     opstart: int | Literal[False] = False,
     op_offset: int = 1,
+    op_trim_into: int = 0,
     op_ignore_ranges: FrameRangesN = [],
     nced: vs.VideoNode | None = None,
     edstart: int | Literal[False] = False,
     ed_offset: int = 1,
+    ed_trim_into: int = 0,
     ed_ignore_ranges: FrameRangesN = [],
     minimum: int = 2,
     inflate: int = 5,
@@ -147,29 +155,31 @@ def splice_ncs(
         nc_clip: vs.VideoNode | None,
         start: int | Literal[False],
         offset: int | None,
+        trim_into: int,
         ignore_ranges: FrameRangesN,
         name: str,
     ) -> tuple[vs.VideoNode, FrameRangesN, list[vs.VideoNode]]:
         if (
             not isinstance(nc_clip, vs.VideoNode)
             or not isinstance(start, int)
-            or isinstance(start, bool)
+            or start is False
         ):
+            Log.debug(f"{isinstance(nc_clip, vs.VideoNode)=}, {(not isinstance(start, int))=}, {start=}")
             return clip, [], []
 
-        nc_clip = nc_clip.std.SetFrameProps(isNC=True)
+        nc_clip = nc_clip[trim_into:].std.SetFrameProps(isNC=True)
 
         nc_clip = replace_ranges(
-            nc_clip, clip[start : start + nc_clip.num_frames - 1], ignore_ranges  # type:ignore
+            nc_clip, clip[start + trim_into : start + trim_into + nc_clip.num_frames - 1], ignore_ranges  # type:ignore
         )
 
         if kwargs.get(f"no_splice_{name}".lower(), False):
-            nc_clip = clip[start : start + nc_clip.num_frames - 1]  # type:ignore
+            nc_clip = clip[start + trim_into: start + trim_into + nc_clip.num_frames - 1]  # type:ignore
 
         if offset := abs(offset or 0):
             nc_clip = nc_clip[: -offset]
 
-        nc_range = [(start, start + nc_clip.num_frames - 1)]
+        nc_range = [(start + trim_into, start + nc_clip.num_frames - 1)]
 
         b = clip.std.BlankClip(length=1, color=[0] * 3)
 
@@ -186,7 +196,7 @@ def splice_ncs(
             )
 
         try:
-            clip = insert_clip(clip, nc_clip, start)
+            clip = insert_clip(clip, nc_clip[trim_into:], start + trim_into)
         except ClipLengthError as e:
             fdiff = dict(e.reason).get("diff", 0) + 1
 
@@ -208,7 +218,7 @@ def splice_ncs(
 
     # Process OP
     clip, op_ranges, op_scomps = _process_nc_range(
-        clip, ncop, opstart, op_offset, op_ignore_ranges, "OP"
+        clip, ncop, opstart, op_offset, op_trim_into, op_ignore_ranges, "OP"
     )
 
     diff_rfs += op_ranges
@@ -216,7 +226,7 @@ def splice_ncs(
 
     # Process ED
     clip, ed_ranges, ed_scomps = _process_nc_range(
-        clip, nced, edstart, ed_offset, ed_ignore_ranges, "ED"
+        clip, nced, edstart, ed_offset, ed_trim_into, ed_ignore_ranges, "ED"
     )
 
     diff_rfs += ed_ranges
@@ -348,20 +358,17 @@ def nc_splice_handler(
 
         return clip, None, ncop_ranges, nced_ranges
 
-    if ncop is not None and isinstance(op_trim_into, int):
-        ncop = ncop[op_trim_into:]
-
-    if nced is not None and isinstance(ed_trim_into, int):
-        nced = nced[ed_trim_into:]
+    candidates = [ch for ch in chs if isinstance(ch[0], int)] if chs else []
 
     # Automatic handling of offsets and NC ranges.
     if isinstance(ncop, vs.VideoNode) and isinstance(opstart, int):
-        if chs:
-            # Prefer the chapter whose start is closest to opstart within ±12 frames
-            candidates = [ch for ch in chs if isinstance(ch[0], int)]
+        Log.info("NCOP passed")
 
-            if close := [ch for ch in candidates if abs(ch[0] - opstart) <= 12]:
-                ncop_ranges = min(close, key=lambda ch: abs(ch[0] - opstart))
+        if chs:
+            if close := [ch for ch in candidates if abs(ch[0] - opstart + op_trim_into) <= 12]:
+                ncop_ranges = min(close, key=lambda ch: abs(ch[0] - opstart + op_trim_into))
+            else:
+                Log.warn(f"Chapters with OP start subtracted: {[(s - opstart, e - opstart) for s, e in candidates]})")
 
         if ncop_ranges:
             matched_start = ncop_ranges[0]
@@ -384,11 +391,13 @@ def nc_splice_handler(
                 )
 
     if isinstance(nced, vs.VideoNode) and isinstance(edstart, int):
-        if chs:
-            candidates = [ch for ch in chs if isinstance(ch[0], int)]
+        Log.info("NCED passed")
 
-            if close := [ch for ch in candidates if abs(ch[0] - edstart) <= 12]:
-                nced_ranges = min(close, key=lambda ch: abs(ch[0] - edstart))
+        if chs:
+            if close := [ch for ch in candidates if abs(ch[0] - edstart + ed_trim_into) <= 12]:
+                nced_ranges = min(close, key=lambda ch: abs(ch[0] - edstart + ed_trim_into))
+            else:
+                Log.warn(f"Chapters with ED start subtracted: {[(s - edstart, e - edstart) for s, e in candidates]})")
 
         if nced_ranges:
             matched_start = nced_ranges[0]
@@ -420,10 +429,12 @@ def nc_splice_handler(
         "ncop": ncop,
         "opstart": opstart,
         "op_offset": op_offset,
+        "op_trim_into": op_trim_into,
         "op_ignore_ranges": op_ignore_ranges,
         "nced": nced,
         "edstart": edstart,
         "ed_offset": ed_offset,
+        "ed_trim_into": ed_trim_into,
         "ed_ignore_ranges": ed_ignore_ranges,
     } | kwargs
 

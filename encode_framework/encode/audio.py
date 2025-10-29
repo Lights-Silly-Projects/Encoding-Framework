@@ -579,6 +579,7 @@ class _AudioEncoder(_BaseEncoder):
             atrack = do_audio(
                 audio_file,
                 # track=i,
+                timesource=wclip.fps,
                 extractor=FFMpeg.Extractor(
                     skip_analysis=not (full_analysis and not lossy_or_special_format)
                 ),

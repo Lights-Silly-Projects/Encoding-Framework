@@ -329,7 +329,14 @@ def nc_splice_handler(
     ncop_ranges = tuple[int, int]()
     nced_ranges = tuple[int, int]()
 
-    chs[-1] = normalize_ranges(clip, chs[-1])[0]
+    if any(ch is None for ch in chs):
+        try:
+            chs[-1] = normalize_ranges(clip, chs[-1])[0]
+        except OverflowError as e:
+            Log.warn(f"Could not normalize chapters: {e}", nc_splice_handler)
+            Log.warn(f"Using {clip.num_frames=} as the end of the last chapter", nc_splice_handler)
+
+            chs[-1] = (chs[-1][0], clip.num_frames)
 
     nc_kwargs = {
         "ncop": ncop,

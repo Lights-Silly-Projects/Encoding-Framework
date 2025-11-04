@@ -122,7 +122,7 @@ class _Chapters(_BaseEncoder):
 
 
 def get_chapter_frames(
-    script_info: ScriptInfo,
+    script_info: ScriptInfo | SPathLike,
     ref: vs.VideoNode | None = None,
     log: bool = False,
     _print: bool = True,
@@ -131,15 +131,27 @@ def get_chapter_frames(
     """Get the start and end frame of a chapter obtained from a file."""
     func = func or get_chapter_frames
 
-    if not (ch_src := SPath(script_info.src.file)).exists():
+    if isinstance(script_info, ScriptInfo):
+        ch_src = script_info.src.file
+
+        if isinstance(src_file, list):
+            ch_src = ch_src[0]
+    else:
+        ch_src = SPath(script_info)
+
+        if ref is None:
+            Log.error("Reference clip is required when passing a SPath.", func)
+            exit(1)
+
+    if not ch_src.exists():
         raise FileNotExistsError(f'Could not find file, "{ch_src}"', func)
 
     Log.info(f'Checking chapters for file, "{ch_src}"', func)
 
-    wclip = script_info.src
+    wclip = ref or script_info.src
 
     src_suffix = SPath(
-        wclip.file[0] if isinstance(wclip.file, list) else wclip.file
+        wclip.file[0] if  isinstance(wclip.file, list) else wclip.file
     ).suffix.lower()
 
     if isinstance(wclip, src_file) and src_suffix not in (

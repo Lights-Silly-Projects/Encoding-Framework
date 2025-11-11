@@ -32,6 +32,7 @@ setuptools.setup(
         package_name,
         f"{package_name}.config",
         f"{package_name}.encode",
+        f"{package_name}.encode.idx",
         f"{package_name}.encode.subtitles",
         f"{package_name}.filter",
         f"{package_name}.git",

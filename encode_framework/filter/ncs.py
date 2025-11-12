@@ -367,6 +367,12 @@ def nc_splice_handler(
 
     candidates = [ch for ch in chs if isinstance(ch[0], int)] if chs else []
 
+    try:
+        if candidates[-1][-1] is None:
+            candidates[-1] = (candidates[-1][0], clip.num_frames)
+    except IndexError as e:
+        Log.warn(e, nc_splice_handler)
+
     # Automatic handling of offsets and NC ranges.
     if isinstance(ncop, vs.VideoNode) and isinstance(opstart, int):
         Log.info("NCOP passed")

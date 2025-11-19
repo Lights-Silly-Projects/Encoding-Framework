@@ -148,11 +148,14 @@ def get_chapter_frames(
 
     Log.info(f'Checking chapters for file, "{ch_src}"', func)
 
-    wclip = ref or script_info.src
+    wclip = script_info.src
 
-    src_suffix = SPath(
-        wclip.file[0] if  isinstance(wclip.file, list) else wclip.file
-    ).suffix.lower()
+    try:
+        src_suffix = SPath(
+            wclip.file[0] if isinstance(wclip.file, list) else wclip.file
+        ).suffix.lower()
+    except AttributeError:
+        src_suffix = script_info.src_file[0].suffix.lower()
 
     if isinstance(wclip, src_file) and src_suffix not in (
         ".m2ts",

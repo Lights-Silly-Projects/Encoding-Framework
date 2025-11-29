@@ -68,7 +68,7 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
         :param clean_workdir:       Clean the work directory after muxing.
         """
 
-        from muxtools.muxing.mux import mux as vsmux  # type:ignore[import]
+        from muxtools.muxing import mux as vsmux  # type:ignore[import]
 
         if self.script_info.tc_path and self.script_info.tc_path.exists():
             Log.info(f'Timecode file found at "{self.script_info.tc_path}"!', self.mux)

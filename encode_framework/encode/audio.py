@@ -15,6 +15,7 @@ from vsmuxtools import (
     ParsedFile,
     TrackType,
     get_workdir,
+    TimeScale,
 )
 from vstools import (
     CustomRuntimeError,
@@ -580,6 +581,7 @@ class _AudioEncoder(_BaseEncoder):
                 audio_file,
                 # track=i,
                 timesource=wclip.fps,
+                timescale=TimeScale.M2TS if (script_info or self.script_info).src_file[0].suffix == ".m2ts" else TimeScale.MKV,
                 extractor=FFMpeg.Extractor(
                     skip_analysis=not (full_analysis and not lossy_or_special_format)
                 ),

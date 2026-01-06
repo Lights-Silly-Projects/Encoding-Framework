@@ -105,7 +105,16 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
             if out_path and out_path.exists():
                 muxed = out_path
 
-        assert muxed is not None, "Could not find the muxed file!"
+            elif out_path:
+                try:
+                    path_no_crc = SPath(out_path).stem[:-10]  # Remove CRC32
+
+                    if found := SPath(out_path).get_folder().fglob(path_no_crc):
+                        muxed = list(found)[0]
+                except Exception as e2:
+                    Log.warn(e2, self.mux)
+
+        assert muxed is not None, f"Could not find the muxed file, {muxed}!"
 
         self.premux_path = SPath(muxed)
 
@@ -326,7 +335,16 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
 
         Log.info(f'Moving Special: "{self.premux_path}" --> "{sp_out}', self.mux)
 
+        curr_path = self.premux_path
         self.premux_path = self.premux_path.rename(sp_out)
+
+        if not self.premux_path.exists() and curr_path.exists():
+            Log.warn(
+                f"Failed to move special to specials dir! Keeping in original location: {curr_path}",
+                self.move_specials_to_specials_dir,
+            )
+
+            self.premux_path = curr_path
 
         self._warn_if_path_too_long(self.move_specials_to_specials_dir)
 

@@ -287,10 +287,10 @@ class _VideoEncoder(_BaseEncoder):
         if crop is not None:
             return crop
 
-        _l = get_prop(self.out_clip, "_SARLeft", int, None, 0, self.encode_video)
-        _r = get_prop(self.out_clip, "_SARRight", int, None, 0, self.encode_video)
-        _t = get_prop(self.out_clip, "_SARTop", int, None, 0, self.encode_video)
-        _b = get_prop(self.out_clip, "_SARBottom", int, None, 0, self.encode_video)
+        _l = get_prop(self.out_clip, "_SARLeft", int, default=0, func=self.encode_video)
+        _r = get_prop(self.out_clip, "_SARRight", int, default=0, func=self.encode_video)
+        _t = get_prop(self.out_clip, "_SARTop", int, default=0, func=self.encode_video)
+        _b = get_prop(self.out_clip, "_SARBottom", int, default=0, func=self.encode_video)
 
         if any([_l, _r, _t, _b]):
             crop = (_l, _t, _r, _b)

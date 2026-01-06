@@ -181,10 +181,15 @@ def get_chapter_frames(
         else:
             Log.warn("No chapter files could be found.", func)
 
-    if src_suffix == ".mkv":
-        chs = Chapters.from_mkv(wclip.file, wclip.src.fps, _print=_print)
-    else:
-        chs = Chapters(wclip, _print=_print)
+    try:
+        if src_suffix == ".mkv":
+            chs = Chapters.from_mkv(wclip.file, wclip.src.fps, _print=_print)
+        else:
+            chs = Chapters(wclip, _print=_print)
+    except Exception as e:
+        Log.error(e, func)
+
+        return []
 
     if chs.chapters is None:
         Log.warn("No chapters could be found.", func)

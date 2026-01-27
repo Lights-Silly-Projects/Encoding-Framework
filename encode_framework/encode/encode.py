@@ -2,9 +2,10 @@ import re
 import shutil
 import tempfile
 from typing import Any, cast
+from fractions import Fraction
 
 from muxtools import get_setup_attr, get_workdir
-from vstools import CustomRuntimeError, SPath, SPathLike, vs
+from vstools import CustomRuntimeError, SPath, SPathLike, vs, get_props
 
 from ..script import ScriptInfo
 from ..util import Log
@@ -204,12 +205,29 @@ class Encoder(_AudioEncoder, _Chapters, _Subtitles, _VideoEncoder):
 
         Log.info(f'Preserving workdir contents: "{workdir}" --> "{temp_dir}"', self.mux)
 
-        if workdir.exists():
-            for item in workdir.iterdir():
-                if item.is_file():
-                    shutil.copy2(item, temp_dir / item.name)
-                elif item.is_dir():
-                    shutil.copytree(item, temp_dir / item.name)
+        attempt = 0
+        success = False
+
+        while attempt < 3:
+            try:
+                if workdir.exists():
+                    for item in workdir.iterdir():
+                        if item.is_file():
+                            shutil.copy2(item, temp_dir / item.name)
+                        elif item.is_dir():
+                            shutil.copytree(item, temp_dir / item.name)
+                success = True
+                break
+            except Exception as e:
+                Log.warn(f'Attempt {attempt + 1} failed: "{e}"', self.mux)
+
+            attempt += 1
+
+        if not success:
+            Log.error(
+                f"Failed to preserve workdir contents after {attempt} attempts!",
+                self.mux,
+            )
 
         return workdir, temp_dir
 

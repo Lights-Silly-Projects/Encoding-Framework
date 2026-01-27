@@ -1,7 +1,7 @@
 from typing import Any, cast
 
 from muxtools import get_workdir
-from vsmuxtools import VideoFile, VideoTrack, x265  # type:ignore[import]
+from vsmuxtools import SVTAV1, VideoFile, VideoTrack, x265  # type:ignore[import]
 from vsmuxtools.video.encoders import VideoEncoder  # type:ignore[import]
 from vssource import BestSource
 from vstools import (
@@ -18,6 +18,7 @@ from vstools import (
     get_depth,
     get_prop,
     vs,
+    get_props,
 )
 
 from ..types import Zones
@@ -198,6 +199,8 @@ class _VideoEncoder(_BaseEncoder):
             crop=self.crop,
         )
 
+        self._tag_sar_if_av1()
+
         return self.video_file
 
     def _finalize_clip(
@@ -280,6 +283,36 @@ class _VideoEncoder(_BaseEncoder):
             Log.warn(e, self.encode_video)
 
         return potential_path
+
+    def _tag_sar_if_av1(self) -> None:
+        if self.encoder != SVTAV1:
+            return
+
+        sarnum, sarden = get_props(
+            self.out_clip, ("_SARNum", "_SARDen"), int, int, 1, self.encode_video
+        )
+
+        # Calculate the display width and height based on SAR
+        if all(sar == 1 for sar in (sarnum, sarden)):
+            return
+
+        if sarnum > sarden:
+            # Wider aspect, e.g., 16:9: increase width
+            display_width = int(self.out_clip.width * sarnum / sarden)
+            display_height = self.out_clip.height
+        else:
+            # Taller aspect, e.g., 4:3: increase height
+            display_width = self.out_clip.width
+            display_height = int(self.out_clip.height * sarden / sarnum)
+
+        self._video_track_args.extend(
+            [
+                "--display-width",
+                f"0:{display_width}",
+                "--display-height",
+                f"0:{display_height}",
+            ]
+        )
 
     def _get_crop_args(
         self, crop: int | tuple[int, int] | tuple[int, int, int, int] | None = None

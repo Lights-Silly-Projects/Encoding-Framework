@@ -121,6 +121,9 @@ class _AudioEncoder(_BaseEncoder):
                 force_dgi=True,
                 dgi_kwargs=dict(force_symlink=True),
             )
+        except:  # type:ignore
+            Log.error(f"Ran into some kind of error for file, \"{file_path}\"!", self._handle_non_dgi_file)
+            raise
 
         # Find audio files using the newly created dgi file
         audio_files = self._search_audio_files(self.script_info.src_file[0])

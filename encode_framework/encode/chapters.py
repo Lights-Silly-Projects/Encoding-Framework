@@ -1,6 +1,6 @@
 from fractions import Fraction
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from vsmuxtools import Chapters, src_file
 from vstools import FileNotExistsError, FuncExceptT, SPath, SPathLike, vs
@@ -28,7 +28,7 @@ class _Chapters(_BaseEncoder):
         | list[int | tuple[int, str]]
         | SPathLike
         | None = None,
-        shift: int | None = None,
+        shift: int | Literal[False] | None = False,
         force: bool = False,
         func: FuncExceptT | None = None,
         **kwargs: Any,

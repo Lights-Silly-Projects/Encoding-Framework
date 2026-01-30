@@ -65,7 +65,7 @@ class _Chapters(_BaseEncoder):
             else:
                 Log.warn('Not an episode, but "force=True" was set!', func)
 
-        if isinstance(ref, SPath) and ref.suffix in ("mkv",):
+        if isinstance(ref, SPath) and SPath(ref).suffix in ("mkv",):
             ref = src_file(ref)
 
         wclip = ref or self.script_info.src
@@ -90,6 +90,8 @@ class _Chapters(_BaseEncoder):
                 wclip = files[0]
             else:
                 Log.warn("No chapter files could be found.", func)
+        else:
+            suffix = SPath(ref).suffix
 
         try:
             if suffix == ".mkv":

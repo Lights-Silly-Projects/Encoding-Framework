@@ -18,16 +18,15 @@ from vsmuxtools import (
     TimeScale,
     AutoEncoder,
 )
-from vstools import (
+from jetpytools import (
     CustomRuntimeError,
     CustomValueError,
     FileNotExistsError,
-    FileType,
     SPath,
     SPathLike,
     to_arr,
-    vs,
 )
+from vstools import vs
 
 from ..util.convert import frame_to_ms
 from ..util.logging import Log
@@ -186,10 +185,23 @@ class _AudioEncoder(_BaseEncoder):
     def _is_valid_audio_file(self, file_path: SPath) -> bool:
         """Check if a file is a valid audio file."""
         try:
-            FileType.AUDIO.parse(file_path, func=self.find_audio_files)
-            return True
+            import magic
+
+            # Handle the embedded ac3 stuff
+            if file_path.suffix.lower() in (".thd+ac3",):
+                return False
+
+            mime = magic.from_file(file_path.to_str(), mime=True)
+
+            if mime.startswith("audio/"):
+                return True
+
+            if mime == "application/octet-stream" and file_path.suffix.lower() in (".thd",):
+                return True
         except (AssertionError, ValueError):
             return False
+
+        return False
 
     def _log_found_audio_files(self, audio_files: list[SPath]) -> None:
         """Log the found audio files."""
@@ -348,10 +360,6 @@ class _AudioEncoder(_BaseEncoder):
         # Determine timescale
         src_file = (script_info or self.script_info).src_file[0]
         timescale = TimeScale.M2TS if src_file.suffix == ".m2ts" else TimeScale.MKV
-        Log.debug(
-            f"Source file: {src_file.name}, timescale: {timescale.name}",
-            func,
-        )
 
         # Process each audio file
         for i, audio_input in enumerate(process_files):
@@ -364,26 +372,6 @@ class _AudioEncoder(_BaseEncoder):
 
             # Get trim for this track
             trim = self._get_track_trim(trims, i, script_info, wclip)
-
-            # Debug: Log trim information
-            if trim:
-                trim_start_ms = frame_to_ms(trim[0], wclip.fps) if trim[0] is not None else 0
-                trim_end_ms = frame_to_ms(trim[1], wclip.fps) if trim[1] is not None else 0
-                # Calculate frame count: end - start (exclusive end, so frames are start to end-1)
-                trim_frame_count = trim[1] - trim[0] if trim[1] is not None and trim[0] is not None else 0
-                trim_duration_ms = trim_end_ms - trim_start_ms
-                trim_duration_from_frames = trim_frame_count / float(wclip.fps)
-                Log.debug(
-                    f"Track {i+1} trim: {trim} (frames) = "
-                    f"{trim_start_ms:.1f}ms - {trim_end_ms:.1f}ms "
-                    f"(duration: {trim_duration_ms:.1f}ms / {trim_duration_ms/1000:.3f}s)\n"
-                    f"  - Frame count: {trim_frame_count} frames (end - start, exclusive end)\n"
-                    f"  - Duration from frame count: {trim_duration_from_frames:.3f}s\n"
-                    f"  - Note: VapourSynth trims are [start, end) - exclusive end frame",
-                    func,
-                )
-            else:
-                Log.debug(f"Track {i+1}: No trim applied", func)
 
             # Get track args for this track
             track_arg = (
@@ -405,71 +393,6 @@ class _AudioEncoder(_BaseEncoder):
                 self.__clean_acopy(audio_file_path)
             except Exception:
                 pass
-
-            # If this is a demuxed DTS file from a DGI source, try extracting from m2ts instead
-            # This ensures we get the full audio track with correct timing
-            m2ts_extracted_file = self._try_extract_from_m2ts(
-                audio_file_path, script_info, func
-            )
-
-            # TEMPORARY: Check if we should bypass encoding and use m2ts file directly
-            # Set this to True to test if the issue is with encoding or extraction
-            BYPASS_ENCODE_USE_M2TS = True  # TODO: Remove this temporary check
-
-            if BYPASS_ENCODE_USE_M2TS and m2ts_extracted_file != audio_file_path:
-                Log.warn(
-                    f"TEMPORARY: Bypassing encoding and using m2ts-extracted file directly: {m2ts_extracted_file.name}",
-                    func,
-                )
-                # Create a simple AudioTrack from the extracted file without encoding
-                from vsmuxtools import ParsedFile
-                from pymediainfo import MediaInfo
-
-                try:
-                    afile = ParsedFile.from_file(m2ts_extracted_file)
-                    atrack = afile.find_tracks(type=TrackType.AUDIO, error_if_empty=True)[0]
-
-                    # Set container delay
-                    atrack.container_delay = delay
-
-                    # Build track name if not provided
-                    if not track_arg.get("name"):
-                        track_arg["name"] = build_audio_track_name(m2ts_extracted_file)
-
-                    # Apply track args
-                    for key, value in track_arg.items():
-                        setattr(atrack, key, value)
-
-                    # Debug: Log the resulting audio track info
-                    try:
-                        mi = MediaInfo.parse(atrack.file)
-                        for track in mi.tracks:
-                            if track.track_type == "Audio":
-                                duration_ms = float(track.duration or 0)
-                                duration_s = duration_ms / 1000
-                                Log.debug(
-                                    f"TEMPORARY: Using m2ts-extracted audio track (no encoding):\n"
-                                    f"  - File: {atrack.file.name}\n"
-                                    f"  - Duration: {duration_ms:.1f}ms ({duration_s:.3f}s)\n"
-                                    f"  - Sample rate: {track.sampling_rate}Hz\n"
-                                    f"  - Channels: {track.channel_s}\n"
-                                    f"  - Container delay: {atrack.container_delay}ms",
-                                    func,
-                                )
-                                break
-                    except Exception as e:
-                        Log.debug(f"Could not parse m2ts-extracted audio file info: {e}", func)
-
-                    self.audio_tracks.append(atrack)
-                    continue  # Skip the encoding loop for this track
-                except Exception as e:
-                    Log.warn(
-                        f"TEMPORARY: Failed to use m2ts-extracted file directly ({e}). Falling back to normal encoding.",
-                        func,
-                    )
-                    audio_file_path = m2ts_extracted_file
-            else:
-                audio_file_path = m2ts_extracted_file
 
             # Handle force encoding for lossy formats
             audio_file_path = self._handle_force_encoding(
@@ -500,113 +423,6 @@ class _AudioEncoder(_BaseEncoder):
             else:
                 Log.debug("No trim provided, not passing to do_audio", func)
 
-            # Debug: Get source audio file info before processing
-            # Try to get actual duration from the file (MediaInfo can't always parse DTS files)
-            source_duration_s = None
-            source_duration_frames = None
-            try:
-                from pymediainfo import MediaInfo
-
-                mi_source = MediaInfo.parse(audio_file_path)
-                for track in mi_source.tracks:
-                    if track.track_type == "Audio":
-                        source_duration_ms = float(track.duration or 0)
-                        source_duration_s = source_duration_ms / 1000
-                        source_sr = track.sampling_rate
-
-                        # Calculate how many frames this duration represents at the video FPS
-                        if source_duration_s > 0:
-                            source_duration_frames = int(source_duration_s * float(wclip.fps))
-
-                        Log.debug(
-                            f"Source audio file info (from MediaInfo):\n"
-                            f"  - File: {audio_file_path.name}\n"
-                            f"  - Duration: {source_duration_ms:.1f}ms ({source_duration_s:.3f}s)\n"
-                            f"  - Duration in frames (at {wclip.fps}): {source_duration_frames} frames\n"
-                            f"  - Sample rate: {source_sr}Hz",
-                            func,
-                        )
-                        break
-            except Exception as e:
-                Log.debug(f"Could not parse source audio file info with MediaInfo: {e}", func)
-
-            # If MediaInfo couldn't get duration, try to get it from ffprobe
-            if not source_duration_s or source_duration_s == 0:
-                try:
-                    import subprocess
-                    result = subprocess.run(
-                        [
-                            "ffprobe",
-                            "-v", "error",
-                            "-show_entries", "format=duration",
-                            "-of", "default=noprint_wrappers=1:nokey=1",
-                            str(audio_file_path),
-                        ],
-                        capture_output=True,
-                        text=True,
-                        timeout=10,
-                    )
-                    if result.returncode == 0 and result.stdout.strip():
-                        duration_str = result.stdout.strip()
-                        # Handle 'N/A' or empty strings
-                        if duration_str and duration_str.upper() != "N/A":
-                            try:
-                                source_duration_s = float(duration_str)
-                                source_duration_frames = int(source_duration_s * float(wclip.fps))
-                                Log.debug(
-                                    f"Source audio file info (from ffprobe):\n"
-                                    f"  - Duration: {source_duration_s:.3f}s\n"
-                                    f"  - Duration in frames (at {wclip.fps}): {source_duration_frames} frames",
-                                    func,
-                                )
-                            except ValueError:
-                                Log.debug(f"Could not parse duration from ffprobe output: {duration_str}", func)
-                except Exception as e:
-                    Log.debug(f"Could not get source audio duration from ffprobe: {e}", func)
-
-            # Validate trim against source duration if we have it
-            if trim_to_pass and source_duration_frames is not None:
-                trim_start_frame = trim_to_pass[0]
-                trim_end_frame = trim_to_pass[1]
-                trim_frame_count = trim_end_frame - trim_start_frame
-
-                if trim_end_frame > source_duration_frames:
-                    Log.warn(
-                        f"WARNING: Trim end frame ({trim_end_frame}) exceeds source audio duration "
-                        f"({source_duration_frames} frames / {source_duration_s:.3f}s)!\n"
-                        f"  - Trim: {trim_to_pass}\n"
-                        f"  - Source duration: {source_duration_s:.3f}s ({source_duration_frames} frames)\n"
-                        f"  - Trim expects: {trim_frame_count} frames ({trim_frame_count / float(wclip.fps):.3f}s)\n"
-                        f"  - This will cause the audio to be shorter than expected and may cause sync issues!",
-                        "encode_audio",
-                    )
-
-            # Debug: Log what we're passing to do_audio
-            # Calculate expected duration correctly
-            # Trims in VapourSynth are typically [start, end) - exclusive end
-            # So frame count = end - start
-            if trim_to_pass:
-                trim_frame_count = trim_to_pass[1] - trim_to_pass[0]
-                expected_duration_from_trim = trim_frame_count / float(wclip.fps)
-            elif trim:
-                trim_frame_count = trim[1] - trim[0] if trim[1] is not None and trim[0] is not None else wclip.num_frames
-                expected_duration_from_trim = trim_frame_count / float(wclip.fps)
-            else:
-                expected_duration_from_trim = wclip.num_frames / float(wclip.fps)
-
-            Log.debug(
-                f"Calling do_audio with:\n"
-                f"  - audio_file_path: {audio_file_path}\n"
-                f"  - timesource (fps): {wclip.fps} ({float(wclip.fps):.6f})\n"
-                f"  - timescale: {timescale.name}\n"
-                f"  - trims: {trim_to_pass}\n"
-                f"  - num_frames: {wclip.num_frames}\n"
-                f"  - Expected duration from trim/num_frames: {expected_duration_from_trim:.3f}s\n"
-                f"  - skip_analysis: {not full_analysis}\n"
-                f"  - delay: {delay}ms",
-                func,
-            )
-
             # Use do_audio to handle extraction, trimming, and encoding
             # do_audio will automatically skip encoding for lossy formats unless we've
             # already created an intermediary file (when force=True)
@@ -621,59 +437,6 @@ class _AudioEncoder(_BaseEncoder):
                 num_frames=wclip.num_frames,
                 quiet=not verbose,
             )
-
-            # After extraction, try to get the actual extracted file duration
-            # This helps diagnose if the trim exceeded the source duration
-            if trim_to_pass:
-                try:
-                    # The extracted file should be in the workdir with "_extracted_0" suffix
-                    # We need to find it - it might be in the same dir as audio_file_path or in workdir
-                    extracted_file_pattern = audio_file_path.stem + "_extracted_0"
-                    extracted_file = None
-
-                    # Try to find the extracted file
-                    for ext in [".dts", ".ac3", ".flac", ".wav", ".mka"]:
-                        potential_file = audio_file_path.parent / f"{extracted_file_pattern}{ext}"
-                        if potential_file.exists():
-                            extracted_file = potential_file
-                            break
-
-                    if extracted_file:
-                        # Get duration from the extracted file
-                        try:
-                            import subprocess
-                            result = subprocess.run(
-                                [
-                                    "ffprobe",
-                                    "-v", "error",
-                                    "-show_entries", "format=duration",
-                                    "-of", "default=noprint_wrappers=1:nokey=1",
-                                    str(extracted_file),
-                                ],
-                                capture_output=True,
-                                text=True,
-                                timeout=10,
-                            )
-                            if result.returncode == 0 and result.stdout.strip():
-                                duration_str = result.stdout.strip()
-                                if duration_str and duration_str.upper() != "N/A":
-                                    extracted_duration_s = float(duration_str)
-                                    extracted_duration_frames = int(extracted_duration_s * float(wclip.fps))
-
-                                    if trim_to_pass[1] > extracted_duration_frames:
-                                        Log.warn(
-                                            f"WARNING: Trim end frame ({trim_to_pass[1]}) exceeds extracted audio duration "
-                                            f"({extracted_duration_frames} frames / {extracted_duration_s:.3f}s)!\n"
-                                            f"  - Trim: {trim_to_pass}\n"
-                                            f"  - Extracted audio duration: {extracted_duration_s:.3f}s ({extracted_duration_frames} frames)\n"
-                                            f"  - Trim expects: {trim_frame_count} frames ({expected_duration_from_trim:.3f}s)\n"
-                                            f"  - This will cause the audio to be shorter than expected and may cause sync issues!",
-                                            "encode_audio",
-                                        )
-                        except Exception:
-                            pass  # Silently fail - this is just diagnostic
-                except Exception:
-                    pass  # Silently fail - this is just diagnostic
 
             # Set container delay BEFORE logging (so it shows in the log)
             atrack.container_delay = delay
@@ -1057,7 +820,11 @@ class _AudioEncoder(_BaseEncoder):
         if len(reorder) > len(process_files):  # type:ignore[arg-type]
             reorder = reorder[: len(process_files)]  # type:ignore[arg-type]
 
-        return [process_files[i] for i in reorder]
+        try:
+            return [process_files[i] for i in reorder]
+        except IndexError:
+            Log.error(f"Ran into an error while trying to reorder files!\nFiles: {process_files}\nOrder: {reorder}")
+            raise
 
     def __clean_acopy(self, base_path: SPathLike | AudioFile) -> None:
         """Try to forcibly clean up acopy files so they no longer pollute other methods."""

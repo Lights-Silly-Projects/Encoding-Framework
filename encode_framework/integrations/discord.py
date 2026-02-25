@@ -297,7 +297,7 @@ class DiscordEmbedder(DiscordWebhook):
         return get_items(config, "SETUP")
 
     def _get_response_datetime(self, response: Response) -> datetime:
-        return datetime.fromisoformat(dict(response.json()).get("timestamp", ""))
+        return datetime.fromisoformat(dict(response.json()).get("timestamp", datetime.now()))
 
     def _get_base_title(self, suffix: str = "has started encoding") -> str:
         title = f"{self.project_options.get('out_name'), '&show& - &ep&'} {suffix}"

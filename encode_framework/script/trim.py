@@ -6,9 +6,10 @@ import linecache
 import os
 from typing import cast
 
+from jetpytools import SPath, SPathLike
 from vsrgtools import gauss_blur
-from vssource import source
-from vstools import SPath, SPathLike, core, get_prop, scale_value, vs
+from vssource import BestSource
+from vstools import core, get_prop, scale_value, vs, Keyframes
 
 from ..util.logging import Log
 
@@ -92,29 +93,24 @@ def get_post_trim(
 
     if get_prop(clip[-1], "PlaneStatsAverage", float) > scale_value(32, 8, 32):
         Log.debug(
+            "Last frame has non-exact black values! "
             f"{get_prop(clip[-1], 'PlaneStatsAverage', float)} > {scale_value(21, 8, 32)}",
             "get_post_trim",
         )
+
         return None
 
-    with open(kf_file, "rb") as f:
-        try:
-            f.seek(-3, os.SEEK_END)
+    kf = Keyframes.from_file(kf_file)
 
-            while f.read(1) != b"\n":
-                f.seek(-3, os.SEEK_CUR)
-        except OSError:
-            f.seek(0)
+    if (last_sc := int(kf[-1])) == (clip.num_frames - 1):
+        last_sc = kf[-2]
 
-        last_line = f.readline().decode()
-
-    last_sc = int(last_line.replace(" I -1", ""))
-
-    if get_prop(clip[last_sc], "PlaneStatsAverage", float) < scale_value(32, 8, 32):
+    if get_prop(clip[last_sc], "PlaneStatsAverage", float) > scale_value(32, 8, 32):
         Log.debug(
-            f"{get_prop(clip[last_sc], 'PlaneStatsAverage', float)} > {scale_value(21, 8, 32)}",
+            f"Frame {last_sc}: {get_prop(clip[last_sc], 'PlaneStatsAverage', float)} > {scale_value(21, 8, 32)}",
             "get_post_trim",
         )
+
         return None
 
     Log.debug(
@@ -138,6 +134,6 @@ def _get_clip(clip: vs.VideoNode | SPathLike) -> vs.VideoNode:
         if clip.suffix == ".dgi":
             clip = core.dgdecodenv.DGSource(clip)
         else:
-            clip = source(SPath(clip))
+            clip = BestSource.source(SPath(clip))
 
     return cast(vs.VideoNode, clip)

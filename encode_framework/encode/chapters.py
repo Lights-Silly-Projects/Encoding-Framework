@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from vsmuxtools import Chapters, src_file
-from vstools import FileNotExistsError, FuncExceptT, SPath, SPathLike, vs
+from vstools import FileNotExistsError, FuncExceptT, SPath, SPathLike, vs, CustomTypeError
 
 from ..script import ScriptInfo
 from ..util import Log, frame_to_timedelta, timedelta_to_frame
@@ -45,6 +45,9 @@ class _Chapters(_BaseEncoder):
         """
 
         func = func or self.get_chapters
+
+        if ref is None:
+            ref = self.script_info
 
         if isinstance(ref, ScriptInfo):
             ref = ref.src
@@ -90,8 +93,12 @@ class _Chapters(_BaseEncoder):
                 wclip = files[0]
             else:
                 Log.warn("No chapter files could be found.", func)
+        elif isinstance(wclip, (ScriptInfo, src_file)):
+            suffix = SPath(wclip.file).suffix
+        elif wclip is not None:
+            suffix = SPath(wclip).suffix
         else:
-            suffix = SPath(ref).suffix
+            raise CustomTypeError
 
         try:
             if suffix == ".mkv":

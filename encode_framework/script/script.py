@@ -7,21 +7,17 @@ from time import time
 from typing import Any, cast
 
 from vskernels import Hermite
+from jetpytools import CustomIndexError, CustomValueError, FuncExceptT, SPath, SPathLike, to_arr
 from vsmuxtools import SourceFilter, src_file  # type:ignore[import]
 from vstools import (
-    CustomIndexError,
-    CustomValueError,
-    FuncExceptT,
     Keyframes,
     SceneChangeMode,
-    SPath,
-    SPathLike,
     core,
     get_prop,
     set_output,
-    to_arr,
-    vs,
+    vs
 )
+from vssource import FFMS2
 
 from ..types import TrimAuto, Zones, is_iterable
 from ..util import Log, assert_truthy, path_has_non_ascii_or_bracket_chars
@@ -137,6 +133,9 @@ class ScriptInfo:
         if not path:
             raise Log.error(f"No file given ({path=})!", self.index)
 
+        if self.src_file:
+            self.src_file = []
+
         path_is_iterable = is_iterable(path)
 
         if path_is_iterable and not force_dgi:
@@ -201,10 +200,13 @@ class ScriptInfo:
         elif any(isinstance(x, str) for x in trim):
             trim_pre, trim_post = trim
 
+            self.generate_keyframes(FFMS2.source(self.src_file[0].to_str(), **index_kwargs))
+
             if str(trim_pre).lower() == "auto":
                 trim_pre = get_pre_trim(self.src_file, self.sc_path, self.sc_lock_file)
 
                 self.sc_lock_file.touch(exist_ok=True)
+
             if str(trim_post).lower() == "auto":
                 trim_post = get_post_trim(
                     self.src_file, self.sc_path, self.sc_lock_file
@@ -224,6 +226,9 @@ class ScriptInfo:
         assert_truthy(is_iterable(self.src_file))
 
         src_idx = SourceFilter.FFMS2 if replace_ffms2_clip else SourceFilter.BESTSOURCE
+
+        # if src_idx is SourceFilter.BESTSOURCE:
+        #     index_kwargs |= dict(show_pretty_progress=True)
 
         self.src = src_file(
             self.src_file[0].to_str(),

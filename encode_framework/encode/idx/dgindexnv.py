@@ -6,12 +6,14 @@ from fractions import Fraction
 from functools import lru_cache
 from typing import Any, Literal, Sequence
 
+from jetpytools import SPath, SPathLike, copy_signature, to_arr
 from vssource import ExternalIndexer
-from vstools import PackageStorage, SPath, SPathLike, copy_signature, core, to_arr
+from vstools import PackageStorage, core
 
-from ...util import path_has_non_ascii_or_bracket_chars
+from ...util import path_has_non_ascii_or_bracket_chars, Log
 
 __all__ = [
+    "DGIndexNV",
     "DGIndexNVAddFilenames",
 ]
 
@@ -265,7 +267,7 @@ class DGIndexNVAddFilenames(DGIndexNV):
         force: bool = False,
         force_symlink: bool = False,
         split_files: bool = False,
-        output_folder: SPathLike | Literal[False] | None = None,
+        output_folder: SPathLike | Literal[False] | None = SPath(".vsjet/encode_framework/dgindex"),
         *cmd_args: str,
     ) -> list[SPath]:
         files, hash_str = self._create_temp_symlink_if_necessary(files, force_symlink)
@@ -287,8 +289,17 @@ class DGIndexNVAddFilenames(DGIndexNV):
                 hash_str,
                 "JOINED" if len(files) > 1 else "SINGLE",
             )
-            _index(files, output)
+
+            try:
+                _index(files, output)
+            except Exception as e:
+                Log.warn(str(e), self.index)
+
+                return self.index(files, force, True, split_files, output_folder, *cmd_args)
+
             return [output]
+
+        Log.info("Copying file to %TEMP% for further processing!", self.index)
 
         outputs = [
             self.get_video_idx_path(file, dest_folder, hash_str, file.name)
@@ -296,7 +307,12 @@ class DGIndexNVAddFilenames(DGIndexNV):
         ]
 
         for file, output in zip(files, outputs):
-            _index([file], output)
+            try:
+                _index([file], output)
+            except Exception as e:
+                Log.warn(str(e), self.index)
+
+                return self.index(files, force, True, split_files, output_folder, *cmd_args)
 
         return outputs
 
@@ -339,16 +355,19 @@ class DGIndexNVAddFilenames(DGIndexNV):
         files = list(sorted(set(files)))
         hash_str = self.get_videos_hash(files)
 
-        if not any(path_has_non_ascii_or_bracket_chars(str(f)) for f in files):
+        if not force:
             return files, hash_str
 
         tempdir = SPath(tempfile.gettempdir())
         symlink_paths = []
 
         for i, file in enumerate(files):
-            symlink_name = f"{hash_str}_{i}"
+            symlink_name = f"{SPath(file).stem}_{i}_{hash_str}{SPath(file).suffix}"
             symlink_path = tempdir / symlink_name
             target_path = file.absolute()
+
+            # Workaround to not break older projects
+            symlink_path = _check_if_old_dgi_exists(symlink_path, hash_str)
 
             if not symlink_path.is_symlink() and not symlink_path.exists():
                 try:
@@ -362,3 +381,15 @@ class DGIndexNVAddFilenames(DGIndexNV):
             symlink_paths.append(symlink_path)
 
         return symlink_paths, hash_str
+
+
+def _check_if_old_dgi_exists(curr_target: SPath, hash: str) -> SPath:
+    curr_spath = SPath(curr_target)
+
+    old_name = curr_spath.stem.split("_")[1:]
+    old_name = curr_spath.get_folder() / f"{hash}_{old_name}"
+
+    if old_name.exists():
+        return old_name
+
+    return curr_spath

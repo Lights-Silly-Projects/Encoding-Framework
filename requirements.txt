@@ -10,7 +10,8 @@ Requests>=2.31.0
 rich>=13.5.2
 setuptools>=65.5.0
 vs_rekt>=1.0.0
-vsmuxtools=>0.4.3
+muxtools @ git+https://github.com/Jaded-Encoding-Thaumaturgy/muxtools.git
+vsmuxtools @ git+https://github.com/Jaded-Encoding-Thaumaturgy/vs-muxtools.git
 pyupload>=0.1.4
 pysftp>=0.2.9
 plotbitrate>=1.1.2.0

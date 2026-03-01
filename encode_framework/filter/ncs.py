@@ -329,7 +329,7 @@ def nc_splice_handler(
     ncop_ranges = tuple[int, int]()
     nced_ranges = tuple[int, int]()
 
-    if any(ch is None for ch in chs):
+    if chs and any(ch is None for ch in chs):
         try:
             chs[-1] = normalize_ranges(clip, chs[-1])[0]
         except OverflowError as e:

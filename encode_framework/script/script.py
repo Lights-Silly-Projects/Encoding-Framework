@@ -17,7 +17,7 @@ from vstools import (
     set_output,
     vs
 )
-from vssource import FFMS2
+from vssource import FFMS2, BestSource
 
 from ..types import TrimAuto, Zones, is_iterable
 from ..util import Log, assert_truthy, path_has_non_ascii_or_bracket_chars
@@ -193,6 +193,11 @@ class ScriptInfo:
                     *cmd_args,
                 )
 
+        src_idx = SourceFilter.FFMS2 if replace_ffms2_clip else SourceFilter.BESTSOURCE
+
+        # if src_idx is SourceFilter.BESTSOURCE:
+        #     index_kwargs |= dict(show_pretty_progress=True)
+
         if not trim:
             trim = (None, None)
         elif isinstance(trim, int):
@@ -200,7 +205,7 @@ class ScriptInfo:
         elif any(isinstance(x, str) for x in trim):
             trim_pre, trim_post = trim
 
-            self.generate_keyframes(FFMS2.source(self.src_file[0].to_str(), **index_kwargs))
+            self.generate_keyframes(_iterative_index(self.src_file[0].to_str(), src_idx=src_idx))
 
             if str(trim_pre).lower() == "auto":
                 trim_pre = get_pre_trim(self.src_file, self.sc_path, self.sc_lock_file)
@@ -224,11 +229,6 @@ class ScriptInfo:
         self._was_trimmed = bool(trim)
 
         assert_truthy(is_iterable(self.src_file))
-
-        src_idx = SourceFilter.FFMS2 if replace_ffms2_clip else SourceFilter.BESTSOURCE
-
-        # if src_idx is SourceFilter.BESTSOURCE:
-        #     index_kwargs |= dict(show_pretty_progress=True)
 
         self.src = src_file(
             self.src_file[0].to_str(),
@@ -567,3 +567,29 @@ class Preview:
             audios = [core.bs.AudioSource(self.script_info.file)]
 
         set_output(audios)
+
+
+def _iterative_index(src_path: str, itr: int = 0, max_itr: int = 3, src_idx: SourceFilter = SourceFilter.BESTSOURCE) -> vs.VideoNode:
+    sfile = SPath(src_path)
+
+    if not sfile.exists():
+        raise FileNotFoundError(f'Could not find the file, "{sfile}"!', _iterative_index)
+
+    try:
+        return src_file(src_path, preview_sourcefilter=src_idx, sourcefilter=src_idx).init()  # type:ignore[return-value]
+    except vs.Error as e:
+        if itr >= max_itr:
+            raise
+
+        if "The index does not match the source file" in str(e):
+            try:
+                sfile.fglob(f"*{sfile.stem}*{FFMS2._ext}").unlink(missing_ok=True)
+            except BaseException:
+                raise e
+
+    Log.warn(
+        f"Error indexing file {src_path} with FFMS2 (iteration {itr}/{max_itr})! Retrying...",
+        _iterative_index,
+    )
+
+    return _iterative_index(src_path, itr + 1, max_itr, src_idx)

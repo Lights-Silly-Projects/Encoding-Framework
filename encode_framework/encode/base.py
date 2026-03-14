@@ -68,6 +68,9 @@ class _BaseEncoder:
 
     @staticmethod
     def extract_pid(filename: SPathLike) -> str:
+        if not isinstance(filename, (str, SPath)):
+            filename = filename.file
+
         if not (match := re.search(r"PID (\d+)", SPath(filename).to_str())):
             return ""
 

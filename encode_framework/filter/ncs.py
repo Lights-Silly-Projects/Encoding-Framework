@@ -1,9 +1,10 @@
 from typing import Any, Literal, Sequence, overload
 
+from jetpytools import CustomValueError
 from vstools import (
     ClipLengthError,
-    CustomValueError,
     FrameRangesN,
+    get_neutral_values,
     normalize_ranges,
     core,
     depth,
@@ -149,6 +150,8 @@ def splice_ncs(
 
     if all(x is None for x in (ncop, nced)):
         raise CustomValueError("Both ncop and nced are None!", splice_ncs)
+
+        # return clip, clip.std.BlankClip(color=get_neutral_values(clip))
 
     def _process_nc_range(
         clip: vs.VideoNode,

@@ -99,9 +99,7 @@ class _AudioEncoder(_BaseEncoder):
 
         return self.script_info.src_file[0]
 
-    def _handle_non_dgi_file(
-        self, file_path: SPath, overwrite: bool
-    ) -> list[SPath]:
+    def _handle_non_dgi_file(self, file_path: SPath, overwrite: bool) -> list[SPath]:
         """Handle non-dgi files by indexing them first, then finding audio files."""
         Log.warn("Trying to pass a non-dgi file!", self.find_audio_files)
 
@@ -121,7 +119,10 @@ class _AudioEncoder(_BaseEncoder):
                 dgi_kwargs=dict(force_symlink=True),
             )
         except:  # type:ignore
-            Log.error(f"Ran into some kind of error for file, \"{file_path}\"!", self._handle_non_dgi_file)
+            Log.error(
+                f'Ran into some kind of error for file, "{file_path}"!',
+                self._handle_non_dgi_file,
+            )
             raise
 
         # Find audio files using the newly created dgi file
@@ -196,7 +197,9 @@ class _AudioEncoder(_BaseEncoder):
             if mime.startswith("audio/"):
                 return True
 
-            if mime == "application/octet-stream" and file_path.suffix.lower() in (".thd",):
+            if mime == "application/octet-stream" and file_path.suffix.lower() in (
+                ".thd",
+            ):
                 return True
         except (AssertionError, ValueError):
             return False
@@ -209,7 +212,9 @@ class _AudioEncoder(_BaseEncoder):
 
         for file_path in audio_files:
             try:
-                name = file_path.name if isinstance(file_path, SPath) else file_path.file  # type:ignore[attr-defined]
+                name = (
+                    file_path.name if isinstance(file_path, SPath) else file_path.file
+                )  # type:ignore[attr-defined]
                 Log.info(f'    - "{name}"')
             except (AttributeError, ValueError) as e:
                 Log.warn(f"    - Unknown track!\n{e}")
@@ -276,7 +281,9 @@ class _AudioEncoder(_BaseEncoder):
                         _track
                         if track is None
                         else int(track.to_data().get("stream_identifier", _track))
-                    ).extract_audio(video_file)
+                    )
+                    .extract_audio(video_file)
+                    .file
                 ]
 
         return atracks
@@ -375,7 +382,9 @@ class _AudioEncoder(_BaseEncoder):
 
             # Get track args for this track
             track_arg = (
-                track_args[i] if i < len(track_args) else (track_args[-1] if track_args else {})
+                track_args[i]
+                if i < len(track_args)
+                else (track_args[-1] if track_args else {})
             )
             track_arg = dict(track_arg) if track_arg else {}
             track_arg = normalize_track_type_args(track_arg)
@@ -384,7 +393,9 @@ class _AudioEncoder(_BaseEncoder):
             delay = int(track_arg.pop("delay", 0))
 
             if delay:
-                Log.info(f"Delay passed ({delay}ms), applying to source audio file...", func)
+                Log.info(
+                    f"Delay passed ({delay}ms), applying to source audio file...", func
+                )
             else:
                 Log.debug(f"Track {i+1}: No delay applied", func)
 
@@ -395,9 +406,7 @@ class _AudioEncoder(_BaseEncoder):
                 pass
 
             # Handle force encoding for lossy formats
-            audio_file_path = self._handle_force_encoding(
-                audio_file_path, force, func
-            )
+            audio_file_path = self._handle_force_encoding(audio_file_path, force, func)
 
             # Ensure audio_file_path is an SPath
             if not isinstance(audio_file_path, SPath):
@@ -408,9 +417,8 @@ class _AudioEncoder(_BaseEncoder):
             trim_to_pass = None
             if trim:
                 # Check if trim covers the full clip (accounting for 0-indexed end frame)
-                is_full_clip = (
-                    trim[0] == 0
-                    and (trim[1] == wclip.num_frames or trim[1] == wclip.num_frames - 1)
+                is_full_clip = trim[0] == 0 and (
+                    trim[1] == wclip.num_frames or trim[1] == wclip.num_frames - 1
                 )
                 if not is_full_clip:
                     trim_to_pass = trim
@@ -459,7 +467,11 @@ class _AudioEncoder(_BaseEncoder):
                             trim_frame_count = trim_to_pass[1] - trim_to_pass[0]
                             expected_duration = trim_frame_count / float(wclip.fps)
                         elif trim:
-                            trim_frame_count = trim[1] - trim[0] if trim[1] is not None and trim[0] is not None else wclip.num_frames
+                            trim_frame_count = (
+                                trim[1] - trim[0]
+                                if trim[1] is not None and trim[0] is not None
+                                else wclip.num_frames
+                            )
                             expected_duration = trim_frame_count / float(wclip.fps)
                         else:
                             expected_duration = wclip.num_frames / float(wclip.fps)
@@ -467,7 +479,9 @@ class _AudioEncoder(_BaseEncoder):
                         duration_diff_ms = duration_diff * 1000
 
                         # Calculate what the duration should be including delay
-                        expected_duration_with_delay = expected_duration + (delay / 1000.0)
+                        expected_duration_with_delay = expected_duration + (
+                            delay / 1000.0
+                        )
 
                         Log.debug(
                             f"Resulting audio track:\n"
@@ -586,7 +600,13 @@ class _AudioEncoder(_BaseEncoder):
                     normalized.append((start, end))
                 else:
                     normalized.append(trim)
-            return normalized if len(normalized) > 1 else normalized[0] if normalized else None
+            return (
+                normalized
+                if len(normalized) > 1
+                else normalized[0]
+                if normalized
+                else None
+            )
 
         return trims
 
@@ -631,7 +651,11 @@ class _AudioEncoder(_BaseEncoder):
         potentially incomplete demuxed files.
         """
         # Check if this looks like a demuxed DTS file (has PID in the name)
-        if "PID" not in audio_file_path.name or not audio_file_path.suffix.lower() in [".dts", ".ac3", ".thd"]:
+        if "PID" not in audio_file_path.name or not audio_file_path.suffix.lower() in [
+            ".dts",
+            ".ac3",
+            ".thd",
+        ]:
             return audio_file_path
 
         try:
@@ -640,7 +664,11 @@ class _AudioEncoder(_BaseEncoder):
             # Try to get the m2ts source from script_info
             dgi_file = None
             if script_info and hasattr(script_info, "src_file"):
-                src_file = script_info.src_file[0] if isinstance(script_info.src_file, list) else script_info.src_file
+                src_file = (
+                    script_info.src_file[0]
+                    if isinstance(script_info.src_file, list)
+                    else script_info.src_file
+                )
                 if hasattr(src_file, "to_str"):
                     src_file_str = src_file.to_str()
                 else:
@@ -701,7 +729,9 @@ class _AudioEncoder(_BaseEncoder):
                 if track.track_type == "Audio":
                     track_index += 1
                     # Check if this track matches the PID
-                    stream_id = int(track.to_data().get("stream_identifier", track_index))
+                    stream_id = int(
+                        track.to_data().get("stream_identifier", track_index)
+                    )
                     if stream_id == track_pid or track_index == track_pid:
                         found_track = True
                         break
@@ -823,7 +853,9 @@ class _AudioEncoder(_BaseEncoder):
         try:
             return [process_files[i] for i in reorder]
         except IndexError:
-            Log.error(f"Ran into an error while trying to reorder files!\nFiles: {process_files}\nOrder: {reorder}")
+            Log.error(
+                f"Ran into an error while trying to reorder files!\nFiles: {process_files}\nOrder: {reorder}"
+            )
             raise
 
     def __clean_acopy(self, base_path: SPathLike | AudioFile) -> None:

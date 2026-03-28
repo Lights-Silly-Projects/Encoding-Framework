@@ -40,6 +40,9 @@ class ScriptInfo:
     clip_cut: vs.VideoNode | tuple[vs.VideoNode]
     """The work clip with trimming applied. Can also be a list in case of prefilter shenanigans."""
 
+    previewing: bool = False
+    """Whether the script is currently being previewed."""
+
     render: bool = False
     """Whether the script is currently being rendered."""
 
@@ -82,7 +85,8 @@ class ScriptInfo:
 
         self.dryrun = dryrun
 
-        self.render = not is_previewer()
+        self.previewing = is_previewer()
+        self.render = not self.previewing
 
         if self.render:
             self.start_time = time()
@@ -605,14 +609,14 @@ def _iterative_index(
 
 def is_previewer() -> bool:
     try:
-        from vspreview import is_preview
+        from vspreview import is_preview  # type:ignore[import]
 
         return is_preview()
     except ImportError:
         pass
 
     try:
-        from vsview import is_preview
+        from vsview import is_preview  # type:ignore[import]
 
         return is_preview()
     except ImportError:

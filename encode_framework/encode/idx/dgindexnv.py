@@ -267,7 +267,9 @@ class DGIndexNVAddFilenames(DGIndexNV):
         force: bool = False,
         force_symlink: bool = False,
         split_files: bool = False,
-        output_folder: SPathLike | Literal[False] | None = SPath(".vsjet/encode_framework/dgindex"),
+        output_folder: SPathLike | Literal[False] | None = SPath(
+            ".vsjet/encode_framework/dgindex"
+        ),
         *cmd_args: str,
     ) -> list[SPath]:
         files, hash_str = self._create_temp_symlink_if_necessary(files, force_symlink)
@@ -295,7 +297,9 @@ class DGIndexNVAddFilenames(DGIndexNV):
             except Exception as e:
                 Log.warn(str(e), self.index)
 
-                return self.index(files, force, True, split_files, output_folder, *cmd_args)
+                return self.index(
+                    files, force, True, split_files, output_folder, *cmd_args
+                )
 
             return [output]
 
@@ -312,7 +316,9 @@ class DGIndexNVAddFilenames(DGIndexNV):
             except Exception as e:
                 Log.warn(str(e), self.index)
 
-                return self.index(files, force, True, split_files, output_folder, *cmd_args)
+                return self.index(
+                    files, force, True, split_files, output_folder, *cmd_args
+                )
 
         return outputs
 
@@ -323,7 +329,9 @@ class DGIndexNVAddFilenames(DGIndexNV):
         current_indxer = os.path.basename(self._bin_path)
         filename = "_".join([file_name.stem, file_hash, vid_name, current_indxer])
 
-        return self.get_idx_file_path(PackageStorage(folder).get_file(filename))
+        return self.get_idx_file_path(
+            PackageStorage(folder, package_name="encode_framework").get_file(filename)
+        )
 
     def _create_temp_symlink_if_necessary(
         self,

@@ -7,16 +7,16 @@ from time import time
 from typing import Any, cast
 
 from vskernels import Hermite
-from jetpytools import CustomIndexError, CustomValueError, FuncExceptT, SPath, SPathLike, to_arr
-from vsmuxtools import SourceFilter, src_file  # type:ignore[import]
-from vstools import (
-    Keyframes,
-    SceneChangeMode,
-    core,
-    get_prop,
-    set_output,
-    vs
+from jetpytools import (
+    CustomIndexError,
+    CustomValueError,
+    FuncExceptT,
+    SPath,
+    SPathLike,
+    to_arr,
 )
+from vsmuxtools import SourceFilter, src_file  # type:ignore[import]
+from vstools import Keyframes, SceneChangeMode, core, get_prop, set_output, vs
 from vssource import FFMS2, BestSource
 
 from ..types import TrimAuto, Zones, is_iterable
@@ -77,17 +77,14 @@ class ScriptInfo:
         ep_num: str | int | None = None,
         dryrun: bool = False,
     ) -> None:
-        from vspreview import is_preview
-
         if caller is None:
             caller = inspect.stack()[1].filename
 
         self.dryrun = dryrun
 
-        self.render = not is_preview()
+        self.render = not is_previewer()
 
-        # if self.render:
-        if True:
+        if self.render:
             self.start_time = time()
 
         self.file = SPath(caller)
@@ -205,7 +202,9 @@ class ScriptInfo:
         elif any(isinstance(x, str) for x in trim):
             trim_pre, trim_post = trim
 
-            self.generate_keyframes(_iterative_index(self.src_file[0].to_str(), src_idx=src_idx))
+            self.generate_keyframes(
+                _iterative_index(self.src_file[0].to_str(), src_idx=src_idx)
+            )
 
             if str(trim_pre).lower() == "auto":
                 trim_pre = get_pre_trim(self.src_file, self.sc_path, self.sc_lock_file)
@@ -569,14 +568,23 @@ class Preview:
         set_output(audios)
 
 
-def _iterative_index(src_path: str, itr: int = 0, max_itr: int = 3, src_idx: SourceFilter = SourceFilter.BESTSOURCE) -> vs.VideoNode:
+def _iterative_index(
+    src_path: str,
+    itr: int = 0,
+    max_itr: int = 3,
+    src_idx: SourceFilter = SourceFilter.BESTSOURCE,
+) -> vs.VideoNode:
     sfile = SPath(src_path)
 
     if not sfile.exists():
-        raise FileNotFoundError(f'Could not find the file, "{sfile}"!', _iterative_index)
+        raise FileNotFoundError(
+            f'Could not find the file, "{sfile}"!', _iterative_index
+        )
 
     try:
-        return src_file(src_path, preview_sourcefilter=src_idx, sourcefilter=src_idx).init()  # type:ignore[return-value]
+        return src_file(
+            src_path, preview_sourcefilter=src_idx, sourcefilter=src_idx
+        ).init()  # type:ignore[return-value]
     except vs.Error as e:
         if itr >= max_itr:
             raise
@@ -593,3 +601,21 @@ def _iterative_index(src_path: str, itr: int = 0, max_itr: int = 3, src_idx: Sou
     )
 
     return _iterative_index(src_path, itr + 1, max_itr, src_idx)
+
+
+def is_previewer() -> bool:
+    try:
+        from vspreview import is_preview
+
+        return is_preview()
+    except ImportError:
+        pass
+
+    try:
+        from vsview import is_preview
+
+        return is_preview()
+    except ImportError:
+        pass
+
+    return False
